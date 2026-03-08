@@ -32,6 +32,33 @@ class MessinessProfile(str, Enum):
     CHAOTIC = "chaotic"
 
 
+class PipelineSimulationSchema(BaseModel):
+    """Pipeline simulation config for API requests."""
+
+    enabled: bool = False
+    scenario: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    event_density: str = "medium"
+    event_pattern: str = "steady"
+    parallel_streams: int = 1
+    late_arrival_ratio: float = 0.0
+    replay_mode: str = "ordered"
+
+
+class BenchmarkConfigSchema(BaseModel):
+    """Benchmark config for API requests."""
+
+    enabled: bool = False
+    profile: str | None = None
+    scale_preset: str | None = None
+    parallel_tables: int = 1
+    batch_size: int = 1000
+    write_strategy: str = "auto"
+    iterations: int = 3
+    collect_stage_metrics: bool = True
+
+
 class GenerateRequest(BaseModel):
     """Request body for /api/generate."""
 
@@ -66,6 +93,8 @@ class GenerateRequest(BaseModel):
     batch_id: str | None = None
     change_ratio: float = 0.1
     write_manifest: bool = False
+    pipeline_simulation: PipelineSimulationSchema | None = None
+    benchmark: BenchmarkConfigSchema | None = None
 
 
 class ValidateRequest(BaseModel):
@@ -99,6 +128,9 @@ class PackInfo(BaseModel):
     key_entities: list[str] | None = None
     recommended_use_cases: list[str] | None = None
     supported_features: list[str] | None = None
+    supports_event_streams: bool = False
+    simulation_event_types: list[str] | None = None
+    benchmark_relevance: str | None = None  # low | medium | high
 
 
 class TableSummary(BaseModel):

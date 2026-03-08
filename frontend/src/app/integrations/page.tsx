@@ -7,6 +7,8 @@ const integrations = [
   { name: "Airflow", desc: "DAG templates for common workflows" },
   { name: "Contracts", desc: "OpenAPI fixture generation" },
   { name: "Warehouse validation", desc: "Row count and load verification" },
+  { name: "Pipeline simulation", desc: "Event streams, pipeline snapshots, workload replay" },
+  { name: "Warehouse benchmark", desc: "Scale presets, workload profiles, throughput metrics" },
 ];
 
 export default function IntegrationsPage() {

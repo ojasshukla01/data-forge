@@ -29,6 +29,9 @@ def get_domain_packs() -> list[PackInfo]:
                 key_entities=meta.get("key_entities") if meta else None,
                 recommended_use_cases=meta.get("recommended_use_cases") if meta else None,
                 supported_features=meta.get("supported_features") if meta else None,
+                supports_event_streams=meta.get("supports_event_streams", False) if meta else False,
+                simulation_event_types=meta.get("simulation_event_types") if meta else None,
+                benchmark_relevance=meta.get("benchmark_relevance") if meta else None,
             )
         )
     return result
@@ -62,4 +65,7 @@ def get_pack_detail(pack_id: str) -> dict:
         out["key_entities"] = meta.get("key_entities")
         out["recommended_use_cases"] = meta.get("recommended_use_cases")
         out["supported_features"] = meta.get("supported_features")
+        out["supports_event_streams"] = meta.get("supports_event_streams", False)
+        out["simulation_event_types"] = meta.get("simulation_event_types")
+        out["benchmark_relevance"] = meta.get("benchmark_relevance")
     return out

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Tabs } from "@/components/ui/Tabs";
+import { CopyButton } from "@/components/CopyButton";
 import { runValidate, runValidateGe, runReconcile, fetchRuns } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -138,20 +140,11 @@ export default function ValidatePage() {
         </p>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-200 pb-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => { setTab(t.id); setResult(null); setError(null); }}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium",
-              tab === t.id ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
+        activeId={tab}
+        onSelect={(id) => { setTab(id as TabId); setResult(null); setError(null); }}
+      />
 
       <Card>
         <CardHeader>
@@ -253,12 +246,15 @@ export default function ValidatePage() {
               </div>
             )}
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap items-center">
             <Button onClick={handleRun} disabled={loading}>
               {loading ? "Validating…" : "Run Validation"}
             </Button>
             {result && (
-              <Button variant="outline" size="sm" onClick={downloadReport}>Download JSON</Button>
+              <>
+                <Button variant="outline" size="sm" onClick={downloadReport} title="Download validation report as JSON">Download JSON</Button>
+                <CopyButton text={JSON.stringify(result, null, 2)} label="Copy JSON" title="Copy JSON report to clipboard" />
+              </>
             )}
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -339,9 +335,9 @@ export default function ValidatePage() {
         </Card>
       )}
 
-      <div className="flex gap-2">
-        <Link href="/artifacts"><Button variant="ghost" size="sm">Browse artifacts</Button></Link>
-        <Link href="/runs"><Button variant="ghost" size="sm">View runs</Button></Link>
+      <div className="flex gap-3">
+        <Link href="/artifacts"><Button variant="outline" size="md">Browse artifacts</Button></Link>
+        <Link href="/runs"><Button variant="outline" size="md">View runs</Button></Link>
       </div>
     </div>
   );

@@ -1,11 +1,13 @@
 """Runs API router."""
 
+import json
 import uuid
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from data_forge.api.run_store import create_run, get_run, list_runs, run_cleanup
+from data_forge.api.scenario_store import get_masked_field_names
 from data_forge.api.task_runner import execute_generation_async
 from data_forge.api.routers.benchmark import execute_benchmark_async
 
@@ -55,6 +57,111 @@ def list_runs_api(
     """List runs with optional filters."""
     runs = list_runs(status=status, run_type=run_type, pack=pack, mode=mode, layer=layer, limit=limit)
     return {"runs": runs}
+
+
+def _build_run_comparison(left_run: dict, right_run: dict) -> dict:
+    """Build structured comparison for two runs."""
+    left_cfg = left_run.get("config") or left_run.get("config_summary") or {}
+    right_cfg = right_run.get("config") or right_run.get("config_summary") or {}
+    left_sum = left_run.get("result_summary") or {}
+    right_sum = right_run.get("result_summary") or {}
+
+    def _diff(l: Any, r: Any) -> dict:
+        return {"left": l, "right": r, "changed": l != r}
+
+    metadata_diff = {
+        "id": _diff(left_run.get("id"), right_run.get("id")),
+        "status": _diff(left_run.get("status"), right_run.get("status")),
+        "run_type": _diff(left_run.get("run_type"), right_run.get("run_type")),
+        "duration_seconds": _diff(left_run.get("duration_seconds"), right_run.get("duration_seconds")),
+    }
+    config_diff = {
+        "pack": _diff(left_cfg.get("pack"), right_cfg.get("pack")),
+        "mode": _diff(left_cfg.get("mode"), right_cfg.get("mode")),
+        "layer": _diff(left_cfg.get("layer"), right_cfg.get("layer")),
+        "scale": _diff(left_cfg.get("scale"), right_cfg.get("scale")),
+        "privacy_mode": _diff(left_cfg.get("privacy_mode"), right_cfg.get("privacy_mode")),
+    }
+    ps_l = left_cfg.get("pipeline_simulation") or {}
+    ps_r = right_cfg.get("pipeline_simulation") or {}
+    bench_l = left_cfg.get("benchmark") or {}
+    bench_r = right_cfg.get("benchmark") or {}
+    simulation_diff = {
+        "enabled": _diff(ps_l.get("enabled") if isinstance(ps_l, dict) else None, ps_r.get("enabled") if isinstance(ps_r, dict) else None),
+        "event_pattern": _diff(ps_l.get("event_pattern") if isinstance(ps_l, dict) else None, ps_r.get("event_pattern") if isinstance(ps_r, dict) else None),
+    }
+    benchmark_diff = {
+        "enabled": _diff(bench_l.get("enabled") if isinstance(bench_l, dict) else None, bench_r.get("enabled") if isinstance(bench_r, dict) else None),
+        "profile": _diff(bench_l.get("profile") if isinstance(bench_l, dict) else None, bench_r.get("profile") if isinstance(bench_r, dict) else None),
+        "scale_preset": _diff(bench_l.get("scale_preset") if isinstance(bench_l, dict) else None, bench_r.get("scale_preset") if isinstance(bench_r, dict) else None),
+    }
+    total_l = left_sum.get("total_rows") or left_sum.get("total_rows_generated") or left_sum.get("rows_generated")
+    total_r = right_sum.get("total_rows") or right_sum.get("total_rows_generated") or right_sum.get("rows_generated")
+    summary_diff = {
+        "total_rows": _diff(total_l, total_r),
+        "throughput": _diff(left_sum.get("throughput"), right_sum.get("throughput")),
+        "generation_seconds": _diff(left_sum.get("generation_seconds"), right_sum.get("generation_seconds")),
+    }
+    art_l = left_run.get("artifacts") or []
+    art_r = right_run.get("artifacts") or []
+    artifact_diff = {"count": _diff(len(art_l), len(art_r))}
+
+    def _classify(d: dict[str, Any]) -> dict[str, Any]:
+        out = {}
+        for k, v in d.items():
+            if isinstance(v, dict) and "left" in v and "right" in v and "changed" in v:
+                status = "changed" if v["changed"] else "unchanged"
+                if v.get("left") is None and v.get("right") is not None:
+                    status = "missing_on_left"
+                elif v.get("left") is not None and v.get("right") is None:
+                    status = "missing_on_right"
+                out[k] = {**v, "status": status}
+            else:
+                out[k] = v
+        return out
+
+    result = {
+        "left_run": {
+            "id": left_run.get("id"),
+            "status": left_run.get("status"),
+            "run_type": left_run.get("run_type"),
+            "selected_pack": left_run.get("selected_pack"),
+        },
+        "right_run": {
+            "id": right_run.get("id"),
+            "status": right_run.get("status"),
+            "run_type": right_run.get("run_type"),
+            "selected_pack": right_run.get("selected_pack"),
+        },
+        "metadata_diff": _classify(metadata_diff),
+        "config_diff": _classify(config_diff),
+        "summary_diff": _classify(summary_diff),
+        "simulation_diff": _classify(simulation_diff),
+        "benchmark_diff": _classify(benchmark_diff),
+        "artifact_diff": _classify(artifact_diff),
+    }
+    changed_count = sum(
+        1 for section in ["metadata_diff", "config_diff", "summary_diff", "simulation_diff", "benchmark_diff", "artifact_diff"]
+        for v in result.get(section, {}).values()
+        if isinstance(v, dict) and v.get("status") == "changed"
+    )
+    result["summary"] = {
+        "total_changed_fields": changed_count,
+    }
+    result["raw_diff"] = json.dumps(result, indent=2, default=str)
+    return result
+
+
+@router.get("/compare")
+def compare_runs(left: str, right: str) -> dict:
+    """Compare two runs. Returns structured diff for UI. Query: ?left=<id>&right=<id>."""
+    left_run = get_run(left)
+    right_run = get_run(right)
+    if not left_run:
+        raise HTTPException(status_code=404, detail=f"Run not found: {left}")
+    if not right_run:
+        raise HTTPException(status_code=404, detail=f"Run not found: {right}")
+    return _build_run_comparison(left_run, right_run)
 
 
 @router.post("/cleanup")
@@ -149,4 +256,9 @@ def clone_config(run_id: str) -> dict:
     if not record:
         raise HTTPException(status_code=404, detail="Run not found")
     config = record.get("config") or record.get("config_summary") or {}
-    return {"config": config}
+    masked = get_masked_field_names(config)
+    result: dict = {"config": config}
+    result["has_masked_sensitive_fields"] = bool(masked)
+    if masked:
+        result["masked_fields"] = masked
+    return result

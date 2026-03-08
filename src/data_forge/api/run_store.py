@@ -38,10 +38,11 @@ def create_run(
     run_type: str,
     config: dict[str, Any],
     selected_pack: str | None = None,
+    source_scenario_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new run record with status=queued."""
     now = time.time()
-    record = {
+    record: dict[str, Any] = {
         "id": run_id,
         "status": "queued",
         "created_at": now,
@@ -61,6 +62,8 @@ def create_run(
         "output_dir": None,
         "events": [],
     }
+    if source_scenario_id:
+        record["source_scenario_id"] = source_scenario_id
     path = _run_path(run_id)
     path.write_text(json.dumps(record, indent=2), encoding="utf-8")
 

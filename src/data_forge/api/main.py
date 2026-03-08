@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from data_forge.api.routers import domain_packs, generate, preflight, validate, artifacts, schema_viz, runs, benchmark
+from data_forge.api.routers import domain_packs, generate, preflight, validate, artifacts, schema_viz, runs, benchmark, scenarios
 from data_forge.api.schemas import HealthResponse
 from data_forge import __version__
 
@@ -29,6 +29,7 @@ app.include_router(artifacts.router)
 app.include_router(schema_viz.router)
 app.include_router(runs.router)
 app.include_router(benchmark.router)
+app.include_router(scenarios.router)
 
 
 @app.get("/health", response_model=HealthResponse)
