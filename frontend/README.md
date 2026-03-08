@@ -14,7 +14,14 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result. Ensure the Data Forge API is running at `http://localhost:8000`.
+
+## UI Architecture
+
+- **Design system** (`src/components/ui/`): Badge, Button, Card, CodeBlock, Divider, EmptyState, Panel, SectionHeader, Skeleton, StatCard, Tabs
+- **Typography**: Space Grotesk (headings), Inter (body), JetBrains Mono (code)
+- **Brand colors**: `--brand-teal`, `--brand-cyan`, `--brand-deep-blue`, `--brand-accent`
+- **Assets**: `public/branding/`, `public/illustrations/`, `public/domain-pack-illustrations/`
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

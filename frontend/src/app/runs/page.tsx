@@ -136,6 +136,13 @@ export default function RunsPage() {
         )}
       </div>
 
+      {!loading && !error && (
+        <p className="text-sm text-slate-500">
+          Showing {runs.length} run{runs.length !== 1 ? "s" : ""}
+          {hasFilters && " (filtered by status, pack, mode, or type)"}
+        </p>
+      )}
+
       {loading ? (
         <div className="h-32 animate-pulse bg-slate-100 rounded-xl" />
       ) : error ? (

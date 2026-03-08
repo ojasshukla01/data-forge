@@ -50,6 +50,12 @@ def _scan_artifacts(output_dir: Path) -> list[dict[str, Any]]:
                 cat = "dbt"
             elif "contracts" in rel:
                 cat = "contracts"
+            elif "event_stream" in rel or ("events" in rel and suffix == ".jsonl"):
+                cat = "event_stream"
+            elif "pipeline_snapshot" in rel or ("snapshot" in rel and suffix == ".json"):
+                cat = "pipeline_snapshot"
+            elif "benchmark_profile" in rel:
+                cat = "benchmark_profile"
             elif suffix in (".csv", ".json", ".jsonl", ".parquet", ".sql"):
                 cat = "dataset"
             artifacts.append({

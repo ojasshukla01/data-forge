@@ -2,11 +2,17 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useWizardStore } from "@/stores/wizardStore";
+import { scenarioConfigToWizardConfig, scenarioHasAdvancedOnlySettings } from "@/stores/wizardStore";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
-import { startRunGenerate, runPreflight, fetchPacks, type PackInfo } from "@/lib/api";
+import { Badge } from "@/components/ui/Badge";
+import { startRunGenerate, runPreflight, fetchPacks, fetchScenarios, fetchScenario, type PackInfo } from "@/lib/api";
+import type { ScenarioRecord } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+const MASKED = "***";
 
 const STEPS = [
   { id: "input", label: "Choose Input" },
@@ -32,13 +38,18 @@ function WizardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const packFromUrl = searchParams.get("pack");
-  const { config, setConfig } = useWizardStore();
+  const scenarioIdFromUrl = searchParams.get("scenario");
+  const { config, setConfig, reset } = useWizardStore();
   const [stepIndex, setStepIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [packs, setPacks] = useState<PackInfo[]>([]);
   const [packsLoading, setPacksLoading] = useState(true);
   const [packsError, setPacksError] = useState<string | null>(null);
+  const [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
+  const [scenariosLoading, setScenariosLoading] = useState(false);
+  const [loadedScenario, setLoadedScenario] = useState<ScenarioRecord | null>(null);
+  const [entryMode, setEntryMode] = useState<"scratch" | "scenario">("scratch");
   const [preflight, setPreflight] = useState<Record<string, unknown> | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
 
@@ -54,9 +65,53 @@ function WizardContent() {
       .finally(() => { if (!cancelled) setPacksLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setScenariosLoading(true);
+    fetchScenarios()
+      .then((d) => { if (!cancelled) setScenarios(d.scenarios ?? []); })
+      .catch(() => { if (!cancelled) setScenarios([]); })
+      .finally(() => { if (!cancelled) setScenariosLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (packFromUrl && packs.some((p) => p.id === packFromUrl)) setConfig({ pack: packFromUrl });
   }, [packFromUrl, packs, setConfig]);
+
+  // Load scenario from ?scenario=<id>
+  useEffect(() => {
+    if (!scenarioIdFromUrl) return;
+    fetchScenario(scenarioIdFromUrl)
+      .then((s) => {
+        if (!s?.config) return;
+        const cfg = s.config as Record<string, unknown>;
+        const masked = Object.values(cfg).some((v) => v === MASKED);
+        if (masked) return; // Skip prefilling if credentials were masked
+        const wizardFields = scenarioConfigToWizardConfig(cfg);
+        setConfig(wizardFields);
+        setLoadedScenario(s);
+        setEntryMode("scenario");
+      })
+      .catch(() => setError("Failed to load scenario"));
+  }, [scenarioIdFromUrl, setConfig]);
+
+  const hasAdvancedOnly = loadedScenario?.config ? scenarioHasAdvancedOnlySettings(loadedScenario.config as Record<string, unknown>) : false;
+
+  const handleSelectScenario = (s: ScenarioRecord) => {
+    const cfg = (s.config || {}) as Record<string, unknown>;
+    const wizardFields = scenarioConfigToWizardConfig(cfg);
+    setConfig(wizardFields);
+    setLoadedScenario(s);
+    setEntryMode("scenario");
+  };
+
+  const handleStartFromScratch = () => {
+    reset();
+    setLoadedScenario(null);
+    setEntryMode("scratch");
+  };
 
   const runPreflightCheck = async () => {
     setPreflightLoading(true);
@@ -155,6 +210,29 @@ function WizardContent() {
         </div>
       )}
 
+      {loadedScenario && (
+        <Card className="border-[var(--brand-teal)]/30 bg-slate-50/50">
+          <CardContent className="py-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="font-medium text-slate-900">Loaded from scenario: {loadedScenario.name}</p>
+                <p className="text-sm text-slate-600 mt-1">
+                  {loadedScenario.category} {loadedScenario.source_pack && `· Pack: ${loadedScenario.source_pack}`}
+                </p>
+                {hasAdvancedOnly && (
+                  <p className="text-sm text-amber-700 mt-2">
+                    This scenario includes pipeline simulation, benchmark, or other advanced settings that are not fully editable in the wizard. Use Advanced Config for full control.
+                  </p>
+                )}
+              </div>
+              <Link href={`/create/advanced?scenario=${loadedScenario.id}`}>
+                <Button variant="outline" size="sm">Open in Advanced Config</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>{STEPS[stepIndex].label}</CardTitle>
@@ -162,8 +240,69 @@ function WizardContent() {
         <CardContent className="space-y-6">
           {stepId === "input" && (
             <>
-              <p className="text-sm text-slate-600">Choose a domain pack to get started quickly.</p>
-              {packsLoading ? (
+              <div className="flex gap-3 mb-4">
+                <button
+                  onClick={handleStartFromScratch}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    entryMode === "scratch"
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  )}
+                >
+                  Start from scratch
+                </button>
+                <button
+                  onClick={() => setEntryMode("scenario")}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                    entryMode === "scenario"
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  )}
+                >
+                  Use a saved scenario
+                </button>
+              </div>
+
+              {entryMode === "scenario" ? (
+                scenariosLoading ? (
+                  <div className="h-32 rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
+                ) : scenarios.length === 0 ? (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
+                    No saved scenarios yet. Save one from Advanced config or create from a run.
+                    <div className="mt-3">
+                      <Link href="/create/advanced"><Button variant="outline" size="sm">Go to Advanced</Button></Link>
+                      <Link href="/scenarios" className="ml-2 inline-block"><Button variant="outline" size="sm">Scenario library</Button></Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {scenarios.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSelectScenario(s)}
+                        className={cn(
+                          "text-left p-4 rounded-lg border-2 transition-colors",
+                          loadedScenario?.id === s.id
+                            ? "border-slate-900 bg-slate-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        )}
+                      >
+                        <p className="font-medium text-slate-900">{s.name}</p>
+                        <p className="text-sm text-slate-600 mt-1">{s.category} {s.source_pack && `· ${s.source_pack}`}</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {s.uses_pipeline_simulation && <Badge variant="category" className="text-xs">Simulation</Badge>}
+                          {s.uses_benchmark && <Badge variant="category" className="text-xs">Benchmark</Badge>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <>
+                  <p className="text-sm text-slate-600">Choose a domain pack to get started quickly.</p>
+                  {packsLoading ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {[1, 2].map((i) => (
                     <div key={i} className="h-24 rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
@@ -200,8 +339,10 @@ function WizardContent() {
                   ))}
                 </div>
               )}
-            </>
-          )}
+              </>
+            )}
+          </>
+        )}
 
           {stepId === "usecase" && (
             <>
@@ -432,7 +573,7 @@ function WizardContent() {
         </Button>
         {stepIndex < STEPS.length - 1 ? (
           <Button
-            disabled={stepId === "input" && !config.pack}
+            disabled={stepId === "input" && (entryMode === "scratch" ? !config.pack : !loadedScenario)}
             onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
           >
             Next

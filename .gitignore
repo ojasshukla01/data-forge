@@ -38,8 +38,10 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Output
+# Output and runtime data
 output/
+runs/
+scenarios/
 *.parquet
 *.csv
 *.json

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -9,6 +11,7 @@ const navItems = [
   { href: "/create/wizard", label: "Create" },
   { href: "/create/advanced", label: "Advanced" },
   { href: "/templates", label: "Templates" },
+  { href: "/scenarios", label: "Scenarios" },
   { href: "/runs", label: "Runs" },
   { href: "/artifacts", label: "Artifacts" },
   { href: "/validate", label: "Validate" },
@@ -18,26 +21,60 @@ const navItems = [
   { href: "/about", label: "About" },
 ];
 
+function isActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
 export function TopNav() {
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5 font-semibold text-slate-900 group">
-          <Image src="/branding/logo-mark.svg" alt="" width={28} height={28} className="group-hover:opacity-90" />
-          <span className="text-slate-900">Data Forge</span>
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 min-w-0">
+        <Link href="/" className="flex items-center gap-2.5 font-semibold text-slate-900 group shrink-0 min-w-0">
+          <Image src="/branding/logo-mark.svg" alt="" width={28} height={28} className="group-hover:opacity-90 shrink-0" />
+          <span className="text-slate-900 truncate">Data Forge</span>
         </Link>
-        <nav className="hidden md:flex items-center gap-0.5">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "px-3 py-2 text-sm font-medium rounded-md text-slate-600 hover:text-[var(--brand-teal)] hover:bg-slate-50 transition-colors"
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <button
+          type="button"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="md:hidden p-2 rounded-md text-slate-600 hover:bg-slate-100"
+          aria-label="Toggle menu"
+          aria-expanded={mobileOpen}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {mobileOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+        <nav className={cn(
+          "items-center gap-0.5",
+          mobileOpen ? "flex flex-col absolute top-14 left-0 right-0 py-4 bg-white border-b border-slate-200 shadow-md md:shadow-none md:relative md:top-0 md:flex-row md:py-0 md:border-b-0 md:bg-transparent" : "hidden md:flex"
+        )}>
+          {navItems.map((item) => {
+            const active = isActive(item.href, pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "px-3 py-2 text-sm font-medium rounded-md transition-colors block md:inline-block",
+                  active
+                    ? "text-[var(--brand-teal)] bg-slate-100"
+                    : "text-slate-600 hover:text-[var(--brand-teal)] hover:bg-slate-100"
+                )}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
         <a
           href="https://github.com/ojasshukla01/data-forge"

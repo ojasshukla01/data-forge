@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { fetchPacks, runPreflight, startRunGenerate, runBenchmark, startBenchmarkRun } from "@/lib/api";
+import { fetchPacks, runPreflight, startRunGenerate, runBenchmark, startBenchmarkRun, fetchScenario, createScenario } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -13,6 +13,7 @@ const SECTIONS = [
   { id: "rules", label: "Rules" },
   { id: "generation", label: "Generation" },
   { id: "etl", label: "ETL Realism" },
+  { id: "simulation", label: "Pipeline Simulation" },
   { id: "privacy", label: "Privacy" },
   { id: "contracts", label: "Contracts" },
   { id: "exports", label: "Exports" },
@@ -50,6 +51,8 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
   contracts: false,
   write_manifest: false,
   change_ratio: 0.1,
+  pipeline_simulation: { enabled: false, event_density: "medium", event_pattern: "steady", replay_mode: "ordered", late_arrival_ratio: 0 },
+  benchmark: { enabled: false, profile: null, scale_preset: null, parallel_tables: 1, batch_size: 1000, iterations: 3 },
 };
 
 const MASKED = "***";
@@ -67,6 +70,14 @@ function AdvancedConfigContent() {
   const [benchmarkResult, setBenchmarkResult] = useState<Record<string, unknown> | null>(null);
   const [benchmarkRunLoading, setBenchmarkRunLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveScenarioLoading, setSaveScenarioLoading] = useState(false);
+  const [saveScenarioOpen, setSaveScenarioOpen] = useState(false);
+  const [saveScenarioName, setSaveScenarioName] = useState("");
+  const [saveScenarioDesc, setSaveScenarioDesc] = useState("");
+  const [saveScenarioCategory, setSaveScenarioCategory] = useState("custom");
+  const [maskedFields, setMaskedFields] = useState<string[] | null>(null);
+
+  const hasMaskedCredentials = !!maskedFields?.length;
 
   useEffect(() => {
     fetchPacks().then(setPacks).catch(() => setPacks([]));
@@ -75,10 +86,26 @@ function AdvancedConfigContent() {
   // Clone prefill: read ?clone= JSON from URL and prefill config
   useEffect(() => {
     const cloneRaw = searchParams.get("clone");
-    if (!cloneRaw) return;
+    const maskedParam = searchParams.get("masked");
+    if (!cloneRaw) {
+      if (!searchParams.get("clone")) setMaskedFields(null);
+      return;
+    }
     try {
       const parsed = JSON.parse(decodeURIComponent(cloneRaw)) as Record<string, unknown>;
       if (!parsed || typeof parsed !== "object") return;
+      const masked: string[] = [];
+      const collectMasked = (obj: unknown, prefix = ""): void => {
+        if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
+        for (const [k, v] of Object.entries(obj)) {
+          if (v === MASKED) masked.push(prefix ? `${prefix}.${k}` : k);
+          else if (v && typeof v === "object" && !Array.isArray(v)) collectMasked(v, prefix ? `${prefix}.${k}` : k);
+        }
+      };
+      collectMasked(parsed);
+      if (!masked.length && maskedParam) {
+        try { const names = JSON.parse(decodeURIComponent(maskedParam)); if (Array.isArray(names)) masked.push(...names); } catch { /* ignore */ }
+      }
       const merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
       for (const [k, v] of Object.entries(parsed)) {
         if (v === MASKED) continue;
@@ -86,9 +113,33 @@ function AdvancedConfigContent() {
       }
       if (merged.pack == null && parsed.selected_pack) merged.pack = parsed.selected_pack;
       setConfig(merged);
+      setMaskedFields(masked.length ? masked : null);
     } catch {
       setError("Invalid clone payload");
+      setMaskedFields(null);
     }
+  }, [searchParams]);
+
+  // Scenario prefill: read ?scenario=<id> and load scenario config
+  useEffect(() => {
+    const scenarioId = searchParams.get("scenario");
+    if (!scenarioId) {
+      if (!searchParams.get("scenario")) setMaskedFields(null);
+      return;
+    }
+    fetchScenario(scenarioId)
+      .then((s) => {
+        if (s?.config) {
+          const merged: Record<string, unknown> = { ...DEFAULT_CONFIG };
+          for (const [k, v] of Object.entries(s.config)) {
+            if (v === MASKED) continue;
+            merged[k] = v;
+          }
+          setConfig(merged);
+          setMaskedFields(s.has_masked_sensitive_fields && s.masked_fields?.length ? s.masked_fields : null);
+        }
+      })
+      .catch(() => { setError("Failed to load scenario"); setMaskedFields(null); });
   }, [searchParams]);
 
   const update = (key: string, value: unknown) => setConfig((c) => ({ ...c, [key]: value }));
@@ -166,6 +217,15 @@ function AdvancedConfigContent() {
           <Link href="/create/wizard"><Button variant="ghost" size="sm">Use wizard</Button></Link>
         </div>
       </div>
+
+      {hasMaskedCredentials && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
+          <p className="font-medium">Some sensitive connection values were not preserved and must be re-entered before running this configuration.</p>
+          {maskedFields && maskedFields.length > 0 && (
+            <p className="mt-1 text-amber-700">Fields to update: {maskedFields.join(", ")}</p>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-4 flex-wrap border-b border-slate-200 pb-2">
         {SECTIONS.map((s) => (
@@ -536,10 +596,129 @@ function AdvancedConfigContent() {
             </div>
           )}
 
+          {section === "simulation" && (
+            <div className="space-y-4">
+              <h3 className="font-semibold text-slate-900">Pipeline Simulation</h3>
+              <p className="text-sm text-slate-600">Generate event streams and pipeline snapshots for simulation workloads.</p>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!(config.pipeline_simulation as Record<string, unknown>)?.enabled}
+                  onChange={(e) => update("pipeline_simulation", {
+                    ...(config.pipeline_simulation as Record<string, unknown> || {}),
+                    enabled: e.target.checked,
+                  })}
+                />
+                <span className="text-sm">Enable pipeline simulation</span>
+              </label>
+              {!!(config.pipeline_simulation as Record<string, unknown>)?.enabled && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Event density</label>
+                    <select
+                      value={((config.pipeline_simulation as Record<string, unknown>)?.event_density as string) ?? "medium"}
+                      onChange={(e) => update("pipeline_simulation", {
+                        ...(config.pipeline_simulation as Record<string, unknown> || {}),
+                        event_density: e.target.value,
+                      })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Event pattern</label>
+                    <select
+                      value={((config.pipeline_simulation as Record<string, unknown>)?.event_pattern as string) ?? "steady"}
+                      onChange={(e) => update("pipeline_simulation", {
+                        ...(config.pipeline_simulation as Record<string, unknown> || {}),
+                        event_pattern: e.target.value,
+                      })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="steady">Steady</option>
+                      <option value="burst">Burst</option>
+                      <option value="seasonal">Seasonal</option>
+                      <option value="growth">Growth</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Replay mode</label>
+                    <select
+                      value={((config.pipeline_simulation as Record<string, unknown>)?.replay_mode as string) ?? "ordered"}
+                      onChange={(e) => update("pipeline_simulation", {
+                        ...(config.pipeline_simulation as Record<string, unknown> || {}),
+                        replay_mode: e.target.value,
+                      })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="ordered">Ordered</option>
+                      <option value="shuffled">Shuffled</option>
+                      <option value="windowed">Windowed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Late arrival ratio (0–1)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={((config.pipeline_simulation as Record<string, unknown>)?.late_arrival_ratio as number) ?? 0}
+                      onChange={(e) => update("pipeline_simulation", {
+                        ...(config.pipeline_simulation as Record<string, unknown> || {}),
+                        late_arrival_ratio: parseFloat(e.target.value) || 0,
+                      })}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {section === "benchmark" && (
             <div className="space-y-4">
               <h3 className="font-semibold text-slate-900">Benchmark / Performance</h3>
-              <p className="text-sm text-slate-600">Run a quick benchmark (generate + export) to measure throughput. Uses current pack and scale.</p>
+              <p className="text-sm text-slate-600">Run warehouse-style benchmark. Uses profile and scale preset.</p>
+              <div className="grid gap-4 sm:grid-cols-2 max-w-xl">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Benchmark profile</label>
+                  <select
+                    value={((config.benchmark as Record<string, unknown>)?.profile as string) ?? ""}
+                    onChange={(e) => update("benchmark", {
+                      ...(config.benchmark as Record<string, unknown> || {}),
+                      profile: e.target.value || null,
+                    })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">Default</option>
+                    <option value="wide_table">Wide table</option>
+                    <option value="high_cardinality">High cardinality</option>
+                    <option value="event_stream">Event stream</option>
+                    <option value="fact_table">Fact table</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Scale preset</label>
+                  <select
+                    value={((config.benchmark as Record<string, unknown>)?.scale_preset as string) ?? ""}
+                    onChange={(e) => update("benchmark", {
+                      ...(config.benchmark as Record<string, unknown> || {}),
+                      scale_preset: e.target.value || null,
+                    })}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">Use scale</option>
+                    <option value="small">Small (~10k)</option>
+                    <option value="medium">Medium (~100k)</option>
+                    <option value="large">Large (~1M)</option>
+                    <option value="xlarge">XLarge (~10M)</option>
+                  </select>
+                </div>
+              </div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -548,8 +727,17 @@ function AdvancedConfigContent() {
                     setError(null);
                     try {
                       const pack = (config.pack as string) || "saas_billing";
+                      const scalePreset = (config.benchmark as Record<string, unknown>)?.scale_preset as string | null;
                       const scale = (config.scale as number) || 1000;
-                      const res = await startBenchmarkRun({ pack, scale, format: "parquet", iterations: 3 });
+                      const profile = (config.benchmark as Record<string, unknown>)?.profile as string | null;
+                      const res = await startBenchmarkRun({
+                        pack,
+                        scale: scalePreset ? undefined : scale,
+                        scale_preset: scalePreset || undefined,
+                        profile: profile || undefined,
+                        format: "parquet",
+                        iterations: 3,
+                      });
                       router.push(`/runs/${res.run_id}`);
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Failed to start benchmark");
@@ -568,8 +756,17 @@ function AdvancedConfigContent() {
                     setError(null);
                     try {
                       const pack = (config.pack as string) || "saas_billing";
+                      const scalePreset = (config.benchmark as Record<string, unknown>)?.scale_preset as string | null;
                       const scale = (config.scale as number) || 1000;
-                      const res = await runBenchmark({ pack, scale, format: "parquet", iterations: 3 });
+                      const profile = (config.benchmark as Record<string, unknown>)?.profile as string | null;
+                      const res = await runBenchmark({
+                        pack,
+                        scale: scalePreset ? undefined : scale,
+                        scale_preset: scalePreset || undefined,
+                        profile: profile || undefined,
+                        format: "parquet",
+                        iterations: 3,
+                      });
                       setBenchmarkResult(res.benchmark_results ?? res);
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Benchmark failed");
@@ -620,7 +817,7 @@ function AdvancedConfigContent() {
             </div>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={runPreflightCheck} disabled={preflightLoading}>
               {preflightLoading ? "Running…" : "Run Preflight"}
             </Button>
@@ -630,7 +827,83 @@ function AdvancedConfigContent() {
             >
               {runLoading ? "Running…" : "Run Now"}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setSaveScenarioOpen(!saveScenarioOpen)}>
+              Save as scenario
+            </Button>
           </div>
+          {saveScenarioOpen && (
+            <div className="mt-4 p-4 rounded-lg border border-slate-200 bg-slate-50 space-y-3">
+              <p className="text-sm font-medium text-slate-700">Save current config as reusable scenario</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={saveScenarioName}
+                    onChange={(e) => setSaveScenarioName(e.target.value)}
+                    placeholder="e.g. Ecommerce order simulation"
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-600 mb-1">Category</label>
+                  <select
+                    value={saveScenarioCategory}
+                    onChange={(e) => setSaveScenarioCategory(e.target.value)}
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="quick_start">Quick start</option>
+                    <option value="testing">Testing</option>
+                    <option value="pipeline_simulation">Pipeline simulation</option>
+                    <option value="warehouse_benchmark">Warehouse benchmark</option>
+                    <option value="privacy_uat">Privacy UAT</option>
+                    <option value="contracts">Contracts</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-600 mb-1">Description (optional)</label>
+                <input
+                  type="text"
+                  value={saveScenarioDesc}
+                  onChange={(e) => setSaveScenarioDesc(e.target.value)}
+                  placeholder="Brief description"
+                  className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    if (!saveScenarioName.trim()) { setError("Name is required"); return; }
+                    setSaveScenarioLoading(true);
+                    setError(null);
+                    try {
+                      await createScenario({
+                        name: saveScenarioName.trim(),
+                        description: saveScenarioDesc.trim(),
+                        category: saveScenarioCategory,
+                        config,
+                      });
+                      setSaveScenarioOpen(false);
+                      setSaveScenarioName("");
+                      setSaveScenarioDesc("");
+                      router.push("/scenarios");
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Failed to save scenario");
+                    } finally {
+                      setSaveScenarioLoading(false);
+                    }
+                  }}
+                  disabled={saveScenarioLoading}
+                >
+                  {saveScenarioLoading ? "Saving…" : "Save scenario"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setSaveScenarioOpen(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

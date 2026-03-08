@@ -28,6 +28,9 @@ PACK_METADATA: dict[str, dict] = {
         "key_entities": ["customers", "products", "orders", "payments", "shipments", "inventory"],
         "recommended_use_cases": ["demo", "integration_test", "load_test"],
         "supported_features": ["contracts", "etl_simulation", "warehouse_load", "privacy_scan"],
+        "supports_event_streams": True,
+        "simulation_event_types": ["order_created", "payment_captured", "order_packed", "order_shipped", "order_delivered", "order_refunded"],
+        "benchmark_relevance": "high",
     },
     "fintech_transactions": {
         "name": "Fintech Transactions",
@@ -49,6 +52,9 @@ PACK_METADATA: dict[str, dict] = {
         "key_entities": ["warehouses", "suppliers", "purchase_orders", "shipments", "inventory_movements", "deliveries"],
         "recommended_use_cases": ["integration_test", "etl", "load_test"],
         "supported_features": ["contracts", "etl_simulation", "warehouse_load"],
+        "supports_event_streams": True,
+        "simulation_event_types": ["po_created", "shipment_dispatched", "shipment_in_transit", "delivery_completed", "return_created"],
+        "benchmark_relevance": "medium",
     },
     "adtech_analytics": {
         "name": "AdTech Analytics",
@@ -70,6 +76,9 @@ PACK_METADATA: dict[str, dict] = {
         "key_entities": ["devices", "device_models", "telemetry_readings", "alerts", "maintenance_events"],
         "recommended_use_cases": ["integration_test", "time_series_demo", "etl"],
         "supported_features": ["contracts", "etl_simulation", "warehouse_load"],
+        "supports_event_streams": True,
+        "simulation_event_types": ["reading_ingested", "threshold_breach", "alert_triggered", "maintenance_recorded"],
+        "benchmark_relevance": "high",
     },
     "social_platform": {
         "name": "Social Platform",
@@ -77,6 +86,9 @@ PACK_METADATA: dict[str, dict] = {
         "key_entities": ["users", "profiles", "posts", "comments", "likes", "follows", "messages"],
         "recommended_use_cases": ["demo", "integration_test", "load_test"],
         "supported_features": ["contracts", "etl_simulation", "warehouse_load", "privacy_scan"],
+        "supports_event_streams": True,
+        "simulation_event_types": ["post_created", "comment_added", "like_added", "follow_created", "report_created"],
+        "benchmark_relevance": "medium",
     },
     "payments_ledger": {
         "name": "Payments Ledger",
@@ -84,6 +96,9 @@ PACK_METADATA: dict[str, dict] = {
         "key_entities": ["customers", "invoices", "payments", "ledger_entries", "refunds", "disputes"],
         "recommended_use_cases": ["demo", "integration_test", "load_test", "etl"],
         "supported_features": ["contracts", "etl_simulation", "warehouse_load", "privacy_scan"],
+        "supports_event_streams": True,
+        "simulation_event_types": ["invoice_created", "payment_captured", "refund_issued", "dispute_created"],
+        "benchmark_relevance": "high",
     },
 }
 
