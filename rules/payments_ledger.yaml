@@ -1,0 +1,43 @@
+name: payments_ledger
+scenario: payments_ledger
+description: Business rules for payments and ledger
+
+business_rules:
+  - name: refund_amount_positive
+    rule_type: range
+    table: refunds
+    fields: [amount_cents]
+    params:
+      min: 1
+  - name: invoice_total_positive
+    rule_type: range
+    table: invoices
+    fields: [total_cents]
+    params:
+      min: 0
+  - name: payment_amount_positive
+    rule_type: range
+    table: payments
+    fields: [amount_cents]
+    params:
+      min: 1
+
+distribution_rules:
+  - table: invoices
+    column: status
+    distribution: categorical
+    params:
+      categories: ["draft", "sent", "paid", "overdue"]
+      weights: [0.1, 0.2, 0.6, 0.1]
+  - table: payments
+    column: status
+    distribution: categorical
+    params:
+      categories: ["pending", "completed", "failed", "refunded"]
+      weights: [0.05, 0.85, 0.05, 0.05]
+  - table: refunds
+    column: amount_cents
+    distribution: skewed
+    params:
+      mu: 10
+      sigma: 1.5

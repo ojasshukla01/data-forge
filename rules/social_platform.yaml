@@ -1,0 +1,25 @@
+name: social_platform
+scenario: social_platform
+description: Business rules for social platform
+
+business_rules:
+  - name: like_id_positive
+    rule_type: range
+    table: likes
+    fields: [id]
+    params:
+      min: 1
+
+distribution_rules:
+  - table: posts
+    column: status
+    distribution: categorical
+    params:
+      categories: ["draft", "published", "archived"]
+      weights: [0.1, 0.8, 0.1]
+  - table: reports
+    column: status
+    distribution: categorical
+    params:
+      categories: ["pending", "reviewed", "resolved", "dismissed"]
+      weights: [0.3, 0.3, 0.3, 0.1]

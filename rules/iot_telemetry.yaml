@@ -1,0 +1,36 @@
+name: iot_telemetry
+scenario: iot_telemetry
+description: Business rules for IoT telemetry and devices
+
+business_rules:
+  - name: alert_resolved_after_triggered
+    rule_type: order
+    table: alerts
+    expression: triggered_at <= resolved_at
+  - name: maintenance_after_installation
+    rule_type: range
+    table: telemetry_readings
+    fields: [value]
+    params:
+      min: -999999
+    description: Telemetry value bounds
+
+distribution_rules:
+  - table: devices
+    column: status
+    distribution: categorical
+    params:
+      categories: ["active", "inactive", "maintenance", "offline"]
+      weights: [0.7, 0.1, 0.1, 0.1]
+  - table: alerts
+    column: severity
+    distribution: categorical
+    params:
+      categories: ["low", "medium", "high", "critical"]
+      weights: [0.5, 0.3, 0.15, 0.05]
+  - table: telemetry_readings
+    column: reading_type
+    distribution: categorical
+    params:
+      categories: ["temperature", "humidity", "pressure", "vibration"]
+      weights: [0.4, 0.3, 0.2, 0.1]

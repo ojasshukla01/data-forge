@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  /* Data Forge brand palette */
+  --brand-teal: #0d9488;
+  --brand-teal-light: #14b8a6;
+  --brand-cyan: #06b6d4;
+  --brand-deep-blue: #0e7490;
+  --brand-accent: #f97316;
+  --brand-accent-muted: #fb923c;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-accent: var(--brand-accent);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

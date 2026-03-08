@@ -1,0 +1,36 @@
+name: adtech_analytics
+scenario: adtech_analytics
+description: Business rules for ad tech and analytics
+
+business_rules:
+  - name: campaign_dates_order
+    rule_type: order
+    table: campaigns
+    expression: start_date <= end_date
+  - name: spend_non_negative
+    rule_type: range
+    table: spend_reports
+    fields: [spend_cents]
+    params:
+      min: 0
+  - name: conversions_value_non_negative
+    rule_type: range
+    table: conversions
+    fields: [value_cents]
+    params:
+      min: 0
+
+distribution_rules:
+  - table: campaigns
+    column: status
+    distribution: categorical
+    params:
+      categories: ["active", "paused", "completed"]
+      weights: [0.5, 0.2, 0.3]
+  - table: spend_reports
+    column: spend_cents
+    distribution: long_tail
+    params:
+      head_ratio: 0.8
+      head_scale: 0.5
+      tail_scale: 3.0

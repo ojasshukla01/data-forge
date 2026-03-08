@@ -1,0 +1,34 @@
+name: healthcare_ops
+scenario: healthcare_ops
+description: Business rules for healthcare operations
+
+business_rules:
+  - name: claims_amount_positive
+    rule_type: range
+    table: claims
+    fields: [amount_cents]
+    params:
+      min: 0
+  - name: dob_before_created
+    rule_type: order
+    table: patients
+    expression: date_of_birth <= created_at
+distribution_rules:
+  - table: appointments
+    column: status
+    distribution: categorical
+    params:
+      categories: ["scheduled", "completed", "cancelled", "no_show"]
+      weights: [0.2, 0.6, 0.15, 0.05]
+  - table: providers
+    column: specialty
+    distribution: categorical
+    params:
+      categories: ["general", "cardiology", "dermatology", "orthopedics"]
+      weights: [0.5, 0.2, 0.15, 0.15]
+  - table: claims
+    column: status
+    distribution: categorical
+    params:
+      categories: ["submitted", "approved", "paid", "denied"]
+      weights: [0.15, 0.25, 0.5, 0.1]

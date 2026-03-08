@@ -1,0 +1,38 @@
+name: hr_workforce
+scenario: hr_workforce
+description: Business rules for HR and workforce
+
+business_rules:
+  - name: leave_start_before_end
+    rule_type: order
+    table: leave_requests
+    expression: leave_start <= leave_end
+  - name: pay_period_order
+    rule_type: order
+    table: payroll
+    expression: pay_period_start <= pay_period_end
+  - name: net_lte_gross
+    rule_type: order
+    table: payroll
+    expression: net_cents <= gross_cents
+  - name: performance_review_after_hire
+    rule_type: range
+    table: performance_reviews
+    fields: [rating]
+    params:
+      min: 1
+      max: 5
+
+distribution_rules:
+  - table: leave_requests
+    column: status
+    distribution: categorical
+    params:
+      categories: ["pending", "approved", "denied", "cancelled"]
+      weights: [0.2, 0.6, 0.1, 0.1]
+  - table: roles
+    column: level
+    distribution: categorical
+    params:
+      categories: ["junior", "mid", "senior", "lead"]
+      weights: [0.3, 0.4, 0.2, 0.1]

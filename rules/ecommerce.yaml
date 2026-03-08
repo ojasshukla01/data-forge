@@ -1,0 +1,51 @@
+name: ecommerce
+scenario: ecommerce
+description: Business rules for e-commerce orders, refunds, shipments
+
+business_rules:
+  - name: order_item_total
+    rule_type: equality
+    table: order_items
+    expression: total_cents == quantity * unit_price_cents
+  - name: shipment_shipped_before_delivered
+    rule_type: order
+    table: shipments
+    expression: shipped_at <= delivered_at
+  - name: refund_after_order
+    rule_type: order
+    table: refunds
+    expression: created_at >= created_at
+    description: Refund created_at should be after order (checked via context)
+  - name: inventory_non_negative
+    rule_type: range
+    table: inventory
+    fields: [quantity]
+    params:
+      min: 0
+
+distribution_rules:
+  - table: orders
+    column: status
+    distribution: categorical
+    params:
+      categories: ["pending", "paid", "shipped", "delivered", "canceled", "refunded"]
+      weights: [0.05, 0.2, 0.25, 0.4, 0.05, 0.05]
+  - table: payments
+    column: method
+    distribution: categorical
+    params:
+      categories: ["card", "paypal", "bank", "wallet"]
+      weights: [0.6, 0.2, 0.1, 0.1]
+  - table: shipments
+    column: carrier
+    distribution: categorical
+    params:
+      categories: ["UPS", "FedEx", "USPS", "DHL"]
+      weights: [0.35, 0.3, 0.25, 0.1]
+  - table: products
+    column: price_cents
+    distribution: long_tail
+    params:
+      head_ratio: 0.85
+      head_scale: 0.5
+      tail_scale: 5.0

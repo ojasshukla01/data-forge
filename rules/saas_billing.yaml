@@ -1,0 +1,47 @@
+name: saas_billing
+scenario: saas_billing
+description: Business rules for SaaS billing and subscriptions
+
+business_rules:
+  - name: subscription_dates_order
+    rule_type: order
+    table: subscriptions
+    expression: started_at <= ended_at
+    description: ended_at must be after or equal to started_at (or null)
+  - name: invoice_due_after_created
+    rule_type: order
+    table: invoices
+    expression: created_at <= due_date
+  - name: line_item_amount
+    rule_type: sum
+    table: invoice_line_items
+    expression: amount_cents = quantity * unit_price_cents
+    params:
+      total_field: amount_cents
+      child_field: amount_cents
+
+distribution_rules:
+  - table: users
+    column: role
+    distribution: categorical
+    params:
+      categories: ["admin", "member", "viewer", "billing"]
+      weights: [0.1, 0.6, 0.2, 0.1]
+  - table: subscriptions
+    column: status
+    distribution: categorical
+    params:
+      categories: ["active", "canceled", "past_due", "trialing"]
+      weights: [0.7, 0.1, 0.1, 0.1]
+  - table: invoices
+    column: total_cents
+    distribution: skewed
+    params:
+      mu: 10
+      sigma: 1.5
+  - table: support_tickets
+    column: priority
+    distribution: categorical
+    params:
+      categories: ["low", "medium", "high", "urgent"]
+      weights: [0.4, 0.4, 0.15, 0.05]

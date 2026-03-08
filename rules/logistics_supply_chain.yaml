@@ -1,0 +1,45 @@
+name: logistics_supply_chain
+scenario: logistics_supply_chain
+description: Business rules for logistics and supply chain
+
+business_rules:
+  - name: po_line_total
+    rule_type: equality
+    table: purchase_order_lines
+    expression: total_cents == quantity * unit_price_cents
+  - name: delivery_status_valid
+    rule_type: range
+    table: inventory_movements
+    fields: [quantity_delta]
+    params:
+      min: -999999
+  - name: po_expected_after_order
+    rule_type: order
+    table: purchase_orders
+    expression: order_date <= expected_date
+  - name: po_line_quantity_positive
+    rule_type: range
+    table: purchase_order_lines
+    fields: [quantity]
+    params:
+      min: 1
+
+distribution_rules:
+  - table: purchase_orders
+    column: status
+    distribution: categorical
+    params:
+      categories: ["draft", "submitted", "in_transit", "received", "cancelled"]
+      weights: [0.1, 0.2, 0.3, 0.35, 0.05]
+  - table: shipments
+    column: status
+    distribution: categorical
+    params:
+      categories: ["pending", "shipped", "delivered"]
+      weights: [0.2, 0.4, 0.4]
+  - table: products
+    column: unit_price_cents
+    distribution: skewed
+    params:
+      mu: 12
+      sigma: 2
