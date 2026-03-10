@@ -43,6 +43,41 @@ export default function AboutPage() {
       </section>
 
       <section>
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Concepts</h2>
+        <ul className="space-y-2 text-slate-600">
+          <li><strong>Run</strong> — A single execution (generate or benchmark). Has status, stages, artifacts.</li>
+          <li><strong>Scenario</strong> — Saved config (name, category, tags). Run from a scenario or clone to create one.</li>
+          <li><strong>Artifact</strong> — Output files: datasets, event streams, dbt seeds, GE suites, manifests.</li>
+          <li><strong>Pack</strong> — Pre-built domain (schema + rules). e.g. SaaS Billing, E-commerce.</li>
+          <li><strong>Benchmark</strong> — Performance run with scale presets and metrics.</li>
+          <li><strong>Simulation</strong> — Pipeline simulation: event streams, full snapshot, incremental, CDC.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Local-first</h2>
+        <p className="text-slate-600 leading-relaxed">
+          Data Forge runs locally by default. Runs and scenarios are stored on disk (or optional SQLite). No cloud account required.
+          You can run the API and UI on localhost, generate data, and only connect to warehouses or external systems when you enable load targets or integrations.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Extensibility</h2>
+        <p className="text-slate-600 leading-relaxed">
+          Add new domain packs via schema + rules and register them in the codebase. Use the CLI <code className="bg-slate-100 px-1 rounded">scaffold-pack</code> to generate a pack template. See the contributor docs for pack authoring.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-slate-900 mb-4">Observability and lineage</h2>
+        <p className="text-slate-600 leading-relaxed mb-2">
+          Every run has a <strong>lineage</strong> (run → scenario → version → pack → artifacts) and a <strong>reproducibility manifest</strong> (seed, config version, git SHA, environment). Use these to audit, debug, and reproduce results. Scenario config changes are versioned so you can compare and diff history.
+        </p>
+        <Link href="/docs" className="text-sm text-[var(--brand-teal)] hover:underline">Docs: observability, lineage, scenario versioning →</Link>
+      </section>
+
+      <section>
         <h2 className="text-xl font-semibold text-slate-900 mb-4">How it works</h2>
         <p className="text-slate-600 leading-relaxed mb-4">
           Provide a schema (SQL DDL, JSON Schema, or OpenAPI) or select a pre-built domain pack. Data Forge loads

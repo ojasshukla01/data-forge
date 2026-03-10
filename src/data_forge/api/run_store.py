@@ -61,6 +61,8 @@ def create_run(
         "artifacts": [],
         "output_dir": None,
         "events": [],
+        "pinned": False,
+        "archived_at": None,
     }
     if source_scenario_id:
         record["source_scenario_id"] = source_scenario_id
@@ -118,7 +120,9 @@ def list_runs(
     pack: str | None = None,
     mode: str | None = None,
     layer: str | None = None,
+    source_scenario_id: str | None = None,
     limit: int = 100,
+    include_archived: bool = True,
 ) -> list[dict[str, Any]]:
     """List run records with optional filters."""
     runs_dir = _runs_dir()
@@ -132,11 +136,15 @@ def list_runs(
             r = json.loads(p.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             continue
+        if not include_archived and r.get("archived_at"):
+            continue
         if status and r.get("status") != status:
             continue
         if run_type and r.get("run_type") != run_type:
             continue
         if pack and r.get("selected_pack") != pack:
+            continue
+        if source_scenario_id and r.get("source_scenario_id") != source_scenario_id:
             continue
         cfg = r.get("config") or r.get("config_summary") or {}
         if mode and cfg.get("mode") != mode:
@@ -145,6 +153,18 @@ def list_runs(
             continue
         records.append(r)
     return records
+
+
+def delete_run(run_id: str) -> bool:
+    """Permanently delete a run record (remove JSON file). Does not remove output/ artifacts."""
+    path = _run_path(run_id)
+    if not path.exists():
+        return False
+    try:
+        path.unlink()
+        return True
+    except OSError:
+        return False
 
 
 def run_cleanup(
@@ -168,6 +188,12 @@ def run_cleanup(
     now = time.time()
 
     for i, p in enumerate(files):
+        try:
+            r = json.loads(p.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            r = {}
+        if r.get("pinned"):
+            continue
         if i >= count:
             to_delete.append(p)
             continue

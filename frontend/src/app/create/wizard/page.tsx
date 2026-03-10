@@ -8,7 +8,7 @@ import { scenarioConfigToWizardConfig, scenarioHasAdvancedOnlySettings } from "@
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { startRunGenerate, runPreflight, fetchPacks, fetchScenarios, fetchScenario, type PackInfo } from "@/lib/api";
+import { startRunGenerate, runPreflight, fetchPacks, fetchScenarios, fetchScenario, createScenario, type PackInfo } from "@/lib/api";
 import type { ScenarioRecord } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +52,12 @@ function WizardContent() {
   const [entryMode, setEntryMode] = useState<"scratch" | "scenario">("scratch");
   const [preflight, setPreflight] = useState<Record<string, unknown> | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
+  const [saveScenarioOpen, setSaveScenarioOpen] = useState(false);
+  const [saveScenarioName, setSaveScenarioName] = useState("");
+  const [saveScenarioDesc, setSaveScenarioDesc] = useState("");
+  const [saveScenarioCategory, setSaveScenarioCategory] = useState("custom");
+  const [saveScenarioLoading, setSaveScenarioLoading] = useState(false);
+  const [saveScenarioSuccess, setSaveScenarioSuccess] = useState(false);
 
   const stepId = STEPS[stepIndex].id;
 
@@ -148,6 +154,48 @@ function WizardContent() {
       setPreflight(null);
     }
   }, [stepId]);
+
+  const wizardConfigToApiConfig = (): Record<string, unknown> => ({
+    pack: config.pack,
+    schema_path: config.schemaPath,
+    seed: config.seed,
+    scale: config.scale,
+    messiness: config.messiness,
+    mode: config.mode,
+    layer: config.layer,
+    privacy_mode: config.privacyMode,
+    export_format: config.exportFormat,
+    load_target: config.loadTarget,
+    include_anomalies: config.include_anomalies,
+    anomaly_ratio: config.anomaly_ratio,
+    export_ge: config.exportGe,
+    export_airflow: config.exportAirflow,
+    export_dbt: config.exportDbt,
+    contracts: config.contracts,
+  });
+
+  const handleSaveScenario = async () => {
+    const name = saveScenarioName.trim();
+    if (!name) { setError("Scenario name is required"); return; }
+    setSaveScenarioLoading(true);
+    setError(null);
+    try {
+      await createScenario({
+        name,
+        description: saveScenarioDesc.trim(),
+        category: saveScenarioCategory,
+        config: wizardConfigToApiConfig(),
+        created_from_scenario_id: loadedScenario?.id,
+      });
+      setSaveScenarioSuccess(true);
+      setSaveScenarioOpen(false);
+      setTimeout(() => setSaveScenarioSuccess(false), 3000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save scenario");
+    } finally {
+      setSaveScenarioLoading(false);
+    }
+  };
 
   const handleRun = async () => {
     setLoading(true);
@@ -558,6 +606,47 @@ function WizardContent() {
                   ? "Fix blockers before running."
                   : "Ready to generate. Click Run to execute the pipeline."}
               </p>
+              {hasAdvancedOnly && (
+                <p className="text-amber-700 text-sm">This scenario includes pipeline simulation, benchmark, or other settings not editable in the wizard. Save as scenario will store current wizard values only.</p>
+              )}
+              {saveScenarioSuccess && <p className="text-green-700 text-sm">Scenario saved. You can find it in the Scenario library.</p>}
+              <div className="flex flex-wrap gap-2 items-center pt-2">
+                <Button variant="outline" size="sm" onClick={() => setSaveScenarioOpen(!saveScenarioOpen)}>
+                  {saveScenarioOpen ? "Cancel" : "Save as scenario"}
+                </Button>
+                {saveScenarioOpen && (
+                  <>
+                    <input
+                      type="text"
+                      value={saveScenarioName}
+                      onChange={(e) => setSaveScenarioName(e.target.value)}
+                      placeholder="Scenario name"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm w-48"
+                    />
+                    <input
+                      type="text"
+                      value={saveScenarioDesc}
+                      onChange={(e) => setSaveScenarioDesc(e.target.value)}
+                      placeholder="Description (optional)"
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm w-48"
+                    />
+                    <select
+                      value={saveScenarioCategory}
+                      onChange={(e) => setSaveScenarioCategory(e.target.value)}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+                    >
+                      <option value="custom">Custom</option>
+                      <option value="quick_start">Quick start</option>
+                      <option value="testing">Testing</option>
+                      <option value="pipeline_simulation">Pipeline simulation</option>
+                      <option value="warehouse_benchmark">Warehouse benchmark</option>
+                    </select>
+                    <Button size="sm" onClick={handleSaveScenario} disabled={saveScenarioLoading}>
+                      {saveScenarioLoading ? "Saving…" : "Save"}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </CardContent>

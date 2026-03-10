@@ -361,3 +361,133 @@ def test_run_detail_integration_summaries():
         elif d.get("status") == "failed":
             break
         time.sleep(0.2)
+
+
+def test_storage_summary_endpoint():
+    """Storage summary returns runs_count, artifact_count, total_size."""
+    r = client.get("/api/runs/storage/summary")
+    assert r.status_code == 200
+    data = r.json()
+    assert "runs_count" in data
+    assert "artifact_count" in data
+    assert "total_size_bytes" in data
+    assert "total_size_mb" in data
+    assert "by_run" in data
+
+
+def test_cleanup_preview_endpoint():
+    """Cleanup preview returns candidates and policy (dry-run)."""
+    r = client.get("/api/runs/cleanup/preview?retention_count=10")
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("dry_run") is True
+    assert "candidates" in data
+    assert "policy" in data
+
+
+def test_cleanup_execute_endpoint():
+    """Cleanup execute returns deleted_run_records."""
+    r = client.post("/api/runs/cleanup/execute", json={})
+    assert r.status_code == 200
+    data = r.json()
+    assert "deleted_run_records" in data
+    assert "deleted_artifact_dirs" in data
+
+
+def test_archive_pin_delete_run_endpoints():
+    """Archive, pin, unpin, delete run endpoints work when run exists."""
+    r1 = client.post("/api/runs/generate", json={"pack": "saas_billing", "scale": 20})
+    run_id = r1.json()["run_id"]
+    for _ in range(20):
+        r2 = client.get(f"/api/runs/{run_id}")
+        if r2.json().get("status") in ("succeeded", "failed"):
+            break
+        import time
+        time.sleep(0.2)
+    r_arch = client.post(f"/api/runs/{run_id}/archive")
+    assert r_arch.status_code == 200
+    assert r_arch.json().get("archived_at") is not None
+    r_pin = client.post(f"/api/runs/{run_id}/pin")
+    assert r_pin.status_code == 200
+    assert r_pin.json().get("pinned") is True
+    r_unpin = client.post(f"/api/runs/{run_id}/unpin")
+    assert r_unpin.status_code == 200
+    r_unarch = client.post(f"/api/runs/{run_id}/unarchive")
+    assert r_unarch.status_code == 200
+    r_del = client.post(f"/api/runs/{run_id}/delete", json={})
+    assert r_del.status_code == 200
+    assert r_del.json().get("deleted") == run_id
+    r_get = client.get(f"/api/runs/{run_id}")
+    assert r_get.status_code == 404
+
+
+def test_run_metrics_endpoint():
+    """Metrics endpoint returns aggregate run metrics."""
+    r = client.get("/api/runs/metrics")
+    assert r.status_code == 200
+    data = r.json()
+    assert "total_runs" in data
+    assert "runs_by_type" in data
+    assert "runs_by_status" in data
+    assert "average_duration_seconds" in data
+    assert "total_rows_generated" in data
+    assert "artifact_count" in data
+    assert "storage_mb" in data
+    assert "cleanup_candidates_count" in data
+    assert "failure_categories" in data
+
+
+def test_run_timeline_endpoint():
+    """Timeline endpoint returns structured stages and why_slow_hint for a run."""
+    r1 = client.post("/api/runs/generate", json={"pack": "saas_billing", "scale": 20})
+    run_id = r1.json()["run_id"]
+    for _ in range(25):
+        r2 = client.get(f"/api/runs/{run_id}")
+        if r2.json().get("status") == "succeeded":
+            break
+        import time
+        time.sleep(0.2)
+    r3 = client.get(f"/api/runs/{run_id}/timeline")
+    assert r3.status_code == 200
+    data = r3.json()
+    assert data.get("run_id") == run_id
+    assert "stages" in data
+    assert "events" in data
+    assert "stage_progress_full" in data
+    r4 = client.get("/api/runs/nonexistent_run_id/timeline")
+    assert r4.status_code == 404
+
+
+def test_scenario_versions_and_diff():
+    """Scenario versioning: create, update, list versions, get version config, diff."""
+    create = client.post(
+        "/api/scenarios",
+        json={"name": "Ver scenario", "config": {"pack": "saas_billing", "scale": 100}, "category": "custom"},
+    )
+    assert create.status_code == 200
+    scenario_id = create.json()["id"]
+    r_versions = client.get(f"/api/scenarios/{scenario_id}/versions")
+    assert r_versions.status_code == 200
+    assert "versions" in r_versions.json()
+    assert r_versions.json().get("current_version") in (1, None)
+    update = client.put(
+        f"/api/scenarios/{scenario_id}",
+        json={"config": {"pack": "saas_billing", "scale": 200}, "name": "Ver scenario"},
+    )
+    assert update.status_code == 200
+    r_versions2 = client.get(f"/api/scenarios/{scenario_id}/versions")
+    assert r_versions2.status_code == 200
+    r_diff = client.get(f"/api/scenarios/{scenario_id}/diff?left=1&right=2")
+    if r_diff.status_code == 200:
+        data = r_diff.json()
+        assert "changed" in data
+        assert data.get("left_version") == 1
+        assert data.get("right_version") == 2
+
+
+def test_run_lineage_and_manifest():
+    """Lineage and manifest endpoints: 404 for nonexistent run; structure when run exists."""
+    r_lineage = client.get("/api/runs/nonexistent_run_id/lineage")
+    assert r_lineage.status_code == 404
+    r_manifest = client.get("/api/runs/nonexistent_run_id/manifest")
+    assert r_manifest.status_code == 404

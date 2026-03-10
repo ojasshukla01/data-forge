@@ -749,5 +749,225 @@ def benchmark(
         console.print(f"[green]Full results written to {output_json}[/]")
 
 
+# ---- Runs / retention (API run store) ----
+
+runs_app = typer.Typer(help="Run metadata, retention, and storage (API run store).")
+
+
+@runs_app.command("storage")
+def runs_storage():
+    """Print storage usage summary (runs count, artifact size)."""
+    from data_forge.services.retention_service import get_storage_usage
+    u = get_storage_usage()
+    console.print(f"Runs: {u['runs_count']}  Artifacts: {u['artifact_count']}  Total: {u['total_size_mb']} MB")
+    if u.get("by_run"):
+        table = Table(title="By run (first 20)")
+        table.add_column("Run ID", style="cyan")
+        table.add_column("Type", style="white")
+        table.add_column("Status", style="white")
+        table.add_column("Size (MB)", style="green")
+        table.add_column("Pinned", style="yellow")
+        for r in u["by_run"][:20]:
+            table.add_row(
+                r.get("run_id", ""),
+                r.get("run_type", ""),
+                r.get("status", ""),
+                str(round((r.get("size_bytes") or 0) / (1024 * 1024), 2)),
+                "yes" if r.get("pinned") else "no",
+            )
+        console.print(table)
+
+
+@runs_app.command("cleanup-preview")
+def runs_cleanup_preview(
+    retention_count: Optional[int] = typer.Option(None, "--count", "-n", help="Keep last N runs"),
+    retention_days: Optional[float] = typer.Option(None, "--days", "-d", help="Prune older than N days"),
+):
+    """Dry-run: show runs that would be removed by cleanup."""
+    from data_forge.services.retention_service import preview_cleanup
+    out = preview_cleanup(retention_count=retention_count, retention_days=retention_days)
+    candidates = out.get("candidates", [])
+    policy = out.get("policy", {})
+    console.print(f"Policy: keep last {policy.get('retention_count')} runs, max age {policy.get('retention_days')} days")
+    console.print(f"Candidates for removal: {len(candidates)}")
+    if candidates:
+        table = Table(title="Would remove")
+        table.add_column("Run ID", style="cyan")
+        table.add_column("Type", style="white")
+        table.add_column("Status", style="white")
+        table.add_column("Age (days)", style="yellow")
+        for c in candidates[:30]:
+            table.add_row(
+                c.get("run_id", ""),
+                c.get("run_type", ""),
+                c.get("status", ""),
+                str(round(c.get("age_days", 0), 1)),
+            )
+        console.print(table)
+
+
+@runs_app.command("cleanup-execute")
+def runs_cleanup_execute(
+    retention_count: Optional[int] = typer.Option(None, "--count", "-n", help="Keep last N runs"),
+    retention_days: Optional[float] = typer.Option(None, "--days", "-d", help="Prune older than N days"),
+    delete_artifacts: bool = typer.Option(False, "--delete-artifacts", help="Also remove output dirs for pruned runs"),
+):
+    """Execute retention cleanup (remove run records; optionally artifact dirs)."""
+    from data_forge.services.retention_service import execute_cleanup
+    result = execute_cleanup(
+        delete_artifacts=delete_artifacts,
+        retention_count=retention_count,
+        retention_days=retention_days,
+    )
+    console.print(f"Deleted run records: {result.get('deleted_run_records', 0)}")
+    if result.get("deleted_artifact_dirs"):
+        console.print(f"Deleted artifact dirs: {result['deleted_artifact_dirs']}")
+
+
+@runs_app.command("archive")
+def runs_archive(run_id: str = typer.Argument(..., help="Run ID to archive")):
+    """Archive a run (hide from default list)."""
+    from data_forge.services.retention_service import archive_run
+    r = archive_run(run_id)
+    if not r:
+        console.print(f"[red]Run not found: {run_id}[/]")
+        raise typer.Exit(1)
+    console.print(f"[green]Archived {run_id}[/]")
+
+
+@runs_app.command("unarchive")
+def runs_unarchive(run_id: str = typer.Argument(..., help="Run ID to unarchive")):
+    """Unarchive a run."""
+    from data_forge.services.retention_service import unarchive_run
+    r = unarchive_run(run_id)
+    if not r:
+        console.print(f"[red]Run not found: {run_id}[/]")
+        raise typer.Exit(1)
+    console.print(f"[green]Unarchived {run_id}[/]")
+
+
+@runs_app.command("delete")
+def runs_delete(
+    run_id: str = typer.Argument(..., help="Run ID to delete"),
+    delete_artifacts: bool = typer.Option(False, "--delete-artifacts", help="Also remove output dir"),
+):
+    """Permanently delete a run record (and optionally its output dir)."""
+    from data_forge.services.retention_service import delete_run
+    ok = delete_run(run_id, delete_artifacts=delete_artifacts)
+    if not ok:
+        console.print(f"[red]Run not found: {run_id}[/]")
+        raise typer.Exit(1)
+    console.print(f"[green]Deleted {run_id}[/]")
+
+
+@runs_app.command("pin")
+def runs_pin(run_id: str = typer.Argument(..., help="Run ID to pin")):
+    """Pin a run (exclude from retention cleanup)."""
+    from data_forge.services.retention_service import pin_run
+    r = pin_run(run_id)
+    if not r:
+        console.print(f"[red]Run not found: {run_id}[/]")
+        raise typer.Exit(1)
+    console.print(f"[green]Pinned {run_id}[/]")
+
+
+@runs_app.command("unpin")
+def runs_unpin(run_id: str = typer.Argument(..., help="Run ID to unpin")):
+    """Unpin a run."""
+    from data_forge.services.retention_service import unpin_run
+    r = unpin_run(run_id)
+    if not r:
+        console.print(f"[red]Run not found: {run_id}[/]")
+        raise typer.Exit(1)
+    console.print(f"[green]Unpinned {run_id}[/]")
+
+
+app.add_typer(runs_app, name="runs")
+
+
+@app.command("scaffold-pack")
+def scaffold_pack(
+    name: str = typer.Argument(..., help="Pack id (e.g. my_domain, use underscores)"),
+    output_dir: Optional[Path] = typer.Option(None, "--output", "-o", path_type=Path, help="Root directory (default: project root)"),
+):
+    """Generate a new domain pack template: schema, rules, sample scenario, and docs."""
+    from data_forge.config import Settings
+    settings = Settings()
+    root = Path(output_dir) if output_dir else settings.project_root
+    safe = name.strip().lower().replace("-", "_")
+    schemas_dir = root / "schemas"
+    rules_dir = root / "rules"
+    examples_dir = root / "examples" / "scenarios"
+    docs_dir = root / "docs"
+    schemas_dir.mkdir(parents=True, exist_ok=True)
+    rules_dir.mkdir(parents=True, exist_ok=True)
+    examples_dir.mkdir(parents=True, exist_ok=True)
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    schema_sql = f"""-- Domain pack: {safe}
+-- Add your table definitions (DDL) here. Example:
+
+CREATE TABLE entities (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add more tables and relationships as needed.
+"""
+    (schemas_dir / f"{safe}.sql").write_text(schema_sql, encoding="utf-8")
+
+    rules_yml = f"""# Rules for pack: {safe}
+name: {safe}
+description: Validation and generation rules for {safe}
+
+rules: []
+# Add rules: uniqueness, ranges, referential, etc.
+"""
+    (rules_dir / f"{safe}.yaml").write_text(rules_yml, encoding="utf-8")
+
+    scenario_json = {
+        "name": f"{safe.replace('_', ' ').title()} quick start",
+        "description": f"Quick start scenario for {safe} pack",
+        "category": "quick_start",
+        "tags": [safe, "demo"],
+        "config": {
+            "pack": safe,
+            "scale": 1000,
+            "mode": "full_snapshot",
+            "layer": "bronze",
+            "config_schema_version": 1,
+        },
+    }
+    import json
+    (examples_dir / f"{safe}_quick_start.json").write_text(json.dumps(scenario_json, indent=2), encoding="utf-8")
+
+    readme = f"""# Pack: {safe}
+
+## Schema
+
+- `schemas/{safe}.sql` — table definitions.
+
+## Rules
+
+- `rules/{safe}.yaml` — validation/generation rules.
+
+## Register the pack
+
+1. Add to `src/data_forge/domain_packs/__init__.py` in `list_packs()`:
+   `("{safe}", "Your description"),`
+2. Add to `PACK_METADATA` dict with name, category, key_entities, etc.
+3. Run: `data-forge generate --pack {safe} --scale 100` to test.
+"""
+    (docs_dir / f"pack_{safe}.md").write_text(readme, encoding="utf-8")
+
+    console.print(f"[green]Scaffolded pack [bold]{safe}[/] at {root}[/]")
+    console.print(f"  schemas/{safe}.sql")
+    console.print(f"  rules/{safe}.yaml")
+    console.print(f"  examples/scenarios/{safe}_quick_start.json")
+    console.print(f"  docs/pack_{safe}.md")
+    console.print("[yellow]Next: register the pack in src/data_forge/domain_packs/__init__.py (list_packs and PACK_METADATA).[/]")
+
+
 if __name__ == "__main__":
     app()

@@ -113,10 +113,10 @@ function ArtifactsContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Artifact Explorer</h1>
-          <p className="mt-1 text-slate-600">Browse datasets, contracts, manifests, dbt seeds, GE suites, and DAGs</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Artifacts</h1>
+          <p className="mt-1.5 text-slate-600 text-sm sm:text-base">Browse datasets, event streams, contracts, manifests, dbt seeds, GE suites, and DAGs</p>
         </div>
         <Link href="/create/wizard"><Button variant="outline" size="sm">New run</Button></Link>
       </div>
@@ -131,11 +131,11 @@ function ArtifactsContent() {
           </CardContent>
         </Card>
       ) : artifacts.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-slate-600">No artifacts found</p>
-            <p className="text-sm text-slate-500 mt-2">Run a generation to create datasets and artifacts.</p>
-            <Link href="/create/wizard"><Button className="mt-6">Create dataset</Button></Link>
+        <Card className="border-slate-200">
+          <CardContent className="py-14 px-6 text-center">
+            <p className="text-slate-600 font-medium">No artifacts found</p>
+            <p className="text-sm text-slate-500 mt-1">Run a generation or benchmark to create datasets and artifacts. Filter by run if you have runs with outputs.</p>
+            <Link href="/create/wizard"><Button size="sm" className="mt-5">Create a run</Button></Link>
           </CardContent>
         </Card>
       ) : (

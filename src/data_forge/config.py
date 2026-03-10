@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     runs_retention_count: int = 100  # Keep last N run records
     runs_retention_days: float | None = None  # Prune older than N days (None = disabled)
 
+    # Storage backend: "file" (default) or "sqlite"
+    storage_backend: Literal["file", "sqlite"] = "file"
+    sqlite_uri: str | None = None  # Path to SQLite DB; default data/data_forge.db
+
     def get_output_path(self, name: str, fmt: OutputFormat | None = None) -> Path:
         """Resolve output path for a named dataset."""
         out = self.project_root / self.output_dir

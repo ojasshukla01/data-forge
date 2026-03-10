@@ -43,8 +43,8 @@ export default function TemplatesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Domain packs</h1>
-        <p className="mt-1 text-slate-600">Pre-built schemas and rules for common domains. Pick one and generate in seconds.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Domain packs</h1>
+        <p className="mt-1.5 text-slate-600 text-sm sm:text-base">Pre-built schemas and rules for common domains. Pick one and generate in seconds.</p>
       </div>
 
       {!loading && packs.length > 0 && (

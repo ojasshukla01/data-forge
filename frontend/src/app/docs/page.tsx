@@ -26,15 +26,27 @@ export default function DocsPage() {
   return (
     <div className="w-full min-w-0 max-w-4xl mx-auto px-2 sm:px-4 space-y-12 pb-12">
       <div>
-        <h1 className="text-page-title text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Documentation</h1>
-        <p className="mt-1 text-slate-600 text-sm sm:text-base">
-          Technical reference for Data Forge concepts, workflows, and how to use each feature.
-        </p>
+        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Documentation</h1>
+        <p className="mt-1 text-slate-600 text-sm">Concepts, workflows, and features.</p>
       </div>
 
+      <nav className="rounded-lg border border-slate-200 bg-slate-50/50 p-4" aria-label="Documentation index">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">On this page</p>
+        <ul className="text-sm space-y-1">
+          <li><a href="#quick-start" className="text-[var(--brand-teal)] hover:underline">Quick start</a></li>
+          <li><a href="#packs" className="text-[var(--brand-teal)] hover:underline">Domain packs</a></li>
+          <li><a href="#runs" className="text-[var(--brand-teal)] hover:underline">Runs</a></li>
+          <li><a href="#simulation" className="text-[var(--brand-teal)] hover:underline">Pipeline simulation</a></li>
+          <li><a href="#benchmark" className="text-[var(--brand-teal)] hover:underline">Benchmark</a></li>
+          <li><a href="#scenarios" className="text-[var(--brand-teal)] hover:underline">Scenarios</a></li>
+          <li><a href="#api" className="text-[var(--brand-teal)] hover:underline">API reference</a></li>
+          <li><a href="#glossary" className="text-[var(--brand-teal)] hover:underline">Glossary</a></li>
+        </ul>
+      </nav>
+
       {/* Quick Start */}
-      <section className="border-b border-slate-200 pb-10">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
+      <section id="quick-start" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
           Quick start
           <InfoTooltip content="Follow these steps to generate your first dataset in under a minute. Best for new users." />
         </h2>
@@ -71,9 +83,9 @@ export default function DocsPage() {
       </section>
 
       {/* Domain packs */}
-      <section className="border-b border-slate-200 pb-10">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
-          How to choose a domain pack
+      <section id="packs" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+          Domain packs
           <InfoTooltip content="Domain packs are ready-to-use schemas and rules. No need to write SQL or YAML yourself." />
         </h2>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
@@ -88,9 +100,9 @@ export default function DocsPage() {
       </section>
 
       {/* Understanding runs */}
-      <section className="border-b border-slate-200 pb-10">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
-          Understanding runs
+      <section id="runs" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+          Runs
           <InfoTooltip content="A run is one generation or benchmark execution. Each run has a unique ID and stores config, results, and artifacts." />
         </h2>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
@@ -98,8 +110,10 @@ export default function DocsPage() {
         </p>
         <ul className="list-disc list-inside text-slate-600 text-sm sm:text-base space-y-2 mb-4">
           <li><strong>Pipeline flow</strong> — Visual flow: Generation → Transform → Validate → Export → Load → Complete</li>
-          <li><strong>Run summary</strong> — Status, duration, rows generated, domain pack</li>
-          <li><strong>Stage timeline</strong> — Each stage (preflight, schema load, generation, export, etc.) with status and duration</li>
+          <li><strong>Run summary</strong> — Status, duration, rows generated, domain pack, run-type badge (Standard / Simulation / Benchmark)</li>
+          <li><strong>Stage timeline</strong> — Each stage (preflight, schema load, generation, export, etc.) with status and duration; &quot;Why slow?&quot; hint</li>
+          <li><strong>Lineage</strong> — Run → scenario → version → pack → artifacts</li>
+          <li><strong>Reproducibility manifest</strong> — Seed, config version, git SHA, environment (when run has completed)</li>
           <li><strong>Logs</strong> — Event log with timestamps and severity</li>
           <li><strong>Integration summaries</strong> — dbt, GE, Airflow, contracts, manifest status</li>
           <li><strong>Artifacts link</strong> — Browse and download outputs</li>
@@ -112,8 +126,8 @@ export default function DocsPage() {
       </section>
 
       {/* Pipeline simulation */}
-      <section className="border-b border-slate-200 pb-10">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
+      <section id="simulation" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
           Pipeline simulation
           <InfoTooltip content="Generate event streams and pipeline snapshots instead of (or in addition to) static tables. Ideal for streaming, CDC, and event-driven pipelines." />
         </h2>
@@ -138,9 +152,9 @@ export default function DocsPage() {
       </section>
 
       {/* Warehouse benchmark */}
-      <section className="border-b border-slate-200 pb-10">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
-          Warehouse benchmark mode
+      <section id="benchmark" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+          Benchmark
           <InfoTooltip content="Measure throughput (rows/s), generation time, and memory. Use scale presets and workload profiles for realistic warehouse load tests." />
         </h2>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
@@ -192,22 +206,22 @@ export default function DocsPage() {
       </section>
 
       {/* Saved scenarios */}
-      <section className="border-b border-slate-200 pb-10">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
-          Saved scenarios
-          <InfoTooltip content="Scenarios are named, reusable configs. Save once, run many times. Share via import/export." />
+      <section id="scenarios" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+          Scenarios
+          <InfoTooltip content="Save, update, or save-as-new. Edit metadata on the scenario detail page. Masked secrets are never stored." />
         </h2>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
-          Scenarios let you save a configuration (pack, scale, ETL settings, pipeline simulation, benchmark options) and reuse it later without re-entering everything.
+          Scenarios are named, reusable configs. You can <strong>save</strong> (from Advanced Config or the Create Wizard), <strong>update</strong> an existing scenario when loaded in Advanced Config, or <strong>save as new</strong> to create a copy without overwriting. On the scenario detail page, use &quot;Edit metadata&quot; to change name, description, category, and tags.
         </p>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
-          <strong>How to save:</strong> From Advanced config, click &quot;Save as scenario&quot;, enter name and category, then save. Or from a run detail page, click &quot;Create scenario from run&quot; to save that run&apos;s config.
-        </p>
-        <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
-          <strong>How to load:</strong> Open the Scenario library, click &quot;Edit in Advanced&quot; on a scenario, or go to Advanced config with <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">?scenario=&lt;id&gt;</code> in the URL.
+          <strong>Masked credentials:</strong> Connection secrets (e.g. db_uri, passwords) are never persisted as real values. When you create a scenario from a run or clone a config, sensitive fields are replaced with a placeholder. The UI shows a warning and which fields must be re-entered before running. Do not re-save a scenario with placeholders as real values.
         </p>
         <p className="text-slate-600 text-sm sm:text-base mb-4">
-          <strong>Import/Export:</strong> Export a scenario as JSON from the library, or import a JSON file to add it. Example scenarios live in <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">examples/scenarios/</code>.
+          <strong>Import/Export:</strong> Export as JSON from the scenario detail or library; import via Scenario library. Examples: <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">examples/scenarios/</code>.
+        </p>
+        <p className="text-slate-600 text-sm sm:text-base mb-4">
+          <strong>Version history &amp; diff:</strong> On the scenario detail page, use &quot;Version history&quot; to see all config versions and &quot;Compare versions&quot; to diff any two versions (changed fields, old vs new values).
         </p>
         <Link href="/scenarios">
           <Button variant="outline" size="sm">Scenario library</Button>
@@ -217,18 +231,38 @@ export default function DocsPage() {
       {/* Compare runs */}
       <section className="border-b border-slate-200 pb-10">
         <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
-          Compare runs
-          <InfoTooltip content="Side-by-side diff of two runs: config, summary, benchmark, simulation, and artifact counts." />
+          Compare runs &amp; debug
+          <InfoTooltip content="Side-by-side diff plus optional raw JSON diff for debugging." />
         </h2>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
-          Compare two runs to see what changed: pack, mode, scale, benchmark profile, row counts, throughput, artifact counts.
+          Compare two runs to see what changed: pack, mode, scale, benchmark profile, row counts, throughput, artifact counts. A top summary shows how many fields differ. Changed and missing-on-side values are highlighted.
         </p>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
-          <strong>How to use:</strong> From a run detail page, click &quot;Compare with another run&quot; (the current run is pre-selected as left). Or go to /runs/compare and pick left and right runs from the dropdowns. Changed values are highlighted.
+          <strong>Raw diff:</strong> Expand the &quot;Raw / detailed diff (JSON)&quot; section to view or copy the full structured comparison as JSON for debugging or scripting.
+        </p>
+        <p className="text-slate-600 text-sm sm:text-base mb-4">
+          <strong>How to use:</strong> From a run detail page, click &quot;Compare with another run&quot;. Or go to /runs/compare and pick left and right runs. Copy to clipboard from the raw diff block if needed.
         </p>
         <Link href="/runs/compare">
           <Button variant="outline" size="sm">Compare runs</Button>
         </Link>
+      </section>
+
+      {/* Local validation and CI */}
+      <section className="border-b border-slate-200 pb-10">
+        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
+          Local validation and demo
+          <InfoTooltip content="Run the same checks as CI locally. Use the demo to generate sample outputs without cloud credentials." />
+        </h2>
+        <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
+          <strong>Full validation</strong> (backend tests, frontend tests, type-check, build): from the repo root run <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">make validate-all</code>, or use <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">scripts/validate_all.ps1</code> / <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">scripts/validate_all.sh</code>. CI runs these steps on every push and pull request.
+        </p>
+        <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
+          <strong>Demo workflow:</strong> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">make demo-data</code> (or <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">scripts/run_demo.ps1</code> / <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">run_demo.sh</code>) generates a standard run, a scenario-style run, and a benchmark result under <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">demo_output/</code>. No cloud credentials required.
+        </p>
+        <p className="text-slate-600 text-sm sm:text-base mb-4">
+          <strong>Scenario examples:</strong> Import JSON from <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">examples/scenarios/</code> via Scenarios → Import scenario. Use Compare runs to diff two runs and the raw JSON diff for debugging.
+        </p>
       </section>
 
       {/* Validation */}
@@ -248,9 +282,26 @@ export default function DocsPage() {
         </Link>
       </section>
 
+      {/* API reference */}
+      <section id="api" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">API reference</h2>
+        <p className="text-slate-600 text-sm sm:text-base mb-4">
+          REST API for generation, runs, scenarios, artifacts, and metrics. OpenAPI (Swagger) docs are available when the backend is running.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="md">Swagger UI (localhost:8000/docs)</Button>
+          </a>
+          <a href="http://localhost:8000/redoc" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="md">ReDoc (localhost:8000/redoc)</Button>
+          </a>
+        </div>
+        <p className="text-sm text-slate-500 mt-2">See <code className="bg-slate-100 px-1 rounded">docs/api-reference.md</code> in the repo for an endpoint overview.</p>
+      </section>
+
       {/* Glossary */}
-      <section>
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 flex items-center gap-2">
+      <section id="glossary" className="scroll-mt-6">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
           Glossary
           <InfoTooltip content="Definitions of Data Forge and data-engineering terms used in this product." />
         </h2>

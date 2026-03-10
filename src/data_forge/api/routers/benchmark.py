@@ -12,7 +12,7 @@ from data_forge.models.generation import GenerationRequest, GenerationMode, Data
 from data_forge.models.simulation import scale_from_preset
 from data_forge.config import OutputFormat, Settings
 from data_forge.performance import estimate_peak_memory_mb
-from data_forge.api.run_store import create_run, get_run, update_run, append_event
+from data_forge.services import create_run, get_run, update_run, append_event
 
 router = APIRouter(prefix="/api", tags=["benchmark"])
 

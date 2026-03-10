@@ -1,0 +1,56 @@
+# CI: backend tests, lint (ruff), typecheck (mypy), frontend tests and build
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff (lint)
+        run: ruff check src tests
+
+      - name: Mypy (type check)
+        run: python -m mypy src
+        continue-on-error: true
+
+      - name: Pytest
+        run: python -m pytest tests -v --tb=short
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install
+
+      - name: Frontend typecheck
+        run: cd frontend && npx tsc --noEmit
+
+      - name: Frontend tests
+        run: cd frontend && npm test
+
+      - name: Frontend build
+        run: cd frontend && npm run build

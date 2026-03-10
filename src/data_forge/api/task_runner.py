@@ -6,13 +6,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from data_forge.api.run_store import (
-    get_run,
-    update_run,
-    append_event,
-)
+from data_forge.storage import get_run_store
 from data_forge.api.services import run_generate
 from data_forge.api.schemas import GenerateRequest
+from data_forge.models.config_schema import RunConfig
+from data_forge.models.run_manifest import build_run_manifest, write_manifest_json, write_manifest_markdown
+from data_forge.config import Settings
 from data_forge.simulation.event_stream import generate_event_stream, write_event_stream_jsonl
 from data_forge.simulation.time_patterns import EventPattern
 
@@ -196,36 +195,41 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
     """
     Execute generation in foreground (called from FastAPI BackgroundTasks).
     Updates run record with progress and result.
+    Config is normalized via RunConfig (versioned schema) for backward compatibility.
     """
-    append_event(run_id, "info", "Starting generation")
-    update_run(run_id, status="running", started_at=time.time())
+    store = get_run_store()
+    store.append_event(run_id, "info", "Starting generation")
+    store.update_run(run_id, status="running", started_at=time.time())
 
     # Initialize stages
     stages = [_stage_record(s, "pending") for s in STAGES]
-    update_run(run_id, stage_progress=stages)
+    store.update_run(run_id, stage_progress=stages)
 
-    record = get_run(run_id)
+    record = store.get_run(run_id)
     if not record:
         return
 
     try:
+        # Normalize config (legacy flat or nested) to versioned RunConfig, then to flat for engine
+        run_config = RunConfig.from_flat_dict(config)
+        flat = run_config.to_flat_dict()
+        req = GenerateRequest(**{k: v for k, v in flat.items() if k in GenerateRequest.model_fields})
+
         # Schema/rule load
         stages = _mark_stage(record["stage_progress"], "schema_load", "running")
-        update_run(run_id, stage_progress=stages)
-        append_event(run_id, "info", "Loading schema and rules")
-
-        req = GenerateRequest(**{k: v for k, v in config.items() if k in GenerateRequest.model_fields})
+        store.update_run(run_id, stage_progress=stages)
+        store.append_event(run_id, "info", "Loading schema and rules")
         stages = _mark_stage(stages, "schema_load", "completed")
         stages = _mark_stage(stages, "rule_load", "completed")
-        record = update_run(run_id, stage_progress=stages) or {}
+        record = store.update_run(run_id, stage_progress=stages) or {}
 
         # Generation
         stages = _mark_stage(stages, "generation", "running")
-        update_run(run_id, stage_progress=stages)
-        append_event(run_id, "info", "Running generation")
+        store.update_run(run_id, stage_progress=stages)
+        store.append_event(run_id, "info", "Running generation")
 
         result = run_generate(req)
-        record = get_run(run_id)
+        record = store.get_run(run_id)
         if not record:
             return
 
@@ -253,7 +257,7 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
             stages = _mark_stage(stages, "manifest", "skipped", "Not requested")
         stages = _mark_stage(stages, "validation", "completed", "Quality report computed")
         stages = _mark_stage(stages, "complete", "completed")
-        update_run(run_id, stage_progress=stages)
+        store.update_run(run_id, stage_progress=stages)
 
         # Pipeline simulation (event streams, snapshots)
         output_dir_path = Path(result.get("output_dir", "")) if result.get("output_dir") else None
@@ -297,7 +301,7 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
             else []
         )
 
-        update_run(
+        store.update_run(
             run_id,
             status="succeeded",
             finished_at=finished,
@@ -310,20 +314,39 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
             warnings=warnings,
             stage_progress=stages,
         )
-        append_event(run_id, "info", f"Completed: {len(tables)} tables, {total_rows} rows")
+        try:
+            settings = Settings()
+            manifest = build_run_manifest(
+                run_id,
+                record.get("run_type", "generate"),
+                config,
+                scenario_id=record.get("source_scenario_id"),
+                scenario_version=record.get("scenario_version"),
+                output_run_id=output_run_id,
+                total_rows=total_rows,
+                duration_seconds=duration,
+                storage_backend=getattr(settings, "storage_backend", "file"),
+                project_root=settings.project_root,
+            )
+            if output_dir_path and output_dir_path.exists():
+                write_manifest_json(manifest, output_dir_path)
+                write_manifest_markdown(manifest, output_dir_path)
+        except Exception:
+            pass
+        store.append_event(run_id, "info", f"Completed: {len(tables)} tables, {total_rows} rows")
 
     except Exception as e:
-        record = get_run(run_id)
+        record = store.get_run(run_id)
         if record:
             err_msg = str(e)
             stages = _mark_stage(record.get("stage_progress") or [], "generation", "failed", err_msg)
-            update_run(
+            store.update_run(
                 run_id,
                 status="failed",
                 finished_at=time.time(),
                 error_message=err_msg,
                 stage_progress=stages,
             )
-        append_event(run_id, "error", err_msg)
+        store.append_event(run_id, "error", str(e))
 
 

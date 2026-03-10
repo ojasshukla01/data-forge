@@ -1,6 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
+import { fetchRuns, fetchScenarios, type RunRecord, type ScenarioRecord } from "@/lib/api";
 
 const capabilities = [
   { title: "Realistic synthetic data", desc: "Schema-aware, FK-respecting, time-consistent.", href: "/create/wizard" },
@@ -9,86 +13,108 @@ const capabilities = [
 ];
 
 export default function HomePage() {
+  const [recentRuns, setRecentRuns] = useState<RunRecord[]>([]);
+  const [recentScenarios, setRecentScenarios] = useState<ScenarioRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetchRuns({ limit: 5 }).then((d) => setRecentRuns(d.runs ?? [])).catch(() => setRecentRuns([])),
+      fetchScenarios({}).then((d) => setRecentScenarios(d.scenarios ?? [])).catch(() => setRecentScenarios([])),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  const isFirstRun = !loading && recentRuns.length === 0 && recentScenarios.length === 0;
+
   return (
-    <div className="space-y-16">
-      <section className="text-center max-w-2xl mx-auto pt-4">
-        <h1 className="text-hero text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+    <div className="space-y-12 sm:space-y-16">
+      <section className="text-center max-w-xl mx-auto pt-4 sm:pt-8 pb-2">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           Data Forge
         </h1>
-        <p className="mt-4 text-xl text-slate-600 font-medium">
-          Schema-aware synthetic data for databases, APIs, and pipelines
+        <p className="mt-3 text-slate-600 text-base sm:text-lg">
+          Schema-aware synthetic data for databases, APIs, and pipelines. Realistic, relational, privacy-safe.
         </p>
-        <p className="mt-3 text-slate-600">
-          Generate realistic, relational, privacy-safe test data. Production-like data that respects
-          schemas, foreign keys, and business rules.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3 mt-8">
+        <div className="flex flex-wrap justify-center gap-3 mt-6">
           <Link href="/create/wizard">
-            <Button size="lg">Create Dataset</Button>
+            <Button size="lg">Create dataset</Button>
           </Link>
-          <Link href="/templates">
-            <Button variant="outline" size="lg">Explore Templates</Button>
-          </Link>
-          <Link href="/validate">
-            <Button variant="outline" size="lg">Validate Data</Button>
+          <Link href="/runs">
+            <Button variant="outline" size="lg">View runs</Button>
           </Link>
         </div>
-        <Link href="/runs" className="inline-block mt-4 text-sm text-slate-500 hover:text-[var(--brand-teal)] transition-colors">
-          View runs →
-        </Link>
       </section>
 
-      <section className="border-t border-slate-200 pt-12">
-        <h2 className="text-xl font-semibold text-slate-900 mb-2 text-center">Why Data Forge Exists</h2>
-        <p className="text-slate-600 text-center max-w-2xl mx-auto mb-8">
-          Synthetic datasets for demos and UAT. Pipeline simulation with event streams, full snapshot, incremental, and CDC.
-          Warehouse benchmark mode with scale presets and workload profiles. Validation and contracts for data quality.
-        </p>
-        <h2 className="text-xl font-semibold text-slate-900 mb-6 text-center">Core capabilities</h2>
-        <div className="grid gap-4 sm:grid-cols-3 max-w-3xl mx-auto">
+      {isFirstRun && (
+        <section className="max-w-2xl mx-auto rounded-xl border border-slate-200 bg-slate-50/50 p-5 sm:p-6" aria-label="Get started">
+          <h2 className="text-lg font-semibold text-slate-900 mb-2">Get started</h2>
+          <p className="text-slate-600 text-sm mb-4">No runs or scenarios yet. Pick one:</p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/create/wizard"><Button size="sm">Create</Button></Link>
+            <Link href="/templates"><Button variant="outline" size="sm">Templates</Button></Link>
+            <Link href="/scenarios"><Button variant="outline" size="sm">Scenarios</Button></Link>
+            <Link href="/create/advanced"><Button variant="outline" size="sm">Advanced / Import</Button></Link>
+          </div>
+        </section>
+      )}
+
+      {!loading && (recentRuns.length > 0 || recentScenarios.length > 0) && (
+        <section className="max-w-2xl mx-auto">
+          <h2 className="text-lg font-semibold text-slate-900 mb-3">Recent</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {recentRuns.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-medium text-slate-700 mb-1">Runs</p>
+                  <ul className="text-sm space-y-0.5">
+                    {recentRuns.slice(0, 3).map((r) => (
+                      <li key={r.id}>
+                        <Link href={`/runs/${r.id}`} className="text-[var(--brand-teal)] hover:underline font-mono truncate block">{r.id}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/runs" className="text-xs text-slate-500 hover:text-[var(--brand-teal)] mt-2 inline-block">View all</Link>
+                </CardContent>
+              </Card>
+            )}
+            {recentScenarios.length > 0 && (
+              <Card>
+                <CardContent className="py-3">
+                  <p className="text-sm font-medium text-slate-700 mb-1">Scenarios</p>
+                  <ul className="text-sm space-y-0.5">
+                    {recentScenarios.slice(0, 3).map((s) => (
+                      <li key={s.id}>
+                        <Link href={`/scenarios/${s.id}`} className="text-[var(--brand-teal)] hover:underline truncate block">{s.name}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/scenarios" className="text-xs text-slate-500 hover:text-[var(--brand-teal)] mt-2 inline-block">View all</Link>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </section>
+      )}
+
+      <section className="max-w-3xl mx-auto pt-6 border-t border-slate-100">
+        <h2 className="text-lg font-semibold text-slate-900 mb-3 text-center">Capabilities</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
           {capabilities.map((c) => (
             <Link key={c.title} href={c.href}>
-              <Card className="h-full hover:border-[var(--brand-teal)]/40 hover:shadow-md transition-all duration-200 cursor-pointer group">
-                <CardContent className="pt-4 pb-4">
-                  <p className="font-medium text-slate-900 group-hover:text-[var(--brand-teal)] transition-colors">{c.title}</p>
-                  <p className="text-sm text-slate-600 mt-1">{c.desc}</p>
+              <Card className="h-full hover:border-[var(--brand-teal)]/30 transition-colors">
+                <CardContent className="py-3 px-4">
+                  <p className="font-medium text-slate-900 text-sm">{c.title}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">{c.desc}</p>
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
-        <div className="text-center mt-8">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">Example Use Cases</h2>
-          <div className="grid gap-4 sm:grid-cols-3 max-w-3xl mx-auto text-left">
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/50">
-              <p className="font-medium text-slate-900">Pipeline simulation</p>
-              <p className="text-sm text-slate-600 mt-1">Event streams, full snapshot, incremental, CDC with bronze/silver/gold layers.</p>
-            </div>
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/50">
-              <p className="font-medium text-slate-900">Warehouse benchmark</p>
-              <p className="text-sm text-slate-600 mt-1">Scale presets, workload profiles. Load test SQLite, DuckDB, Postgres, Snowflake, BigQuery.</p>
-            </div>
-            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50/50">
-              <p className="font-medium text-slate-900">Synthetic analytics</p>
-              <p className="text-sm text-slate-600 mt-1">Realistic demo datasets with schema-aware, FK-respecting data.</p>
-            </div>
-          </div>
-          <Link href="/templates" className="inline-block mt-6">
-            <Button variant="outline" size="md">Browse templates</Button>
-          </Link>
-        </div>
-      </section>
-
-      <section className="border-t border-slate-200 pt-12 text-center">
-        <p className="text-slate-600 mb-4">Open-source. Built for the modern data stack.</p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Link href="/create/wizard"><Button size="md">Get started</Button></Link>
-          <Link href="/about"><Button variant="outline" size="md">About</Button></Link>
-          <Link href="/docs"><Button variant="outline" size="md">Docs</Button></Link>
-          <a href="https://github.com/ojasshukla01/data-forge" target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="md">GitHub</Button>
-          </a>
-        </div>
+        <p className="text-center mt-6 text-sm text-slate-500">
+          <Link href="/docs" className="text-[var(--brand-teal)] hover:underline">Docs</Link>
+          {" · "}
+          <Link href="/about" className="text-[var(--brand-teal)] hover:underline">About</Link>
+        </p>
       </section>
     </div>
   );

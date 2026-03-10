@@ -224,3 +224,83 @@ async def test_run_from_scenario_sets_source_scenario_id(sample_config):
                 p.unlink()
     finally:
         delete_scenario(s["id"])
+
+
+@pytest.mark.asyncio
+async def test_update_scenario_metadata(sample_config):
+    s = create_scenario("Update meta test", sample_config, description="Old", category="testing")
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.put(
+                f"/api/scenarios/{s['id']}",
+                json={"name": "Updated name", "description": "New desc", "category": "custom", "tags": ["a", "b"]},
+            )
+            assert r.status_code == 200
+            data = r.json()
+            assert data["name"] == "Updated name"
+            assert data["description"] == "New desc"
+            assert data["category"] == "custom"
+            assert data["tags"] == ["a", "b"]
+            assert data["updated_at"] >= s["updated_at"]
+    finally:
+        delete_scenario(s["id"])
+
+
+@pytest.mark.asyncio
+async def test_update_scenario_rejects_empty_name(sample_config):
+    s = create_scenario("Empty name test", sample_config)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.put(f"/api/scenarios/{s['id']}", json={"name": "   "})
+            assert r.status_code == 400
+    finally:
+        delete_scenario(s["id"])
+
+
+@pytest.mark.asyncio
+async def test_create_scenario_with_created_from_scenario_id(sample_config):
+    parent = create_scenario("Parent scenario", sample_config)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.post(
+                "/api/scenarios",
+                json={
+                    "name": "Child scenario",
+                    "category": "custom",
+                    "config": sample_config,
+                    "created_from_scenario_id": parent["id"],
+                },
+            )
+            assert r.status_code == 200
+            data = r.json()
+            assert data["name"] == "Child scenario"
+            assert data["id"] != parent["id"]
+            assert data.get("created_from_scenario_id") == parent["id"]
+            delete_scenario(data["id"])
+    finally:
+        delete_scenario(parent["id"])
+
+
+@pytest.mark.asyncio
+async def test_list_runs_filter_by_source_scenario_id(sample_config):
+    from data_forge.api.run_store import create_run, _runs_dir
+
+    s = create_scenario("Filter scenario", sample_config)
+    run_id = "run_filterscen123"
+    create_run(run_id, "generate", sample_config, source_scenario_id=s["id"])
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            r = await client.get(f"/api/runs?source_scenario_id={s['id']}")
+            assert r.status_code == 200
+            runs = r.json().get("runs") or []
+            ids = [x["id"] for x in runs]
+            assert run_id in ids
+            for x in runs:
+                if x["id"] == run_id:
+                    assert x.get("source_scenario_id") == s["id"]
+                    break
+    finally:
+        p = _runs_dir() / f"{run_id}.json"
+        if p.exists():
+            p.unlink()
+        delete_scenario(s["id"])
