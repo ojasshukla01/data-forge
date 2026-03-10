@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class GenerationMode(str, Enum):
@@ -138,3 +138,39 @@ class TableSummary(BaseModel):
     columns: list[str]
     primary_key: list[str]
     row_estimate: int | None = None
+
+
+class CustomSchemaSummary(BaseModel):
+    """Summary view of a custom schema in the registry."""
+
+    id: str
+    name: str
+    description: str | None = None
+    tags: list[str] | None = None
+    version: int
+    created_at: float | None = None
+    updated_at: float | None = None
+
+
+class CustomSchemaDetail(BaseModel):
+    """Full custom schema definition and metadata."""
+
+    id: str
+    name: str
+    description: str | None = None
+    tags: list[str] | None = None
+    version: int
+    created_at: float | None = None
+    updated_at: float | None = None
+    schema: dict[str, Any]
+
+
+class CustomSchemaVersionInfo(BaseModel):
+    version: int
+    updated_at: float | None = None
+
+
+class CustomSchemaVersionsResponse(BaseModel):
+    schema_id: str
+    versions: list[CustomSchemaVersionInfo]
+    current_version: int

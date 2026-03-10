@@ -3,6 +3,9 @@
 from datetime import date, datetime
 from typing import Any
 
+from data_forge.adapters.base import BaseDatabaseAdapter
+from data_forge.models.schema import SchemaModel, DataType
+
 
 def _to_json_safe(obj: Any) -> Any:
     """Convert to JSON-serializable form for BigQuery insert_rows_json."""
@@ -15,9 +18,6 @@ def _to_json_safe(obj: Any) -> Any:
     if isinstance(obj, (list, tuple)):
         return [_to_json_safe(x) for x in obj]
     return obj
-
-from data_forge.adapters.base import BaseDatabaseAdapter
-from data_forge.models.schema import SchemaModel, DataType
 
 
 def _data_type_to_bigquery(dt: DataType) -> str:
@@ -97,7 +97,6 @@ class BigQueryAdapter(BaseDatabaseAdapter):
     def load_table(self, table_name: str, rows: list[dict[str, Any]]) -> int:
         if not rows:
             return 0
-        from google.cloud import bigquery
         table_ref = f"{self.project}.{self.dataset_id}.{table_name}"
         safe_rows = [_to_json_safe(dict(r)) for r in rows]
         errors = self._client.insert_rows_json(table_ref, safe_rows)
@@ -107,7 +106,6 @@ class BigQueryAdapter(BaseDatabaseAdapter):
         return len(rows)
 
     def validate_load(self) -> dict[str, Any]:
-        from google.cloud import bigquery
         result: dict[str, Any] = {"expected": dict(self._load_counts), "actual": {}, "success": True}
         for table_name in self._load_counts:
             table_ref = f"{self.project}.{self.dataset_id}.{table_name}"

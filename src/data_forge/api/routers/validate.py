@@ -40,9 +40,9 @@ def api_validate(params: dict) -> dict:
     try:
         schema = load_schema(schema_path, project_root=root)
     except SecurityError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Schema parse failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Schema parse failed: {e}") from e
 
     if not data_path.is_dir():
         raise HTTPException(status_code=400, detail=f"Data path not a directory: {data_path}")

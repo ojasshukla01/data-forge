@@ -100,7 +100,7 @@ class SchemaModel(BaseModel):
         """Return tables in order suitable for generation (parents first)."""
         # Topological sort: table with FK (from_table) depends on to_table; we want to_table first
         table_names = {t.name for t in self.tables}
-        in_degree = {n: 0 for n in table_names}
+        in_degree = dict.fromkeys(table_names, 0)
         for r in self.relationships:
             if r.from_table in table_names:
                 in_degree[r.from_table] = in_degree.get(r.from_table, 0) + 1

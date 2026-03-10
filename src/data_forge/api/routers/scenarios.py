@@ -4,15 +4,19 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Body
 
-from data_forge.api.scenario_store import (
+from data_forge.models.config_schema import CONFIG_SCHEMA_VERSION
+from data_forge.services import (
     create_scenario,
     get_scenario,
     list_scenarios,
     update_scenario,
     delete_scenario,
     get_masked_field_names,
+    get_run,
+    get_scenario_versions,
+    get_scenario_version_config,
+    diff_scenario_versions,
 )
-from data_forge.api.run_store import get_run
 from data_forge.api.task_runner import execute_generation_async
 from data_forge.api.routers.runs import _new_run_id
 from data_forge.api.routers.benchmark import execute_benchmark_async
@@ -42,16 +46,25 @@ def _validate_scenario_payload(payload: dict[str, Any]) -> None:
         raise HTTPException(status_code=400, detail=f"Invalid category. Use: {sorted(VALID_CATEGORIES)}")
 
 
+def _normalize_scenario_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Ensure config has schema version for export/import round-trip."""
+    out = dict(config)
+    if "config_schema_version" not in out:
+        out["config_schema_version"] = CONFIG_SCHEMA_VERSION
+    return out
+
+
 @router.post("")
 def create_scenario_api(payload: dict[str, Any] = Body(...)) -> dict:
     """Create a new scenario from config payload."""
     _validate_scenario_payload(payload)
-    config = payload["config"]
+    config = _normalize_scenario_config(payload["config"])
     name = payload.get("name") or config.get("name", "Unnamed")
     description = payload.get("description", "")
     category = payload.get("category") or "custom"
     tags = payload.get("tags") or []
     created_from_run_id = payload.get("created_from_run_id")
+    created_from_scenario_id = payload.get("created_from_scenario_id")
     record = create_scenario(
         name=name,
         config=config,
@@ -59,6 +72,7 @@ def create_scenario_api(payload: dict[str, Any] = Body(...)) -> dict:
         category=category,
         tags=tags,
         created_from_run_id=created_from_run_id,
+        created_from_scenario_id=created_from_scenario_id,
     )
     return record
 
@@ -105,7 +119,10 @@ def update_scenario_api(scenario_id: str, payload: dict[str, Any] = Body(...)) -
         raise HTTPException(status_code=404, detail="Scenario not found")
     updates = {}
     if "name" in payload:
-        updates["name"] = payload["name"]
+        name_val = (payload["name"] or "").strip()
+        if not name_val:
+            raise HTTPException(status_code=400, detail="name cannot be empty")
+        updates["name"] = name_val
     if "description" in payload:
         updates["description"] = payload.get("description", "")
     if "category" in payload:
@@ -118,7 +135,7 @@ def update_scenario_api(scenario_id: str, payload: dict[str, Any] = Body(...)) -
     if "config" in payload:
         if not isinstance(payload["config"], dict):
             raise HTTPException(status_code=400, detail="config must be an object")
-        updates["config"] = payload["config"]
+        updates["config"] = _normalize_scenario_config(payload["config"])
     updated = update_scenario(scenario_id, **updates)
     return updated or record
 
@@ -192,13 +209,53 @@ def import_scenario(payload: dict[str, Any] = Body(...)) -> dict:
     return created
 
 
-@router.get("/{scenario_id}/export")
-def export_scenario(scenario_id: str) -> dict:
-    """Export scenario as JSON (for download/import)."""
+@router.get("/{scenario_id}/versions")
+def list_scenario_versions(scenario_id: str) -> dict:
+    """List version history for a scenario."""
     record = get_scenario(scenario_id)
     if not record:
         raise HTTPException(status_code=404, detail="Scenario not found")
-    return {
+    versions = get_scenario_versions(scenario_id)
+    return {"scenario_id": scenario_id, "versions": versions, "current_version": record.get("version", 1)}
+
+
+@router.get("/{scenario_id}/versions/{version}")
+def get_scenario_version(scenario_id: str, version: str) -> dict:
+    """Get config snapshot for a specific version."""
+    try:
+        version_num = int(version)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Version must be an integer") from None
+    record = get_scenario(scenario_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    config = get_scenario_version_config(scenario_id, version_num)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Version not found")
+    versions = get_scenario_versions(scenario_id)
+    ver_info = next((v for v in versions if v.get("version") == version_num), {})
+    return {"scenario_id": scenario_id, "version": version_num, "config": config, "updated_at": ver_info.get("updated_at")}
+
+
+@router.get("/{scenario_id}/diff")
+def diff_scenario(scenario_id: str, left: int, right: int) -> dict:
+    """Compare two scenario versions. Query: ?left=1&right=2."""
+    record = get_scenario(scenario_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    result = diff_scenario_versions(scenario_id, left, right)
+    if result is None:
+        raise HTTPException(status_code=400, detail="Could not compute diff for the given versions")
+    return result
+
+
+@router.get("/{scenario_id}/export")
+def export_scenario(scenario_id: str) -> dict:
+    """Export scenario as JSON (for download/import). Includes version info."""
+    record = get_scenario(scenario_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    out = {
         "id": record.get("id"),
         "name": record.get("name"),
         "description": record.get("description"),
@@ -207,3 +264,8 @@ def export_scenario(scenario_id: str) -> dict:
         "config": record.get("config"),
         "source_pack": record.get("source_pack"),
     }
+    if record.get("version") is not None:
+        out["version"] = record["version"]
+    if record.get("updated_at") is not None:
+        out["updated_at"] = record["updated_at"]
+    return out

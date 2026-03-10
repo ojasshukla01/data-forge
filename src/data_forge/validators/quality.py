@@ -28,9 +28,8 @@ def _collect_rule_violations(
             for rule in applicable:
                 passed, err_msg = _evaluate_rule_impl(rule, table_name, row, context)
                 if not passed and err_msg:
-                    row_snippet = {k: v for k, v in list(row.items())[:5]}
+                    row_snippet = dict(list(row.items())[:5])
                     if pii_detection and redaction_config and redaction_config.enabled:
-                        col_cats = pii_detection.get(table_name, {})
                         row_snippet = redact_samples(
                             [row_snippet], table_name, pii_detection, redaction_config
                         )[0]
@@ -58,7 +57,7 @@ def _collect_rule_violations(
                         })
 
     samples = []
-    for name, lst in samples_per_rule.items():
+    for _name, lst in samples_per_rule.items():
         samples.extend(lst[:max_samples_per_rule])
 
     if not violations:

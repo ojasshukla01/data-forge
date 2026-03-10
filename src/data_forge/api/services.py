@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from data_forge.domain_packs import get_pack, list_packs
+from data_forge.domain_packs import get_pack
 from data_forge.engine import run_generation, export_result
 from data_forge.models.generation import (
     DataLayer,

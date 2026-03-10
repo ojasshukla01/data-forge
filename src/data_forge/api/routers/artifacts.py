@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from data_forge.api.run_store import list_runs
+from data_forge.services import list_runs
 
 router = APIRouter(prefix="/api/artifacts", tags=["artifacts"])
 

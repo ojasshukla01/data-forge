@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from data_forge.models.schema import RelationshipDef, SchemaModel, TableDef
+from data_forge.models.schema import SchemaModel, TableDef
 
 
 class RelationshipBuilder:

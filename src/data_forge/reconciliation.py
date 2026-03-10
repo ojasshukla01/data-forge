@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from data_forge.golden import load_manifest, _count_rows
+from data_forge.golden import load_manifest
 from data_forge.validators.quality import load_dataset_from_dir
 
 

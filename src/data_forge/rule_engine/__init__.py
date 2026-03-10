@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
 
 from data_forge.models.rules import (
     BusinessRule,

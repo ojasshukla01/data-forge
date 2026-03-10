@@ -45,7 +45,6 @@ def generate_table(
         row: dict[str, Any] = {}
         for col in table.columns:
             # If this column is a FK, take from parent_key_supplier
-            key = (table.name, col.name)
             if parent_key_supplier:
                 # Format: parent_key_supplier can be { "parent_table": [pk1, pk2, ...] }
                 # and we have a relationship table -> parent_table on col.name

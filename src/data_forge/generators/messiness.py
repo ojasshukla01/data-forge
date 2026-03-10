@@ -24,7 +24,7 @@ def apply_messiness(
     rng = random.Random(seed)
     intensity = {"realistic": 0.15, "chaotic": 0.4}[profile.value]
 
-    for table_name, rows in table_data.items():
+    for _table_name, rows in table_data.items():
         n = len(rows)
         if n == 0:
             continue

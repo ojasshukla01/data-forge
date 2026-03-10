@@ -1,0 +1,56 @@
+# Backend: ruff + pytest. Frontend: only when frontend/package.json is present.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run ruff
+        run: ruff check src tests
+
+      - name: Run pytest
+        run: pytest tests -v --tb=short
+
+  frontend:
+    runs-on: ubuntu-latest
+    # Only run when frontend exists in the repo (e.g. optional or in monorepo)
+    if: hashFiles('frontend/package.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install
+
+      - name: Frontend type-check
+        run: cd frontend && npx tsc --noEmit
+
+      - name: Frontend unit tests
+        run: cd frontend && npm test
+
+      - name: Build frontend
+        run: cd frontend && npm run build

@@ -94,6 +94,7 @@ def create_scenario(
     category: str = "custom",
     tags: list[str] | None = None,
     created_from_run_id: str | None = None,
+    created_from_scenario_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new scenario. Returns full scenario record."""
     scenario_id = f"scenario_{uuid.uuid4().hex[:12]}"
@@ -113,6 +114,7 @@ def create_scenario(
         "created_at": now,
         "updated_at": now,
         "created_from_run_id": created_from_run_id,
+        "created_from_scenario_id": created_from_scenario_id,
         "key_features": badges,
         "uses_pipeline_simulation": summary.get("uses_pipeline_simulation", False),
         "uses_benchmark": summary.get("uses_benchmark", False),
@@ -120,6 +122,8 @@ def create_scenario(
         "uses_integrations": bool(
             config.get("export_dbt") or config.get("export_ge") or config.get("export_airflow")
         ),
+        "version": 1,
+        "versions": [{"version": 1, "config": dict(config), "updated_at": now}],
     }
     path = _scenario_path(scenario_id)
     path.write_text(json.dumps(record, indent=2), encoding="utf-8")
@@ -137,12 +141,28 @@ def get_scenario(scenario_id: str) -> dict[str, Any] | None:
         return None
 
 
+MAX_VERSION_HISTORY = 20
+
+
 def update_scenario(scenario_id: str, **kwargs: Any) -> dict[str, Any] | None:
-    """Update scenario. Merges kwargs. Recomputes summary/badges if config changes."""
+    """Update scenario. Merges kwargs. Recomputes summary/badges if config changes. Appends version history."""
     record = get_scenario(scenario_id)
     if not record:
         return None
+    now = time.time()
     if "config" in kwargs:
+        versions = record.get("versions") or []
+        current_version = record.get("version", 1)
+        if versions and record.get("config") is not None:
+            versions.append({
+                "version": current_version,
+                "config": dict(record["config"]),
+                "updated_at": record.get("updated_at") or now,
+            })
+            versions = versions[-MAX_VERSION_HISTORY:]
+        new_version = current_version + 1
+        record["version"] = new_version
+        record["versions"] = versions
         record["config_summary"] = _redact_config(kwargs["config"])
         summary = _extract_summary(kwargs["config"])
         record["key_features"] = _derive_badges(kwargs["config"])
@@ -157,7 +177,7 @@ def update_scenario(scenario_id: str, **kwargs: Any) -> dict[str, Any] | None:
             or kwargs["config"].get("export_airflow")
         )
         record["source_pack"] = kwargs["config"].get("pack")
-    record["updated_at"] = time.time()
+    record["updated_at"] = now
     for k, v in kwargs.items():
         if v is not None:
             record[k] = v

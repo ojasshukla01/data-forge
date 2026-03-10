@@ -13,7 +13,19 @@ import { LogPanel } from "@/components/LogPanel";
 import { PipelineFlowGraph } from "@/components/PipelineFlowGraph";
 import { PipelineSimulationSection } from "@/components/PipelineSimulationSection";
 import { CopyButton } from "@/components/CopyButton";
-import { fetchRunDetail, rerunRun, cloneRunConfig, createScenarioFromRun, type RunRecord } from "@/lib/api";
+import {
+  fetchRunDetail,
+  rerunRun,
+  cloneRunConfig,
+  createScenarioFromRun,
+  fetchRunLineage,
+  fetchRunManifest,
+  fetchRunTimeline,
+  type RunRecord,
+  type RunLineage,
+  type RunManifest,
+  type RunTimeline,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 2000;
@@ -25,6 +37,10 @@ export default function RunDetailPage() {
   const [run, setRun] = useState<RunRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lineage, setLineage] = useState<RunLineage | null>(null);
+  const [manifest, setManifest] = useState<RunManifest | null>(null);
+  const [timeline, setTimeline] = useState<RunTimeline | null>(null);
+  const [lineageManifestLoading, setLineageManifestLoading] = useState(false);
 
   const load = useCallback(async () => {
     const r = await fetchRunDetail(id);
@@ -46,6 +62,16 @@ export default function RunDetailPage() {
     }, POLL_INTERVAL_MS);
     return () => clearInterval(t);
   }, [id, run?.status, load]);
+
+  useEffect(() => {
+    if (!id) return;
+    setLineageManifestLoading(true);
+    Promise.all([
+      fetchRunLineage(id).then(setLineage).catch(() => setLineage(null)),
+      fetchRunManifest(id).then(setManifest).catch(() => setManifest(null)),
+      fetchRunTimeline(id).then(setTimeline).catch(() => setTimeline(null)),
+    ]).finally(() => setLineageManifestLoading(false));
+  }, [id]);
 
   const handleRerun = async () => {
     try {
@@ -107,6 +133,11 @@ export default function RunDetailPage() {
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-mono truncate min-w-0">{run.id}</h1>
             <CopyButton text={run.id} label="Copy run ID" title="Copy run ID" />
+            {run.run_type === "benchmark" && <Badge variant="category" className="shrink-0">Benchmark</Badge>}
+            {run.run_type === "generate" && (cfg?.pipeline_simulation as { enabled?: boolean })?.enabled && <Badge variant="category" className="shrink-0">Simulation</Badge>}
+            {run.run_type === "generate" && !(cfg?.pipeline_simulation as { enabled?: boolean })?.enabled && <Badge variant="category" className="shrink-0 bg-slate-100 text-slate-700">Standard</Badge>}
+            {run.pinned && <span className="text-sm text-slate-500" title="Pinned (excluded from cleanup)">📌 Pinned</span>}
+            {run.archived_at != null && <Badge variant="category" className="shrink-0 bg-slate-200 text-slate-600">Archived</Badge>}
           </div>
           <p className="text-slate-500 text-sm mt-0.5">
             {run.created_at ? new Date(run.created_at * 1000).toLocaleString() : "—"}
@@ -119,8 +150,8 @@ export default function RunDetailPage() {
           <Button variant="outline" size="sm" onClick={handleClone}>Clone</Button>
           <Button variant="outline" size="sm" onClick={handleCreateScenario}>Create scenario from run</Button>
           <Button variant="outline" size="sm" onClick={handleRerun}>Rerun</Button>
-          {(summary?.output_dir || (summary as { artifact_run_id?: string }).artifact_run_id) && (
-            <Link href={`/artifacts?run=${(summary as { artifact_run_id?: string }).artifact_run_id ?? run.id}`}>
+          {Boolean(summary?.output_dir || (summary as { artifact_run_id?: string })?.artifact_run_id) && (
+            <Link href={`/artifacts?run=${(summary as { artifact_run_id?: string })?.artifact_run_id ?? run.id}`}>
               <Button variant="outline" size="sm">Artifacts</Button>
             </Link>
           )}
@@ -176,11 +207,32 @@ export default function RunDetailPage() {
         <StatCard label="Run Mode" value={String(cfg.mode ?? "full_snapshot")} />
       </div>
 
-      {run.stage_progress && run.stage_progress.length > 0 && (
+      {(timeline?.why_slow_hint || (run.run_type === "benchmark" && run.duration_seconds != null)) && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3" role="status">
+          <p className="text-sm font-medium text-amber-900">Why slow?</p>
+          <p className="text-sm text-amber-800 mt-0.5">
+            {timeline?.why_slow_hint ?? (run.duration_seconds != null ? `Total duration: ${run.duration_seconds}s. Check stage timeline for bottlenecks.` : "")}
+          </p>
+        </div>
+      )}
+
+      {run.stage_progress && run.stage_progress.length > 0 && (() => {
+        const withDuration = run.stage_progress!.filter((s) => s.duration_seconds != null && s.status === "completed");
+        const total = run.duration_seconds ?? (withDuration.length ? withDuration.reduce((a, s) => a + (s.duration_seconds ?? 0), 0) : 0);
+        const slowest = withDuration.length ? withDuration.reduce((a, s) => (s.duration_seconds ?? 0) > (a?.duration_seconds ?? 0) ? s : a, withDuration[0]) : null;
+        const whySlow = total && total > 0 && slowest && slowest.duration_seconds
+          ? `${slowest.name.replace(/_/g, " ")} took ${Math.round(100 * slowest.duration_seconds / total)}% of total time (${slowest.duration_seconds}s)`
+          : null;
+        return (
         <Card>
           <CardHeader>
             <CardTitle>Stage Timeline</CardTitle>
             <p className="text-sm text-slate-500 mt-1">Stage name, status, duration, and timestamp</p>
+            {whySlow && (
+              <p className="text-sm text-amber-700 mt-2 px-3 py-1.5 bg-amber-50 rounded-md border border-amber-200" role="status">
+                <strong>Why slow?</strong> {whySlow}
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <div className="relative pl-6 space-y-0">
@@ -227,7 +279,8 @@ export default function RunDetailPage() {
             )}
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
 
       {run.events && run.events.length > 0 && (
         <Card>
@@ -299,6 +352,63 @@ export default function RunDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Lineage */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lineage</CardTitle>
+          <p className="text-sm text-slate-500 mt-1">Run → scenario → version → pack → artifacts</p>
+        </CardHeader>
+        <CardContent>
+          {lineageManifestLoading && !lineage && !manifest ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : lineage ? (
+            <dl className="text-sm space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <div><dt className="text-slate-500">Run ID</dt><dd className="font-mono">{lineage.run_id}</dd></div>
+              <div><dt className="text-slate-500">Run type</dt><dd>{lineage.run_type ?? "—"}</dd></div>
+              <div><dt className="text-slate-500">Pack</dt><dd>{lineage.pack ?? "—"}</dd></div>
+              <div><dt className="text-slate-500">Artifact run ID</dt><dd className="font-mono">{lineage.artifact_run_id ?? "—"}</dd></div>
+              {lineage.scenario_id && (
+                <>
+                  <div><dt className="text-slate-500">Scenario</dt><dd><Link href={`/scenarios/${lineage.scenario_id}`} className="text-[var(--brand-teal)] hover:underline">{lineage.scenario?.name ?? lineage.scenario_id}</Link></dd></div>
+                  <div><dt className="text-slate-500">Scenario version</dt><dd>v{lineage.scenario?.version ?? "—"}</dd></div>
+                </>
+              )}
+              {lineage.output_dir && <div className="sm:col-span-2"><dt className="text-slate-500">Output dir</dt><dd className="font-mono text-xs break-all">{lineage.output_dir}</dd></div>}
+            </dl>
+          ) : (
+            <p className="text-sm text-slate-500">Lineage not available for this run.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Reproducibility manifest */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Reproducibility manifest</CardTitle>
+          <p className="text-sm text-slate-500 mt-1">Seed, config version, git SHA, and environment used for this run</p>
+        </CardHeader>
+        <CardContent>
+          {lineageManifestLoading && !manifest ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : manifest ? (
+            <dl className="text-sm space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <div><dt className="text-slate-500">Run ID</dt><dd className="font-mono">{manifest.run_id}</dd></div>
+              <div><dt className="text-slate-500">Config schema version</dt><dd>{manifest.config_schema_version ?? "—"}</dd></div>
+              <div><dt className="text-slate-500">Seed</dt><dd>{manifest.seed != null ? String(manifest.seed) : "—"}</dd></div>
+              <div><dt className="text-slate-500">Pack</dt><dd>{manifest.pack ?? "—"}</dd></div>
+              <div><dt className="text-slate-500">Scale</dt><dd>{manifest.scale != null ? String(manifest.scale) : "—"}</dd></div>
+              <div><dt className="text-slate-500">Storage backend</dt><dd>{manifest.storage_backend ?? "—"}</dd></div>
+              {manifest.git_commit_sha && <div><dt className="text-slate-500">Git commit</dt><dd className="font-mono text-xs">{manifest.git_commit_sha}</dd></div>}
+              {manifest.duration_seconds != null && <div><dt className="text-slate-500">Duration (s)</dt><dd>{manifest.duration_seconds}</dd></div>}
+              {manifest.total_rows_generated != null && <div><dt className="text-slate-500">Rows generated</dt><dd>{manifest.total_rows_generated.toLocaleString()}</dd></div>}
+              {manifest.created_at != null && <div className="sm:col-span-2"><dt className="text-slate-500">Created</dt><dd>{new Date(manifest.created_at * 1000).toLocaleString()}</dd></div>}
+            </dl>
+          ) : (
+            <p className="text-sm text-slate-500">Manifest not available (e.g. run not yet completed or output not on disk).</p>
+          )}
+        </CardContent>
+      </Card>
 
       {(summary?.integration_summaries as Record<string, unknown> | undefined) && Object.keys(summary?.integration_summaries as Record<string, unknown> ?? {}).length > 0 && (
         <Card>

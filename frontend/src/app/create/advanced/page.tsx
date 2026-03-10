@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { fetchPacks, runPreflight, startRunGenerate, runBenchmark, startBenchmarkRun, fetchScenario, createScenario } from "@/lib/api";
+import { fetchPacks, runPreflight, startRunGenerate, runBenchmark, startBenchmarkRun, fetchScenario, createScenario, updateScenario } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -76,6 +76,10 @@ function AdvancedConfigContent() {
   const [saveScenarioDesc, setSaveScenarioDesc] = useState("");
   const [saveScenarioCategory, setSaveScenarioCategory] = useState("custom");
   const [maskedFields, setMaskedFields] = useState<string[] | null>(null);
+  const [loadedScenarioId, setLoadedScenarioId] = useState<string | null>(null);
+  const [loadedScenarioName, setLoadedScenarioName] = useState<string | null>(null);
+  const [updateScenarioConfirm, setUpdateScenarioConfirm] = useState(false);
+  const [updateScenarioLoading, setUpdateScenarioLoading] = useState(false);
 
   const hasMaskedCredentials = !!maskedFields?.length;
 
@@ -124,7 +128,7 @@ function AdvancedConfigContent() {
   useEffect(() => {
     const scenarioId = searchParams.get("scenario");
     if (!scenarioId) {
-      if (!searchParams.get("scenario")) setMaskedFields(null);
+      if (!searchParams.get("scenario")) { setMaskedFields(null); setLoadedScenarioId(null); setLoadedScenarioName(null); }
       return;
     }
     fetchScenario(scenarioId)
@@ -137,9 +141,11 @@ function AdvancedConfigContent() {
           }
           setConfig(merged);
           setMaskedFields(s.has_masked_sensitive_fields && s.masked_fields?.length ? s.masked_fields : null);
+          setLoadedScenarioId(s.id);
+          setLoadedScenarioName(s.name);
         }
       })
-      .catch(() => { setError("Failed to load scenario"); setMaskedFields(null); });
+      .catch(() => { setError("Failed to load scenario"); setMaskedFields(null); setLoadedScenarioId(null); setLoadedScenarioName(null); });
   }, [searchParams]);
 
   const update = (key: string, value: unknown) => setConfig((c) => ({ ...c, [key]: value }));
@@ -212,11 +218,18 @@ function AdvancedConfigContent() {
           <p className="mt-1 text-slate-600">Expert workspace for full control over generation settings</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportConfig}>Export</Button>
+          <Button variant="outline" size="sm" onClick={exportConfig} aria-label="Export config">Export</Button>
           <Button variant="outline" size="sm" onClick={importConfig}>Import</Button>
           <Link href="/create/wizard"><Button variant="ghost" size="sm">Use wizard</Button></Link>
         </div>
       </div>
+
+      {loadedScenarioId && loadedScenarioName && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <p className="font-medium text-slate-800">Loaded scenario: {loadedScenarioName}</p>
+          <p className="text-slate-600 mt-1">You can update this scenario or save as a new one below. Updating will overwrite the existing scenario.</p>
+        </div>
+      )}
 
       {hasMaskedCredentials && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
@@ -444,8 +457,9 @@ function AdvancedConfigContent() {
             <div className="space-y-4">
               <h3 className="font-semibold text-slate-900">Exports</h3>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Export format</label>
+                <label htmlFor="advanced-export-format" className="block text-sm font-medium text-slate-700 mb-1">Export format</label>
                 <select
+                  id="advanced-export-format"
                   value={(config.export_format as string) ?? "parquet"}
                   onChange={(e) => update("export_format", e.target.value)}
                   className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm"
@@ -827,13 +841,53 @@ function AdvancedConfigContent() {
             >
               {runLoading ? "Running…" : "Run Now"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setSaveScenarioOpen(!saveScenarioOpen)}>
-              Save as scenario
-            </Button>
+            {loadedScenarioId ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!updateScenarioConfirm && hasMaskedCredentials) {
+                      if (!confirm("This scenario has masked credentials. Updating will keep masked placeholders. Re-enter secrets in Advanced Config if needed. Continue?")) return;
+                    }
+                    if (!updateScenarioConfirm) {
+                      setUpdateScenarioConfirm(true);
+                      return;
+                    }
+                    setUpdateScenarioLoading(true);
+                    setError(null);
+                    try {
+                      await updateScenario(loadedScenarioId, { config });
+                      setUpdateScenarioConfirm(false);
+                      router.push(`/scenarios/${loadedScenarioId}`);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Failed to update scenario");
+                    } finally {
+                      setUpdateScenarioLoading(false);
+                    }
+                  }}
+                  disabled={updateScenarioLoading}
+                >
+                  {updateScenarioLoading ? "Updating…" : updateScenarioConfirm ? "Confirm update scenario" : "Update scenario"}
+                </Button>
+                {updateScenarioConfirm && (
+                  <Button variant="outline" size="sm" onClick={() => setUpdateScenarioConfirm(false)}>Cancel update</Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => { setSaveScenarioOpen(!saveScenarioOpen); setUpdateScenarioConfirm(false); }}>
+                  Save as new scenario
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setSaveScenarioOpen(!saveScenarioOpen)}>
+                Save as scenario
+              </Button>
+            )}
           </div>
           {saveScenarioOpen && (
             <div className="mt-4 p-4 rounded-lg border border-slate-200 bg-slate-50 space-y-3">
-              <p className="text-sm font-medium text-slate-700">Save current config as reusable scenario</p>
+              <p className="text-sm font-medium text-slate-700">
+                {loadedScenarioId ? "Save current config as a new scenario (original will not be changed)" : "Save current config as reusable scenario"}
+              </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs text-slate-600 mb-1">Name</label>
@@ -885,6 +939,7 @@ function AdvancedConfigContent() {
                         description: saveScenarioDesc.trim(),
                         category: saveScenarioCategory,
                         config,
+                        created_from_scenario_id: loadedScenarioId || undefined,
                       });
                       setSaveScenarioOpen(false);
                       setSaveScenarioName("");
@@ -898,7 +953,7 @@ function AdvancedConfigContent() {
                   }}
                   disabled={saveScenarioLoading}
                 >
-                  {saveScenarioLoading ? "Saving…" : "Save scenario"}
+                  {saveScenarioLoading ? "Saving…" : "Save as new scenario"}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setSaveScenarioOpen(false)}>Cancel</Button>
               </div>
