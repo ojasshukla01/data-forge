@@ -225,7 +225,7 @@ def get_scenario_version(scenario_id: str, version: str) -> dict:
     try:
         version_num = int(version)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Version must be an integer")
+        raise HTTPException(status_code=400, detail="Version must be an integer") from None
     record = get_scenario(scenario_id)
     if not record:
         raise HTTPException(status_code=404, detail="Scenario not found")

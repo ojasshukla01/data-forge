@@ -3,11 +3,10 @@
 import pytest
 from pathlib import Path
 
-from data_forge.config import ensure_path_allowed, SecurityError, Settings
+from data_forge.config import ensure_path_allowed, SecurityError
 
 
 def test_ensure_path_allowed_under_schemas(tmp_path):
-    settings = Settings()
     root = tmp_path
     (root / "schemas").mkdir()
     schema_file = root / "schemas" / "foo.sql"

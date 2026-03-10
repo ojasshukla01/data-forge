@@ -2,16 +2,13 @@
 
 from pathlib import Path
 
-import pytest
-
 from data_forge.models.schema import SchemaModel, TableDef, ColumnDef, DataType
 from data_forge.models.rules import RuleSet, BusinessRule, RuleType
-from data_forge.pii.classifier import classify_schema, PiiCategory, Certainty
-from data_forge.pii.redaction import redact_value, redact_dict, RedactionConfig
+from data_forge.pii.classifier import classify_schema
+from data_forge.pii.redaction import redact_value, RedactionConfig
 from data_forge.validators.quality import compute_quality_report
 from data_forge.contracts.fixtures import generate_contract_fixtures
 from data_forge.contracts.validate import validate_contract_fixtures
-from data_forge.golden import create_manifest, write_manifest
 
 
 def _run_cli(args: list[str]):

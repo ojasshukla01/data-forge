@@ -140,8 +140,6 @@ def test_validate_requires_schema():
 
 def test_api_generate_with_export_dbt(tmp_path):
     """API generation with export_dbt produces dbt artifacts."""
-    from pathlib import Path
-    import os
     # Use a real output dir via project structure - API uses project output/
     r = client.post(
         "/api/generate",

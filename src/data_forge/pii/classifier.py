@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from data_forge.models.schema import SchemaModel, TableDef, ColumnDef
+from data_forge.models.schema import SchemaModel
 
 
 class PiiCategory(str, Enum):

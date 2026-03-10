@@ -6,7 +6,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from data_forge.api.main import app
-from data_forge.api.scenario_store import create_scenario, get_scenario, list_scenarios, delete_scenario
+from data_forge.api.scenario_store import create_scenario, get_scenario, delete_scenario
 
 
 @pytest.fixture
@@ -79,7 +79,7 @@ async def test_delete_scenario(sample_config):
 
 @pytest.mark.asyncio
 async def test_create_scenario_from_run(sample_config):
-    from data_forge.api.run_store import create_run, get_run, _runs_dir
+    from data_forge.api.run_store import create_run, _runs_dir
 
     run_id = "run_testscenario123"
     create_run(run_id, "generate", sample_config, selected_pack="saas_billing")
@@ -137,12 +137,12 @@ async def test_import_export_scenario(sample_config):
 
 @pytest.mark.asyncio
 async def test_compare_runs():
-    from data_forge.api.run_store import create_run, get_run, _runs_dir
+    from data_forge.api.run_store import create_run, _runs_dir
 
     cfg1 = {"pack": "saas_billing", "scale": 100}
     cfg2 = {"pack": "ecommerce", "scale": 200}
-    r1 = create_run("run_compareleft123", "generate", cfg1)
-    r2 = create_run("run_compareright456", "generate", cfg2)
+    create_run("run_compareleft123", "generate", cfg1)
+    create_run("run_compareright456", "generate", cfg2)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             r = await client.get("/api/runs/compare?left=run_compareleft123&right=run_compareright456")
@@ -188,8 +188,8 @@ async def test_get_scenario_masked_fields(sample_config):
 async def test_compare_runs_raw_diff_and_summary():
     from data_forge.api.run_store import create_run, _runs_dir
 
-    r1 = create_run("run_rawleft789", "generate", {"pack": "saas_billing", "scale": 100})
-    r2 = create_run("run_rawright012", "generate", {"pack": "ecommerce", "scale": 200})
+    create_run("run_rawleft789", "generate", {"pack": "saas_billing", "scale": 100})
+    create_run("run_rawright012", "generate", {"pack": "ecommerce", "scale": 200})
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             r = await client.get("/api/runs/compare?left=run_rawleft789&right=run_rawright012")

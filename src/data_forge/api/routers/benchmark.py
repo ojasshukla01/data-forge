@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Body, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Body
 
 from data_forge.domain_packs import get_pack
 from data_forge.engine import run_generation, export_result
@@ -12,7 +12,7 @@ from data_forge.models.generation import GenerationRequest, GenerationMode, Data
 from data_forge.models.simulation import scale_from_preset
 from data_forge.config import OutputFormat, Settings
 from data_forge.performance import estimate_peak_memory_mb
-from data_forge.services import create_run, get_run, update_run, append_event
+from data_forge.services import get_run, update_run, append_event
 
 router = APIRouter(prefix="/api", tags=["benchmark"])
 
@@ -156,4 +156,4 @@ def api_benchmark_sync(params: dict | None = Body(default=None)) -> dict:
         results = _execute_benchmark_sync(pack, scale, fmt, iterations, p)
         return {"benchmark_results": results, "success": True}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

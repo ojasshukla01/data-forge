@@ -1,6 +1,5 @@
 """Lineage: run -> scenario -> version -> pack -> artifacts."""
 
-from pathlib import Path
 from typing import Any
 
 from data_forge.services import get_run, get_scenario

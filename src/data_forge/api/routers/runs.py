@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException
 
-from data_forge.services import create_run, get_run, list_runs, run_cleanup, get_masked_field_names
+from data_forge.services import create_run, get_run, list_runs, get_masked_field_names
 from data_forge.api.task_runner import execute_generation_async
 from data_forge.api.routers.benchmark import execute_benchmark_async
 from data_forge.services.retention_service import (
@@ -119,8 +119,8 @@ def _build_run_comparison(left_run: dict, right_run: dict) -> dict:
     left_sum = left_run.get("result_summary") or {}
     right_sum = right_run.get("result_summary") or {}
 
-    def _diff(l: Any, r: Any) -> dict:
-        return {"left": l, "right": r, "changed": l != r}
+    def _diff(left: Any, right: Any) -> dict:
+        return {"left": left, "right": right, "changed": left != right}
 
     metadata_diff = {
         "id": _diff(left_run.get("id"), right_run.get("id")),
@@ -312,7 +312,7 @@ def _has_masked_secrets(config: dict) -> bool:
     """Check if config contains masked/redacted values that would break rerun."""
     if not config:
         return False
-    for k, v in config.items():
+    for _k, v in config.items():
         if isinstance(v, str) and v == "***":
             return True
         if isinstance(v, dict):

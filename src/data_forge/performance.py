@@ -1,9 +1,9 @@
 """Performance timing, memory estimates, and structured logging."""
 
-import time
 import sys
+import time
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 
 @contextmanager

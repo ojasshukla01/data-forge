@@ -1,7 +1,6 @@
 """Time-aware workload patterns for pipeline simulation."""
 
 import random
-from datetime import datetime
 from enum import Enum
 
 

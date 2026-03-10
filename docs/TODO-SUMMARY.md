@@ -152,17 +152,17 @@ This document summarizes **all 14 completed todo list items** implemented across
 - Scenario version history is capped at 20 entries per scenario.
 - Manifest is written only on successful run completion to `output/<run_id>/manifest.json` and `manifest.md`.
 - Frontend expects API at `NEXT_PUBLIC_API_URL` or `http://localhost:8000`.
-- CI runs on push/PR; frontend tests include Vitest only (no E2E in CI).
+- CI runs on push/PR; frontend tests include Vitest and Playwright E2E.
 
 ---
 
 ## Optional next steps
 
-1. **Scenario versioning UI**: Add “History” and “Compare” (diff) on scenario detail page using existing APIs.
-2. **E2E**: Add one Playwright test (e.g. open app → create config → preflight → run → run details → artifacts).
-3. **Broader Vitest coverage**: Wizard happy path, preflight, advanced config, schema visualizer, import/export, cleanup flows.
-4. **UX**: First-run onboarding (template/scenario/example picker), run-type badges (standard/simulation/benchmark), stronger empty states, accessibility pass.
-5. **Docs**: Link `docs/api-reference.md` from README if desired.
+1. **Scenario restore UX**: Add “restore version” / “duplicate from version” from the scenario history & diff UI.
+2. **Deeper schema studio**: ERD-style editor, DDL export, and preview rows powered by the generation engine.
+3. **Broader Vitest coverage**: More interactions across wizard, advanced config, schema visualizer, and cleanup flows.
+4. **UX**: Additional accessibility polish, keyboard shortcuts, and more granular empty states.
+5. **Docs**: Expand architecture diagrams to cover Custom Schema Studio and advanced onboarding flows.
 
 ---
 

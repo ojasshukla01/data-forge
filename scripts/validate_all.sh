@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
-# Data Forge — full validation (backend tests, frontend tests, type-check, build)
-# Run from repo root. Requires: uv, Node.js, npm
-
+# Full validation (same as CI): ruff, pytest, frontend tsc + test + build
 set -e
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
 
-echo "=== Backend tests ==="
-uv run python -m pytest -q
-
-echo ""
-echo "=== Frontend tests ==="
-cd frontend && npm test
+echo "=== Backend: ruff ==="
+python -m ruff check src tests
 
 echo ""
-echo "=== Frontend type-check ==="
-npx tsc --noEmit
+echo "=== Backend: pytest ==="
+python -m pytest tests -v --tb=short
+
+if [ -f frontend/package.json ]; then
+  echo ""
+  echo "=== Frontend: type-check ==="
+  (cd frontend && npx tsc --noEmit)
+  echo ""
+  echo "=== Frontend: unit tests ==="
+  (cd frontend && npm test)
+  echo ""
+  echo "=== Frontend: build ==="
+  (cd frontend && npm run build)
+fi
 
 echo ""
-echo "=== Frontend build ==="
-npm run build
-cd ..
-
-echo ""
-echo "All validation steps passed."
+echo "=== All checks passed ==="

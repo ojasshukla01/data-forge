@@ -1,7 +1,8 @@
 """CLI: generate synthetic data from schema + rules, export, report."""
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -48,14 +49,14 @@ def generate(
         path_type=Path,
         help="Path to schema file (.sql or .json)",
     ),
-    rules: Optional[Path] = typer.Option(
+    rules: Path | None = typer.Option(
         None,
         "--rules",
         "-r",
         path_type=Path,
         help="Path to rules YAML",
     ),
-    pack: Optional[str] = typer.Option(
+    pack: str | None = typer.Option(
         None,
         "--pack",
         "-p",
@@ -74,28 +75,28 @@ def generate(
     change_ratio: float = typer.Option(None, "--change-ratio", help="Fraction of changed rows (incremental/CDC)"),
     drift_profile: str = typer.Option("none", "--drift-profile", help="Schema drift: none, mild, moderate, aggressive"),
     messiness: str = typer.Option("clean", "--messiness", help="Source messiness: clean, realistic, chaotic"),
-    write_manifest: Optional[Path] = typer.Option(None, "--write-manifest", help="Write golden manifest after generation"),
+    write_manifest: Path | None = typer.Option(None, "--write-manifest", help="Write golden manifest after generation"),
     privacy_mode: str = typer.Option(None, "--privacy-mode", help="Privacy: off, warn, strict"),
     contracts: bool = typer.Option(False, "--contracts", help="Also generate OpenAPI contract fixtures when schema is OpenAPI"),
-    load: Optional[str] = typer.Option(None, "--load", help="Load into database: sqlite, duckdb, postgres, snowflake, bigquery"),
-    db_uri: Optional[str] = typer.Option(None, "--db-uri", help="Database connection string or path"),
-    chunk_size: Optional[int] = typer.Option(None, "--chunk-size", help="Generate large tables in chunks (memory-safe)"),
+    load: str | None = typer.Option(None, "--load", help="Load into database: sqlite, duckdb, postgres, snowflake, bigquery"),
+    db_uri: str | None = typer.Option(None, "--db-uri", help="Database connection string or path"),
+    chunk_size: int | None = typer.Option(None, "--chunk-size", help="Generate large tables in chunks (memory-safe)"),
     batch_size: int = typer.Option(1000, "--batch-size", help="Batch size for DB inserts"),
-    sf_account: Optional[str] = typer.Option(None, "--sf-account", help="Snowflake account"),
-    sf_user: Optional[str] = typer.Option(None, "--sf-user", help="Snowflake user"),
-    sf_password: Optional[str] = typer.Option(None, "--sf-password", help="Snowflake password"),
-    sf_warehouse: Optional[str] = typer.Option(None, "--sf-warehouse", help="Snowflake warehouse"),
-    sf_database: Optional[str] = typer.Option(None, "--sf-database", help="Snowflake database"),
-    sf_schema: Optional[str] = typer.Option(None, "--sf-schema", help="Snowflake schema"),
-    sf_role: Optional[str] = typer.Option(None, "--sf-role", help="Snowflake role"),
-    bq_project: Optional[str] = typer.Option(None, "--bq-project", help="BigQuery project"),
-    bq_dataset: Optional[str] = typer.Option(None, "--bq-dataset", help="BigQuery dataset"),
+    sf_account: str | None = typer.Option(None, "--sf-account", help="Snowflake account"),
+    sf_user: str | None = typer.Option(None, "--sf-user", help="Snowflake user"),
+    sf_password: str | None = typer.Option(None, "--sf-password", help="Snowflake password"),
+    sf_warehouse: str | None = typer.Option(None, "--sf-warehouse", help="Snowflake warehouse"),
+    sf_database: str | None = typer.Option(None, "--sf-database", help="Snowflake database"),
+    sf_schema: str | None = typer.Option(None, "--sf-schema", help="Snowflake schema"),
+    sf_role: str | None = typer.Option(None, "--sf-role", help="Snowflake role"),
+    bq_project: str | None = typer.Option(None, "--bq-project", help="BigQuery project"),
+    bq_dataset: str | None = typer.Option(None, "--bq-dataset", help="BigQuery dataset"),
     export_dbt: bool = typer.Option(False, "--export-dbt", help="Export dbt seeds and sources"),
-    dbt_dir: Optional[Path] = typer.Option(None, "--dbt-dir", path_type=Path, help="dbt output directory"),
+    dbt_dir: Path | None = typer.Option(None, "--dbt-dir", path_type=Path, help="dbt output directory"),
     export_ge: bool = typer.Option(False, "--export-ge", help="Export Great Expectations suites and checkpoint"),
-    ge_dir: Optional[Path] = typer.Option(None, "--ge-dir", path_type=Path, help="Great Expectations output directory"),
+    ge_dir: Path | None = typer.Option(None, "--ge-dir", path_type=Path, help="Great Expectations output directory"),
     export_airflow: bool = typer.Option(False, "--export-airflow", help="Export Airflow DAG templates"),
-    airflow_dir: Optional[Path] = typer.Option(None, "--airflow-dir", path_type=Path, help="Airflow output directory"),
+    airflow_dir: Path | None = typer.Option(None, "--airflow-dir", path_type=Path, help="Airflow output directory"),
     airflow_template: str = typer.Option("generate_only", "--airflow-template", help="DAG template: generate_only|generate_and_load|generate_validate_and_load|benchmark_pipeline"),
 ):
     """Generate synthetic data and write to output directory."""
@@ -332,8 +333,8 @@ def packs():
 @app.command()
 def validate(
     schema: Path = typer.Argument(..., path_type=Path, help="Schema file"),
-    data_dir: Optional[Path] = typer.Option(None, "--data", "-d", path_type=Path, help="Dataset directory to validate"),
-    rules: Optional[Path] = typer.Option(None, "--rules", "-r", path_type=Path, help="Rules YAML for rule validation"),
+    data_dir: Path | None = typer.Option(None, "--data", "-d", path_type=Path, help="Dataset directory to validate"),
+    rules: Path | None = typer.Option(None, "--rules", "-r", path_type=Path, help="Rules YAML for rule validation"),
     privacy_mode: str = typer.Option("off", "--privacy-mode", help="Privacy: off, warn, strict"),
 ):
     """Validate a schema file (and optionally generated data)."""
@@ -342,7 +343,6 @@ def validate(
     from data_forge.validators.quality import (
         load_dataset_from_dir,
         compute_quality_report,
-        validate_schema_compliance,
     )
 
     if not schema.exists():
@@ -352,10 +352,10 @@ def validate(
         s = load_schema(schema)
     except SecurityError as e:
         console.print(f"[red]Security: {e}[/]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
     except Exception as e:
         console.print(f"[red]{e}[/]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     console.print(f"[green]Schema loaded: {s.name}, {len(s.tables)} tables, {len(s.relationships)} relationships.[/]")
     for t in s.tables:
@@ -408,7 +408,7 @@ def validate(
 def validate_golden(
     manifest: Path = typer.Option(..., "--manifest", "-m", path_type=Path, help="Path to manifest.json"),
     data: Path = typer.Option(..., "--data", "-d", path_type=Path, help="Path to output directory"),
-    schema: Optional[Path] = typer.Option(None, "--schema", "-s", path_type=Path),
+    schema: Path | None = typer.Option(None, "--schema", "-s", path_type=Path),
 ):
     """Validate generated output against a golden manifest."""
     from data_forge.golden import load_manifest, validate_against_manifest, schema_signature
@@ -495,8 +495,8 @@ def create_manifest_cmd(
     seed: int = typer.Option(42, "--seed"),
     mode: str = typer.Option("full_snapshot", "--mode"),
     layer: str = typer.Option("bronze", "--layer"),
-    schema: Optional[Path] = typer.Option(None, "--schema"),
-    row_counts: Optional[str] = typer.Option(None, "--row-counts", help="JSON dict of table->count"),
+    schema: Path | None = typer.Option(None, "--schema"),
+    row_counts: str | None = typer.Option(None, "--row-counts", help="JSON dict of table->count"),
 ):
     """Create a golden manifest from current generation (run generate first, then capture)."""
     from data_forge.golden import create_manifest, schema_signature, write_manifest
@@ -549,7 +549,7 @@ def validate_ge(
 def reconcile(
     manifest: Path = typer.Option(..., "--manifest", "-m", path_type=Path, help="Path to manifest.json"),
     data: Path = typer.Option(..., "--data", "-d", path_type=Path, help="Path to data directory"),
-    schema: Optional[Path] = typer.Option(None, "--schema", "-s", path_type=Path, help="Schema for column/PK checks"),
+    schema: Path | None = typer.Option(None, "--schema", "-s", path_type=Path, help="Schema for column/PK checks"),
 ):
     """Reconcile manifest expected row counts vs actual data."""
     from data_forge.reconciliation import run_reconciliation
@@ -583,18 +583,18 @@ def reconcile(
 
 @app.command()
 def benchmark(
-    schema: Optional[Path] = typer.Option(None, "--schema", "-s", path_type=Path, help="Path to schema file"),
-    rules: Optional[Path] = typer.Option(None, "--rules", "-r", path_type=Path, help="Path to rules YAML"),
-    pack: Optional[str] = typer.Option(None, "--pack", "-p", help="Use domain pack instead of schema"),
+    schema: Path | None = typer.Option(None, "--schema", "-s", path_type=Path, help="Path to schema file"),
+    rules: Path | None = typer.Option(None, "--rules", "-r", path_type=Path, help="Path to rules YAML"),
+    pack: str | None = typer.Option(None, "--pack", "-p", help="Use domain pack instead of schema"),
     scale: int = typer.Option(1000, "--scale", help="Base row count scale"),
     layer: str = typer.Option("bronze", "--layer", "-l", help="Data layer"),
     mode: str = typer.Option("full_snapshot", "--mode", "-m", help="Generation mode"),
     format: str = typer.Option("parquet", "--format", "-f", help="Export format"),
-    chunk_size: Optional[int] = typer.Option(None, "--chunk-size", help="Chunk size for generation"),
-    load: Optional[str] = typer.Option(None, "--load", help="Load target: sqlite, duckdb, postgres, etc."),
-    db_uri: Optional[str] = typer.Option(None, "--db-uri", help="Database URI or path"),
+    chunk_size: int | None = typer.Option(None, "--chunk-size", help="Chunk size for generation"),
+    load: str | None = typer.Option(None, "--load", help="Load target: sqlite, duckdb, postgres, etc."),
+    db_uri: str | None = typer.Option(None, "--db-uri", help="Database URI or path"),
     iterations: int = typer.Option(1, "--iterations", help="Number of benchmark iterations"),
-    output_json: Optional[Path] = typer.Option(None, "--output-json", help="Write benchmark results to JSON file"),
+    output_json: Path | None = typer.Option(None, "--output-json", help="Write benchmark results to JSON file"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose structured logging"),
 ):
     """Run a controlled generation benchmark and output performance metrics."""
@@ -693,12 +693,11 @@ def benchmark(
             raise typer.Exit(1)
         total_rows = sum(t.row_count for t in result.tables)
         gen_secs.append(timings_out.get("generation_seconds", 0))
-        export_paths: list[Path] = []
         try:
             fmt_enum = OutputFormat(format)
         except ValueError:
             fmt_enum = OutputFormat.PARQUET
-        export_paths = export_result(
+        export_result(
             result, output_dir / str(i), fmt=fmt_enum, layer=data_layer, timings_out=timings_out
         )
         exp_secs.append(timings_out.get("export_seconds", 0))
@@ -780,8 +779,8 @@ def runs_storage():
 
 @runs_app.command("cleanup-preview")
 def runs_cleanup_preview(
-    retention_count: Optional[int] = typer.Option(None, "--count", "-n", help="Keep last N runs"),
-    retention_days: Optional[float] = typer.Option(None, "--days", "-d", help="Prune older than N days"),
+    retention_count: int | None = typer.Option(None, "--count", "-n", help="Keep last N runs"),
+    retention_days: float | None = typer.Option(None, "--days", "-d", help="Prune older than N days"),
 ):
     """Dry-run: show runs that would be removed by cleanup."""
     from data_forge.services.retention_service import preview_cleanup
@@ -808,8 +807,8 @@ def runs_cleanup_preview(
 
 @runs_app.command("cleanup-execute")
 def runs_cleanup_execute(
-    retention_count: Optional[int] = typer.Option(None, "--count", "-n", help="Keep last N runs"),
-    retention_days: Optional[float] = typer.Option(None, "--days", "-d", help="Prune older than N days"),
+    retention_count: int | None = typer.Option(None, "--count", "-n", help="Keep last N runs"),
+    retention_days: float | None = typer.Option(None, "--days", "-d", help="Prune older than N days"),
     delete_artifacts: bool = typer.Option(False, "--delete-artifacts", help="Also remove output dirs for pruned runs"),
 ):
     """Execute retention cleanup (remove run records; optionally artifact dirs)."""
@@ -888,7 +887,7 @@ app.add_typer(runs_app, name="runs")
 @app.command("scaffold-pack")
 def scaffold_pack(
     name: str = typer.Argument(..., help="Pack id (e.g. my_domain, use underscores)"),
-    output_dir: Optional[Path] = typer.Option(None, "--output", "-o", path_type=Path, help="Root directory (default: project root)"),
+    output_dir: Path | None = typer.Option(None, "--output", "-o", path_type=Path, help="Root directory (default: project root)"),
 ):
     """Generate a new domain pack template: schema, rules, sample scenario, and docs."""
     from data_forge.config import Settings

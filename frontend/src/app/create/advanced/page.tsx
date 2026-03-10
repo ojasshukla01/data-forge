@@ -218,7 +218,7 @@ function AdvancedConfigContent() {
           <p className="mt-1 text-slate-600">Expert workspace for full control over generation settings</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={exportConfig}>Export</Button>
+          <Button variant="outline" size="sm" onClick={exportConfig} aria-label="Export config">Export</Button>
           <Button variant="outline" size="sm" onClick={importConfig}>Import</Button>
           <Link href="/create/wizard"><Button variant="ghost" size="sm">Use wizard</Button></Link>
         </div>
@@ -457,8 +457,9 @@ function AdvancedConfigContent() {
             <div className="space-y-4">
               <h3 className="font-semibold text-slate-900">Exports</h3>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Export format</label>
+                <label htmlFor="advanced-export-format" className="block text-sm font-medium text-slate-700 mb-1">Export format</label>
                 <select
+                  id="advanced-export-format"
                   value={(config.export_format as string) ?? "parquet"}
                   onChange={(e) => update("export_format", e.target.value)}
                   className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm"

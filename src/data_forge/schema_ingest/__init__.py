@@ -6,7 +6,6 @@ from typing import Any
 from data_forge.models.schema import (
     ColumnDef,
     DataType,
-    RelationshipDef,
     SchemaModel,
     TableDef,
 )

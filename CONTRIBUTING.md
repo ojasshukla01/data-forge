@@ -37,7 +37,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open `http://localhost:3000`.
 
 ## Running tests
 
@@ -58,6 +58,14 @@ uv run pytest -v
 ```bash
 cd frontend
 npm test
+```
+
+### Frontend E2E (Playwright)
+
+```bash
+cd frontend
+npx playwright install --with-deps    # first time only
+npm run e2e
 ```
 
 ### Frontend type-check
@@ -109,6 +117,7 @@ make validate-all
 2. Frontend: `cd frontend && npm test`
 3. Frontend types: `cd frontend && npx tsc --noEmit`
 4. Frontend build: `cd frontend && npm run build` (see note above if it fails with EPERM)
+5. Optional E2E: `cd frontend && npm run e2e` (requires Playwright browsers installed)
 
 CI runs the same steps on every push and pull request. Do not submit with failing tests or type-check.
 
@@ -149,9 +158,9 @@ Scenarios are reusable configurations. You can **save** from Advanced Config or 
 }
 ```
 
-2. Import via the UI: Scenarios → Import scenario → select your JSON file.
+1. Import via the UI: Scenarios → Import scenario → select your JSON file.
 
-3. Or via API: `POST /api/scenarios/import` with the same payload.
+2. Or via API: `POST /api/scenarios/import` with the same payload.
 
 ## Adding a frontend test
 
@@ -179,7 +188,8 @@ Frontend tests use Vitest and React Testing Library in `frontend/src`.
 
 - **Backend**: type hints, Ruff (lint), mypy (type check). Run `make backend-lint` and `make backend-typecheck` (or `uv run ruff check src tests`, `uv run python -m mypy src`).
 - **Frontend**: TypeScript, Tailwind CSS, existing component structure.
-- CI runs: backend tests, Ruff, mypy, frontend tests, frontend typecheck, frontend build. Fix lint and type errors before submitting.
+- CI runs: backend tests, Ruff, mypy, frontend tests, frontend typecheck, frontend build, and Playwright e2e. Fix lint and type errors before submitting.
+- **Pre-commit**: Install hooks with `pre-commit install` (from repo root). This will run Black, Ruff, mypy (on `src`), and basic whitespace fixes on changed files before each commit.
 - Prefer incremental changes and backward compatibility.
 
 ## Submitting changes

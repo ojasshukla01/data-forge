@@ -19,8 +19,9 @@ const mainNavItems = [
 const moreNavItems = [
   { href: "/create/advanced", label: "Advanced config" },
   { href: "/templates", label: "Templates" },
-  { href: "/validate", label: "Validate" },
+  { href: "/schema/studio", label: "Schema Studio" },
   { href: "/schema", label: "Schema" },
+  { href: "/validate", label: "Validate" },
   { href: "/integrations", label: "Integrations" },
 ];
 

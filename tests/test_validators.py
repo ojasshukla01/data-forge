@@ -1,12 +1,9 @@
 """Tests for validators."""
 
-import pytest
-
 from data_forge.models.schema import ColumnDef, RelationshipDef, SchemaModel, TableDef
 from data_forge.validators.quality import (
     compute_quality_report,
     validate_referential_integrity,
-    validate_schema_compliance,
     load_dataset_from_dir,
 )
 from data_forge.models.rules import BusinessRule, RuleSet, RuleType

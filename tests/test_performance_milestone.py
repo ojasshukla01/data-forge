@@ -7,13 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from data_forge.config import OutputFormat
 from data_forge.domain_packs import get_pack
-from data_forge.engine import run_generation, export_result
-from data_forge.exporters import export_table, export_table_chunked
+from data_forge.engine import run_generation
+from data_forge.exporters import export_table_chunked
 from data_forge.models.generation import GenerationRequest
 from data_forge.adapters.load import load_to_database
-from data_forge.schema_ingest import load_schema
 
 
 def _run_cli(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -60,7 +58,7 @@ def test_chunked_csv_export_works(tmp_path):
     assert path is not None
     assert path.exists()
     content = path.read_text()
-    lines = [l.strip() for l in content.strip().split("\n") if l.strip()]
+    lines = [line.strip() for line in content.strip().split("\n") if line.strip()]
     assert len(lines) == 51  # header + 50 rows
     assert "id,val" in content
     assert "0,r0" in content
@@ -76,7 +74,7 @@ def test_chunked_jsonl_export_works(tmp_path):
     assert path.exists()
     lines = path.read_text().strip().split("\n")
     assert len(lines) == 30
-    data = [json.loads(l) for l in lines]
+    data = [json.loads(line) for line in lines]
     assert data == rows
 
 

@@ -1,8 +1,5 @@
 """Tests for pipeline simulation and warehouse benchmark milestone."""
 
-import json
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 from httpx import ASGITransport, AsyncClient

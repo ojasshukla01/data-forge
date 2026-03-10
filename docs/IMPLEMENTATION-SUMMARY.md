@@ -85,10 +85,7 @@ This document summarizes the implementation delivered in one coordinated pass: f
 
 ## 5. Known limitations
 
-- **Wizard / advanced config**: No changes to create wizard or advanced config flows (nested config UX, save/update/save-as, import/export) in this pass. Wizard and pack discovery remain as before.
-- **Playwright E2E**: No Playwright or other E2E test was added. Vitest unit/integration tests only.
-- **Backend tests**: No new backend tests; existing API tests already cover scenario versions, diff, lineage, and manifest.
-- **CI**: No pre-commit or new CI jobs. Existing workflow unchanged.
+- **Wizard / advanced config**: UX is still focused on core flows; simulation, benchmark, and runtime remain primarily in Advanced. Nested config sections are not yet exposed in the wizard.
 - **Manifest download**: Run detail shows manifest fields from API but does not add a "Download manifest.json" button (artifact download would depend on how artifact URLs are exposed).
 - **Scenario restore**: No "restore version" or "duplicate from version" action; version history is view and diff only.
 
@@ -96,9 +93,6 @@ This document summarizes the implementation delivered in one coordinated pass: f
 
 ## 6. Optional future improvements
 
-- Add Playwright E2E for a golden path: open app → create/pick config → preflight → run → run detail → artifacts → lineage/manifest → save scenario → scenario detail → version history/diff.
 - Expand wizard UX: nested config sections (generation, simulation, benchmark, privacy, export, load, runtime), validation messages, save/update/save-as, import/export scenario in UI.
-- Pack discovery UI: pack overview/selector with metadata and example scenarios.
 - Scenario "use this version": e.g. open advanced config with a selected version’s config (via query or sessionStorage) so user can save as new scenario.
-- Pre-commit hook and/or optional Playwright job in CI.
 - Backend test that asserts lineage and manifest response shape for a completed run (not only 404 for missing run).

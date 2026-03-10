@@ -1,9 +1,7 @@
 """Tests for generation engine."""
 
 import pytest
-from pathlib import Path
-
-from data_forge.models.generation import GenerationRequest, GenerationResult
+from data_forge.models.generation import GenerationRequest
 from data_forge.engine import run_generation, export_result
 from data_forge.domain_packs import get_pack
 from data_forge.config import OutputFormat
