@@ -34,7 +34,7 @@ export function Footer() {
           <div>
             <p className="font-semibold text-slate-900">Data Forge</p>
             <p className="mt-1 text-sm text-slate-600 max-w-xs leading-relaxed">
-              Schema-aware synthetic data platform for databases, APIs, and pipelines.
+              Schema-aware synthetic data for databases, APIs, and pipelines. Realistic, relational, privacy-safe.
             </p>
             <p className="mt-3 text-xs text-slate-500">
               © {currentYear} Open source · Built by{" "}

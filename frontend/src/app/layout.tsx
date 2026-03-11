@@ -15,8 +15,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Data Forge — Schema-aware synthetic data platform",
-  description: "Generate realistic, relational, privacy-safe test data for databases, APIs, and pipelines.",
+  title: "Data Forge — Time-Aware Synthetic Data Platform",
+  description: "Schema-aware synthetic data for databases, APIs, and pipelines. Realistic, relational, privacy-safe.",
   icons: { icon: "/branding/logo-mark.svg" },
 };
 
