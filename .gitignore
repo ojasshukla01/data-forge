@@ -49,6 +49,8 @@ scenarios/
 !**/schemas/**/*.json
 !**/package.json
 !**/package-lock.json
+!**/tsconfig.json
+!**/tsconfig*.json
 
 # Env
 .env
