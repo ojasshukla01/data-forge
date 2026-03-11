@@ -47,6 +47,8 @@ scenarios/
 *.json
 !**/fixtures/**/*.json
 !**/schemas/**/*.json
+!**/package.json
+!**/package-lock.json
 
 # Env
 .env
