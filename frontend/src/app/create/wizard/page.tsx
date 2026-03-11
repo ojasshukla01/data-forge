@@ -683,6 +683,9 @@ function WizardContent() {
                           <li key={i}>{b}</li>
                         ))}
                       </ul>
+                      {config.customSchemaId && (preflight.blockers as string[]).some((b) => /custom schema|schema not found|schema.*invalid/i.test(b)) && (
+                        <Link href="/schema/studio" className="inline-block mt-2 text-sm text-[var(--brand-teal)] hover:underline">Open Schema Studio to fix →</Link>
+                      )}
                     </div>
                   )}
                   {(preflight.warnings as string[])?.length > 0 && (

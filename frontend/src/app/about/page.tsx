@@ -73,7 +73,7 @@ export default function AboutPage() {
       <section>
         <h2 className="text-xl font-semibold text-slate-900 mb-4">Observability and lineage</h2>
         <p className="text-slate-600 leading-relaxed mb-2">
-          Every run has a <strong>lineage</strong> (run → scenario → version → pack → artifacts) and a <strong>reproducibility manifest</strong> (seed, config version, git SHA, environment). Use these to audit, debug, and reproduce results. Scenario config changes are versioned so you can compare and diff history.
+          Every run has a <strong>lineage</strong> (run → scenario → pack or custom schema → artifacts) and a <strong>reproducibility manifest</strong> (seed, config version, git SHA, environment). Use these to audit, debug, and reproduce results. Scenario config changes are versioned so you can compare and diff history.
         </p>
         <Link href="/docs" className="text-sm text-[var(--brand-teal)] hover:underline">Docs: observability, lineage, scenario versioning →</Link>
       </section>

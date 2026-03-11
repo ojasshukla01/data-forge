@@ -159,7 +159,7 @@ class RunConfig(BaseModel):
             return cls()
         if "generation" in raw and isinstance(raw.get("generation"), dict):
             return cls(
-                schema_version=int(raw.get("config_schema_version", CONFIG_SCHEMA_VERSION)),
+                config_schema_version=int(raw.get("config_schema_version", CONFIG_SCHEMA_VERSION)),
                 generation=GenerationConfig(**(raw.get("generation") or {})),
                 simulation=SimulationConfig(**(raw.get("simulation") or {})),
                 benchmark=BenchmarkConfig(**(raw.get("benchmark") or {})),
@@ -211,7 +211,7 @@ def normalize_legacy_config(raw: dict[str, Any]) -> RunConfig:
         batch_size=int(r.get("batch_size", 1000)),
     )
     return RunConfig(
-        schema_version=int(r.get("config_schema_version", CONFIG_SCHEMA_VERSION)),
+        config_schema_version=int(r.get("config_schema_version", CONFIG_SCHEMA_VERSION)),
         generation=gen,
         simulation=sim,
         benchmark=bm,

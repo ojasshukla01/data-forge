@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def schema_signature(schema: "Any") -> str:
@@ -49,7 +49,7 @@ def write_manifest(manifest: dict[str, Any], path: Path) -> Path:
 
 def load_manifest(path: Path) -> dict[str, Any]:
     """Load manifest from JSON file."""
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(Path(path).read_text(encoding="utf-8")))
 
 
 def compute_checksums(data_dir: Path) -> dict[str, str]:
@@ -116,5 +116,5 @@ def _count_rows(path: Path, ext: str) -> int:
         return sum(1 for line in path.read_text().strip().split("\n") if line)
     if ext == "parquet":
         import pyarrow.parquet as pq
-        return pq.read_table(path).num_rows
+        return int(pq.read_table(path).num_rows)
     return 0

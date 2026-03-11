@@ -2,12 +2,18 @@
 
 import sys
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from typing import Any
 
 
 @contextmanager
-def timed(stage: str, timings: dict, verbose: bool = False, log_fn=None) -> Generator[None, None, None]:
+def timed(
+    stage: str,
+    timings: dict[str, float],
+    verbose: bool = False,
+    log_fn: Callable[..., None] | None = None,
+) -> Generator[None, None, None]:
     """Context manager that records elapsed seconds into timings[stage]."""
     t0 = time.perf_counter()
     if verbose and log_fn:
@@ -48,7 +54,7 @@ def collect_performance_warnings(
     return warnings
 
 
-def verbose_log(verbose: bool, event: str, **kwargs) -> None:
+def verbose_log(verbose: bool, event: str, **kwargs: Any) -> None:
     """Structured log when verbose. Never log secrets."""
     if not verbose:
         return

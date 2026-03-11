@@ -1,7 +1,7 @@
 """Domain packs: pre-built schemas and rules for SaaS, e-commerce, fintech, etc."""
 
 from pathlib import Path
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from data_forge.schema_ingest import load_schema
 from data_forge.rule_engine import load_rule_set
@@ -14,7 +14,7 @@ __all__ = ["list_packs", "get_pack", "get_pack_metadata", "DomainPack"]
 _PACKS_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 # Extended metadata for API/UI display
-PACK_METADATA: dict[str, dict] = {
+PACK_METADATA: dict[str, dict[str, Any]] = {
     "saas_billing": {
         "name": "SaaS Billing",
         "category": "SaaS / CRM",
@@ -132,7 +132,7 @@ def list_packs() -> list[tuple[str, str]]:
     ]
 
 
-def get_pack_metadata(pack_id: str) -> dict | None:
+def get_pack_metadata(pack_id: str) -> dict[str, Any] | None:
     """Return extended metadata for a pack, or None if not found."""
     return PACK_METADATA.get(pack_id)
 

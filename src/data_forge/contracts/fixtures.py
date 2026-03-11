@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _load_openapi(path: Path | str) -> dict[str, Any]:
@@ -11,8 +11,8 @@ def _load_openapi(path: Path | str) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() in (".yaml", ".yml"):
         import yaml
-        return yaml.safe_load(text)
-    return json.loads(text)
+        return cast(dict[str, Any], yaml.safe_load(text))
+    return cast(dict[str, Any], json.loads(text))
 
 
 def _resolve_ref(ref: str, root: dict[str, Any]) -> dict[str, Any] | None:
@@ -25,7 +25,7 @@ def _resolve_ref(ref: str, root: dict[str, Any]) -> dict[str, Any] | None:
         cur = cur.get(p) if isinstance(cur, dict) else None
         if cur is None:
             return None
-    return cur if isinstance(cur, dict) else None
+    return cast(dict[str, Any] | None, cur if isinstance(cur, dict) else None)
 
 
 def _get_schema(spec: Any, root: dict[str, Any]) -> dict[str, Any] | None:
@@ -34,7 +34,7 @@ def _get_schema(spec: Any, root: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if "$ref" in spec:
         return _resolve_ref(spec["$ref"], root)
-    return spec.get("schema", spec)
+    return cast(dict[str, Any] | None, spec.get("schema", spec))
 
 
 def _sample_from_schema(schema: dict[str, Any], root: dict[str, Any], seed: int = 42) -> Any:

@@ -14,7 +14,7 @@ from data_forge.models.rules import GenerationRule, GenerationRuleType
 VALID_RULE_TYPES = {t.value for t in GenerationRuleType}
 
 
-def column_rule_to_generation_rule(table: str, column: str, rule: dict) -> GenerationRule | None:
+def column_rule_to_generation_rule(table: str, column: str, rule: dict[str, Any]) -> GenerationRule | None:
     """Build a GenerationRule from a column-level rule dict. Returns None if rule_type invalid."""
     rt = (rule.get("rule_type") or "").lower().strip()
     if rt not in VALID_RULE_TYPES:
@@ -35,6 +35,14 @@ def validate_generation_rule(rule: GenerationRule) -> list[str]:
         return errors
 
     params = rule.params or {}
+
+    # null_probability: optional float in [0, 1)
+    np_val = params.get("null_probability")
+    if np_val is not None:
+        if not isinstance(np_val, (int, float)):
+            errors.append("params.null_probability must be a number")
+        elif not (0 <= np_val < 1):
+            errors.append("params.null_probability must be in [0, 1)")
 
     if rt == "faker":
         provider = params.get("provider")
@@ -101,10 +109,17 @@ def apply_generation_rule(
 ) -> Any:
     """
     Generate a value for a column using the given generation rule.
+    If params.null_probability is set and rng.random() < p, returns None.
     """
     rt = rule.rule_type.value if hasattr(rule.rule_type, "value") else str(rule.rule_type)
     params = rule.params or {}
     rng = random.Random(seed + row_index * 37 + hash(rule.table) + hash(rule.column))
+
+    # null_probability: optional chance to return None
+    np_val = params.get("null_probability")
+    if np_val is not None and isinstance(np_val, (int, float)) and 0 <= np_val < 1:
+        if rng.random() < float(np_val):
+            return None
 
     if rt == "faker":
         provider = (params.get("provider") or "name").lower()

@@ -131,7 +131,7 @@ def parse_json_schema(data: Any, source: str | None = None) -> SchemaModel:
     return SchemaModel(name="empty", tables=[], source=source, source_type="json_schema")
 
 
-def _dict_to_relationship(r: dict) -> Any:
+def _dict_to_relationship(r: dict[str, Any]) -> Any:
     """Build RelationshipDef from dict."""
     from data_forge.models.schema import RelationshipDef
 

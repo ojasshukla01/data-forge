@@ -28,6 +28,8 @@ When `rule_set.generation_rules` exist, they override `generator_hint` behavior 
 | **static** | `{"value": "fixed"}` | Constant value for all rows |
 | **weighted_choice** | `{"choices": ["a", "b"], "weights": [0.7, 0.3]}` | Pick from choices by weight; weights optional (uniform if omitted) |
 
+**Optional param (any rule):** `null_probability` — float in [0, 1); probability of returning `null` instead of applying the rule.
+
 ### Faker Providers
 
 Common providers: `name`, `email`, `phone`, `company`, `address`, `city`, `country`, `url`, `uuid`. Any Faker attribute can be used.
@@ -62,6 +64,12 @@ generation_rules:
     params:
       min: 0.0
       max: 999.99
+  - table: users
+    column: middle_name
+    rule_type: faker
+    params:
+      provider: name
+      null_probability: 0.3   # 30% chance of null
 ```
 
 ## Column Value Generation Order

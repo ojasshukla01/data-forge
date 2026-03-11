@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _load_json(path: Path) -> Any:
@@ -13,8 +13,8 @@ def _load_openapi(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
     if path.suffix.lower() in (".yaml", ".yml"):
         import yaml
-        return yaml.safe_load(text)
-    return json.loads(text)
+        return cast(dict[str, Any], yaml.safe_load(text))
+    return cast(dict[str, Any], json.loads(text))
 
 
 def _resolve_ref(ref: str, root: dict[str, Any]) -> dict[str, Any] | None:

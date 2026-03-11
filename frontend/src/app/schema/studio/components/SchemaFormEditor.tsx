@@ -62,6 +62,7 @@ interface TableColumn {
   data_type: string;
   nullable?: boolean;
   primary_key?: boolean;
+  check?: string;
   description?: string;
   display_name?: string;
   generation_rule?: ColGenerationRule;
@@ -71,6 +72,7 @@ interface TableDef {
   name: string;
   columns: TableColumn[];
   primary_key: string[];
+  unique_constraints?: string[][];
   description?: string;
   tags?: string[];
 }
@@ -453,12 +455,12 @@ export function SchemaFormEditor({
                       Remove
                     </Button>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <input
                       type="text"
                       value={t.description ?? ""}
                       onChange={(e) => updateTable(i, { description: e.target.value || undefined })}
-                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                      className="flex-1 min-w-[120px] rounded border border-slate-300 px-2 py-1 text-xs"
                       placeholder="Description (optional)"
                     />
                     <input
@@ -472,8 +474,24 @@ export function SchemaFormEditor({
                             .filter(Boolean),
                         })
                       }
-                      className="flex-1 rounded border border-slate-300 px-2 py-1 text-xs"
+                      className="flex-1 min-w-[120px] rounded border border-slate-300 px-2 py-1 text-xs"
                       placeholder="Tags (comma-separated)"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500">Unique constraints (one per line, comma-separated columns)</label>
+                    <textarea
+                      value={(t.unique_constraints ?? []).map((cols) => cols.join(", ")).join("\n")}
+                      onChange={(e) => {
+                        const ucs = e.target.value
+                          .split("\n")
+                          .map((line) => line.split(",").map((s) => s.trim()).filter(Boolean))
+                          .filter((cols) => cols.length > 0);
+                        updateTable(i, { unique_constraints: ucs.length ? ucs : undefined });
+                      }}
+                      rows={2}
+                      className="block w-full mt-0.5 rounded border border-slate-300 px-2 py-1 text-xs"
+                      placeholder="e.g. email&#10;org_id, slug"
                     />
                   </div>
                 </div>
@@ -562,6 +580,18 @@ export function SchemaFormEditor({
                       >
                         ×
                       </Button>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-slate-500">Check constraint</label>
+                        <input
+                          type="text"
+                          value={col.check ?? ""}
+                          onChange={(e) => updateColumn(selectedTableIndex, j, { check: e.target.value || undefined })}
+                          className="block w-full mt-0.5 rounded border border-slate-300 px-2 py-0.5 text-xs"
+                          placeholder="e.g. amount &gt;= 0"
+                        />
+                      </div>
                     </div>
                     {col.generation_rule ? (
                       <ColumnRuleEditor

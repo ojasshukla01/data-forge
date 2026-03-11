@@ -4,7 +4,7 @@ import json
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from data_forge.api import custom_schema_store
 from data_forge.domain_packs import get_pack
@@ -39,7 +39,10 @@ def _run_integrations(
 
     table_data = {t.table_name: t.rows for t in result.tables} if hasattr(result, "tables") else {}
     data_layer = getattr(result.request, "layer", None)
-    layer_val = data_layer.value if hasattr(data_layer, "value") else str(data_layer or "bronze")
+    layer_val: str = (
+        data_layer.value if (data_layer is not None and hasattr(data_layer, "value"))
+        else str(data_layer or "bronze")
+    )
 
     # dbt export
     if getattr(req, "export_dbt", False):
@@ -74,12 +77,13 @@ def _run_integrations(
     # Airflow export
     if getattr(req, "export_airflow", False):
         try:
-            from data_forge.airflow_export import export_airflow
+            from typing import cast
+            from data_forge.airflow_export import TemplateKind, export_airflow
             af_out = Path(getattr(req, "airflow_dir", None) or "") or (output_dir / "airflow")
             af_out = af_out if af_out.is_absolute() else (output_dir / "airflow")
-            tpl = getattr(req, "airflow_template", "generate_only") or "generate_only"
-            if tpl not in ("generate_only", "generate_and_load", "generate_validate_and_load", "benchmark_pipeline"):
-                tpl = "generate_only"
+            tpl_raw = getattr(req, "airflow_template", "generate_only") or "generate_only"
+            _valid_tpls: tuple[TemplateKind, ...] = ("generate_only", "generate_and_load", "generate_validate_and_load", "benchmark_pipeline")
+            tpl = cast(TemplateKind, tpl_raw if tpl_raw in _valid_tpls else "generate_only")
             report = export_airflow(tpl, af_out)
             summaries["airflow_export"] = report
             for p in report.get("paths", []) or []:
@@ -160,7 +164,7 @@ def _serialize_result(result: Any) -> dict[str, Any]:
             if any(s in k.lower() for s in ("password", "secret", "token")):
                 if isinstance(qr.get(k), str) and qr[k]:
                     qr[k] = "***"
-    return d
+    return cast(dict[str, Any], d)
 
 
 def run_generate(req: Any) -> dict[str, Any]:

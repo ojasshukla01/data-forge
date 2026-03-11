@@ -37,15 +37,16 @@ def build_run_manifest(
     duration_seconds: float | None = None,
     storage_backend: str = "file",
     project_root: Path | None = None,
+    custom_schema_name: str | None = None,
 ) -> dict[str, Any]:
-    """Build a reproducibility manifest for a run."""
+    """Build a reproducibility manifest for a run. Include custom_schema_name when available for provenance durability."""
     now = time.time()
     root = project_root or Path.cwd()
     custom_schema_id = config.get("custom_schema_id")
     schema_source_type = "custom_schema" if custom_schema_id else "pack"
     custom_schema_version = config.get("custom_schema_version")
 
-    return {
+    manifest: dict[str, Any] = {
         "run_id": run_id,
         "output_run_id": output_run_id or run_id,
         "run_type": run_type,
@@ -69,6 +70,9 @@ def build_run_manifest(
         "created_at": now,
         "manifest_version": 1,
     }
+    if custom_schema_name:
+        manifest["custom_schema_name"] = custom_schema_name
+    return manifest
 
 
 def write_manifest_json(manifest: dict[str, Any], output_dir: Path) -> Path:
@@ -101,6 +105,8 @@ def write_manifest_markdown(manifest: dict[str, Any], output_dir: Path) -> Path:
     ]
     if manifest.get("custom_schema_id"):
         lines.append(f"- **Custom schema ID**: {manifest.get('custom_schema_id')}")
+    if manifest.get("custom_schema_name"):
+        lines.append(f"- **Custom schema name**: {manifest.get('custom_schema_name')}")
     if manifest.get("custom_schema_version") is not None:
         lines.append(f"- **Custom schema version**: {manifest.get('custom_schema_version')}")
     lines.extend([

@@ -584,6 +584,7 @@ export interface RunLineage {
   pack?: string;
   custom_schema_id?: string;
   custom_schema_version?: number;
+  custom_schema_name?: string;
   schema_source_type?: "pack" | "custom_schema";
   artifact_run_id?: string;
   output_dir?: string;
@@ -600,6 +601,7 @@ export interface RunManifest {
   pack?: string;
   custom_schema_id?: string;
   custom_schema_version?: number;
+  custom_schema_name?: string;
   schema_source_type?: "pack" | "custom_schema";
   scale?: number;
   mode?: string;
@@ -749,9 +751,19 @@ export async function fetchCustomSchemaDiff(id: string, left: number, right: num
   return res.json();
 }
 
+export async function restoreSchemaVersion(schemaId: string, version: number): Promise<CustomSchemaDetail> {
+  const res = await fetch(`${API_BASE}/api/custom-schemas/${schemaId}/versions/${version}/restore`, {
+    method: "POST",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to restore version");
+  return data;
+}
+
 export interface CustomSchemaValidateResponse {
   valid: boolean;
   errors: string[];
+  warnings?: string[];
 }
 
 export async function validateCustomSchema(schema: Record<string, unknown>): Promise<CustomSchemaValidateResponse> {

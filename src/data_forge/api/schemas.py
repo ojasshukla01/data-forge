@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GenerationMode(str, Enum):
@@ -156,6 +156,8 @@ class CustomSchemaSummary(BaseModel):
 class CustomSchemaDetail(BaseModel):
     """Full custom schema definition and metadata."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     name: str
     description: str | None = None
@@ -163,7 +165,7 @@ class CustomSchemaDetail(BaseModel):
     version: int
     created_at: float | None = None
     updated_at: float | None = None
-    schema: dict[str, Any]
+    schema_body: dict[str, Any] = Field(alias="schema")
 
 
 class CustomSchemaVersionInfo(BaseModel):
@@ -181,7 +183,7 @@ class CustomSchemaCreate(BaseModel):
     """Request body for POST /api/custom-schemas."""
 
     name: str
-    schema: dict[str, Any]
+    schema_body: dict[str, Any] = Field(alias="schema")
     description: str | None = None
     tags: list[str] | None = None
     created_from: str | None = None
@@ -193,17 +195,18 @@ class CustomSchemaUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     tags: list[str] | None = None
-    schema: dict[str, Any] | None = None
+    schema_body: dict[str, Any] | None = Field(default=None, alias="schema")
 
 
 class CustomSchemaValidateRequest(BaseModel):
     """Request body for POST /api/custom-schemas/validate."""
 
-    schema: dict[str, Any]
+    schema_body: dict[str, Any] = Field(alias="schema")
 
 
 class CustomSchemaValidateResponse(BaseModel):
     """Response for POST /api/custom-schemas/validate."""
 
     valid: bool
-    errors: list[str] = []
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

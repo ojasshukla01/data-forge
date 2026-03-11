@@ -47,9 +47,10 @@ def generate_table(
             if g.table == table.name:
                 gen_rules[g.column] = g
     for col in table.columns:
-        if col.name not in gen_rules and getattr(col, "generation_rule", None):
+        gr_col = getattr(col, "generation_rule", None)
+        if col.name not in gen_rules and gr_col is not None:
             from data_forge.generators.generation_rules import column_rule_to_generation_rule
-            rule_dict = {"rule_type": col.generation_rule.rule_type, "params": col.generation_rule.params}
+            rule_dict = {"rule_type": gr_col.rule_type, "params": gr_col.params}
             gr = column_rule_to_generation_rule(table.name, col.name, rule_dict)
             if gr is not None:
                 gen_rules[col.name] = gr

@@ -93,10 +93,12 @@ Both the wizard and advanced config use the same `/api/preflight` endpoint.
 
 Preflight checks:
 
-- Validates pack, schema, and rules paths.
+- Validates pack, custom schema, and rules paths.
 - Estimates row counts and memory usage.
 - Highlights likely issues with load targets and integrations.
 - Surfaces privacy or manifest-related warnings where applicable.
+
+When preflight reports blockers that mention a custom schema (e.g. invalid schema or missing custom_schema_id), use the **"Open Schema Studio to fix →"** link in the wizard Review step to edit the schema and revalidate.
 
 Preflight results:
 

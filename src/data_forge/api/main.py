@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from data_forge.api.middleware import (
-    RateLimitPlaceholderMiddleware,
+    RateLimitMiddleware,
     RequestLoggingMiddleware,
     RequestSizeLimitMiddleware,
 )
@@ -29,7 +29,7 @@ app = FastAPI(
     version=__version__,
 )
 
-app.add_middleware(RateLimitPlaceholderMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
@@ -53,5 +53,5 @@ app.include_router(custom_schemas.router)
 
 
 @app.get("/health", response_model=HealthResponse)
-def health():
+def health() -> HealthResponse:
     return HealthResponse(status="ok", version=__version__)

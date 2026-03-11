@@ -1,5 +1,7 @@
 """Preflight validation API router."""
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from data_forge.api import custom_schema_store
@@ -31,7 +33,7 @@ def _estimate_rows(scale: int, pack_id: str | None, custom_schema_id: str | None
 
 
 @router.post("/preflight")
-def api_preflight(config: dict) -> dict:
+def api_preflight(config: dict[str, Any]) -> dict[str, Any]:
     """
     Validate pending run config. Returns blockers, warnings, recommendations,
     estimated rows, memory, and artifact summary.

@@ -40,9 +40,9 @@ class RelationshipBuilder:
 def _infer_pk(table: TableDef | None) -> str | None:
     if not table:
         return None
-    for c in table.primary_key:
-        return c
-    for c in table.columns:
-        if c.primary_key:
-            return c.name
+    for pk_col in table.primary_key:
+        return pk_col
+    for col in table.columns:
+        if col.primary_key:
+            return col.name
     return table.columns[0].name if table.columns else None

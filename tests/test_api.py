@@ -149,6 +149,8 @@ def test_custom_schema_validate_valid():
     data = r.json()
     assert data.get("valid") is True
     assert data.get("errors", []) == []
+    assert "warnings" in data
+    assert isinstance(data.get("warnings", []), list)
 
 
 def test_custom_schema_validate_invalid():
@@ -241,6 +243,14 @@ def test_custom_schema_versions_and_diff():
     diff = r_diff.json()
     assert "tables_added" in diff
     assert "b" in diff["tables_added"]
+
+    # Restore v1 as new version
+    r_restore = client.post(f"/api/custom-schemas/{schema_id}/versions/1/restore")
+    assert r_restore.status_code == 200
+    restored = r_restore.json()
+    assert restored["version"] == 3
+    assert restored["schema"]["name"] == "v1"
+    assert len(restored["schema"]["tables"]) == 1
 
 
 def test_artifacts_list():
