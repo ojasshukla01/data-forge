@@ -7,7 +7,7 @@
   <strong>Time-Aware Synthetic Data Platform</strong>
 </p>
 <p align="center">
-  <em>Schema-aware synthetic data for databases, APIs, and pipelines</em>
+  <em>Schema-aware synthetic data for databases, APIs, and pipelines. Realistic, relational, privacy-safe.</em>
 </p>
 
 <p align="center">

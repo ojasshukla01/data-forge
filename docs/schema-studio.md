@@ -22,7 +22,7 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 
 ## UI layout
 
-- **Sidebar (left):** Custom schemas list (first 5 visible; additional schemas in scrollable area). "How it works" section in the same scroll area.
+- **Sidebar (left):** Custom schemas list (one scrollable list). Below it, a fixed "How it works" section with step-by-step instructions.
 - **Editor (right):** Form mode and JSON mode tabs. Form mode has Tables, Columns, Relationships tabs. When no schema is selected, a clear message instructs you to choose or create a schema first.
 
 ## Features

@@ -18,7 +18,7 @@ The Create Wizard is a guided path for common generation flows. It is optimized 
 Wizard steps:
 
 1. **Choose input**
-   - Start from scratch: pick a **domain pack** from the available pack list.
+   - Start from scratch: pick a **domain pack** from the available pack list, or a **custom schema** from Schema Studio.
    - Use a saved scenario: select from existing scenarios; the wizard prefills fields from that config.
 2. **Use Case**
    - Presets for demo, unit test, integration test, ETL simulation, warehouse load.

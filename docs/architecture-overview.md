@@ -7,7 +7,7 @@ Data Forge is a **local-first** platform: a Python backend (CLI + FastAPI), a Ne
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Product UI (Next.js)                       │
-│  Wizard • Advanced config • Runs • Scenarios • Artifacts • Compare │
+│  Wizard • Advanced • Schema Studio • Runs • Scenarios • Artifacts • Validate • Compare │
 └───────────────────────────────────┬─────────────────────────────┘
                                     │ HTTP (localhost)
 ┌───────────────────────────────────▼─────────────────────────────┐
