@@ -28,7 +28,6 @@ jobs:
 
       - name: Run mypy
         run: mypy src
-        continue-on-error: true
 
       - name: Run pytest
         run: pytest tests -v --tb=short
@@ -117,4 +116,3 @@ jobs:
 
       - name: Run Playwright E2E
         run: cd frontend && npm run e2e
-        continue-on-error: true

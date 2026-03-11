@@ -19,7 +19,7 @@ Overview of Data Forge security practices and hardening measures.
 
 - **Request logging**: All requests are logged with method, path, status code, and duration.
 - **Request size limit**: Requests with `Content-Length` > 2MB are rejected with `413 Payload Too Large` and a structured JSON body: `{ detail, code: "payload_too_large", max_size_bytes }`.
-- **Rate limiting**: Placeholder middleware is in place; can be replaced with actual rate limiting (e.g. slowapi) for production.
+- **Rate limiting**: In-memory rate limiting per IP. GET/HEAD: 300/min, POST/PUT/PATCH/DELETE: 60/min. Returns 429 when exceeded. Resets on server restart.
 
 ## Schema Size Limits
 

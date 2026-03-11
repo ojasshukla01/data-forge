@@ -1,6 +1,6 @@
 # Data Forge — Architecture Current State
 
-This document summarizes the current repository structure, backend architecture, API surface, schema system, Custom Schema Studio, frontend routes, create flows, run lifecycle, testing, and CI workflow.
+This document summarizes the current repository structure, backend architecture, API surface, schema system, Custom Schema Studio, frontend routes, create flows, run lifecycle, testing, and CI workflow. Updated as of the implementation pass.
 
 ---
 
@@ -9,6 +9,24 @@ This document summarizes the current repository structure, backend architecture,
 ```text
 data-forge/
 ├── src/data_forge/           # Python backend
+│   ├── api/                  # FastAPI app, routers, stores, middleware, security
+│   ├── models/               # Schema, config, generation, manifest, rules
+│   ├── engine/               # Core run_generation, export_result
+│   ├── schema_ingest/        # SQL DDL, JSON Schema, OpenAPI parsers
+│   ├── rule_engine/          # YAML/JSON rule sets
+│   ├── domain_packs/         # Pre-built packs (saas_billing, ecommerce, etc.)
+│   ├── generators/           # Table generation, FK resolution, messiness, CDC, drift
+│   ├── adapters/             # SQLite, DuckDB, Postgres, Snowflake, BigQuery load
+│   ├── exporters/            # CSV, JSON, Parquet, SQL export
+│   ├── simulation/           # Event streams, time patterns
+│   ├── services/             # Run, scenario, retention, metrics, lineage
+│   ├── storage/              # File and SQLite backends
+│   ├── validators/           # Schema and data quality
+│   ├── pii/                  # PII classifier and redaction
+│   ├── contracts/            # Contract fixtures and validation
+│   ├── warehouse_validation/ # Warehouse validation helpers
+│   ├── config.py             # Settings, path validation
+│   └── cli.py                # Typer CLI: generate, benchmark, validate, runs, packs
 ├── frontend/                 # Next.js 16 + React 19 + TypeScript
 ├── tests/                    # Pytest backend tests
 ├── frontend/e2e/             # Playwright E2E tests
@@ -29,46 +47,110 @@ data-forge/
 
 ### Modules Under `src/data_forge/`
 
-| Module   | Purpose   |
-| -------- | --------- |
-| **api/** | FastAPI app, routers, services, task_runner, custom_schema_store |
-| **models/** | SchemaModel, config_schema (RunConfig), generation, run_manifest, rules |
+| Module | Purpose |
+|--------|---------|
+| **api/** | FastAPI app, routers (domain_packs, generate, preflight, validate, artifacts, schema_viz, runs, benchmark, scenarios, custom_schemas), task_runner, run_store, scenario_store, custom_schema_store, schemas, security, middleware |
+| **models/** | SchemaModel, config_schema (RunConfig), generation, run_manifest, rules, simulation, artifact_metadata |
 | **engine/** | `run_generation`, `export_result` — core synthetic data generation |
-| **schema_ingest/** | Load schema from SQL DDL, JSON Schema, OpenAPI; `load_schema()` |
+| **schema_ingest/** | `load_schema()` — SQL DDL, JSON Schema, OpenAPI; path safety |
 | **rule_engine/** | YAML/JSON rule sets; `load_rule_set()` |
-| **domain_packs/** | Pre-built packs (saas_billing, ecommerce, fintech_transactions, etc.); `get_pack()`, `list_packs()` |
+| **domain_packs/** | `get_pack()`, `list_packs()` — saas_billing, ecommerce, fintech_transactions, etc. |
+| **generators/** | table.py, generation_rules, relationship_builder, messiness, layers, cdc_simulator, schema_drift |
+| **adapters/** | base, load, registry; sqlite, duckdb, postgres, snowflake, bigquery |
+| **exporters/** | CSV, JSON, Parquet, SQL |
+| **simulation/** | event_stream, time_patterns |
+| **services/** | run_service, scenario_service, retention_service, metrics_service, lineage_service |
 | **storage/** | RunStoreInterface, ScenarioStoreInterface; file_backend, sqlite_backend |
-| **services/** | `run_generate`, retention_service, metrics_service, lineage_service; orchestration layer |
-| **simulation/** | Event streams, time patterns, pipeline simulation |
-| **config.py** | Settings (pydantic-settings), path validation (`ensure_path_allowed`) |
-| **cli.py** | Typer CLI: generate, benchmark, validate, runs, scaffold-pack |
+| **validators/** | quality.py — schema and data quality |
+| **pii/** | classifier, redaction |
+| **contracts/** | fixtures, validate |
+| **warehouse_validation/** | helpers |
+| **config.py** | Settings (pydantic-settings), `ensure_path_allowed` |
+| **cli.py** | Typer CLI: generate, benchmark, validate, reconcile, runs, packs |
 
 ### Storage Abstraction
 
 - **Factory**: `get_run_store()`, `get_scenario_store()` in `storage/__init__.py`
 - **Backends**: `file` (default) or `sqlite` via `DATA_FORGE_STORAGE_BACKEND`
-- **File backend**: delegates to `data_forge.api.run_store` and `scenario_store` (JSON in `runs/`, `scenarios/`)
+- **File backend**: JSON in `runs/`, `scenarios/`
 - **SQLite backend**: `sqlite_backend.py` with `runs` and `scenarios` tables
 
 ---
 
 ## API Surface
 
-### Routers
+### Routers and Endpoints
 
-| Prefix             | Module        | Key Endpoints |
-| ------------------ | ------------- | ------------- |
+| Prefix | Module | Key Endpoints |
+|--------|--------|---------------|
+| `/health` | main | `GET /health` |
 | `/api/domain-packs` | domain_packs | `GET ""`, `GET /{pack_id}` |
 | `/api` | generate | `POST /generate` (sync) |
 | `/api` | preflight | `POST /preflight` |
-| `/api` | validate | `POST /validate`, `POST /validate/ge` |
-| `/api` | artifacts | `GET /artifacts` |
-| `/api/schema` | schema_viz | `GET /visualize`, `POST /parse`, `POST /preview` |
-| `/api/runs` | runs | `POST /generate`, `POST /benchmark`, `GET ""`, `GET /{id}`, `GET /{id}/logs`, `GET /{id}/timeline`, `GET /{id}/lineage`, `GET /{id}/manifest`, `POST /{id}/rerun`, `POST /{id}/clone`, storage/cleanup/archive/pin/delete |
-| `/api/benchmark` | benchmark | `POST` (sync benchmark) |
-| `/api/scenarios` | scenarios | `GET`, `POST`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`, `POST /{id}/run`, `GET /{id}/versions`, `GET /{id}/versions/{v}`, `GET /{id}/diff`, `POST /import`, `GET /{id}/export` |
-| `/api/custom-schemas` | custom_schemas | `POST /validate`, `GET`, `POST`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`, `GET /{id}/versions`, `GET /{id}/versions/{v}`, `GET /{id}/diff` |
-| `/health` | main | `GET` |
+| `/api` | validate | `POST /validate`, `POST /validate/ge`, `POST /reconcile` |
+| `/api/artifacts` | artifacts | `GET ""`, `GET /file?run_id=&path=` |
+| `/api/schema` | schema_viz | `POST /preview`, `GET /visualize?pack_id=` |
+| `/api/runs` | runs | See below |
+| `/api` | benchmark | `POST /benchmark` (sync) |
+| `/api/scenarios` | scenarios | See below |
+| `/api/custom-schemas` | custom_schemas | See below |
+
+### Runs (`/api/runs`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/benchmark` | Start async benchmark |
+| POST | `/generate` | Start async generation |
+| GET | `` | List runs (filters) |
+| GET | `/metrics` | Aggregate metrics |
+| GET | `/storage/summary` | Storage usage |
+| GET | `/cleanup/preview` | Preview retention cleanup |
+| POST | `/cleanup/execute` | Run retention cleanup |
+| GET | `/compare?left=&right=` | Compare two runs |
+| GET | `/{run_id}` | Run detail |
+| GET | `/{run_id}/status` | Run status |
+| GET | `/{run_id}/timeline` | Run timeline |
+| GET | `/{run_id}/lineage` | Run lineage |
+| GET | `/{run_id}/manifest` | Reproducibility manifest |
+| GET | `/{run_id}/logs` | Run events |
+| POST | `/{run_id}/rerun` | Rerun |
+| POST | `/{run_id}/clone` | Clone config |
+| POST | `/{run_id}/archive` | Archive |
+| POST | `/{run_id}/unarchive` | Unarchive |
+| POST | `/{run_id}/delete` | Delete |
+| POST | `/{run_id}/pin` | Pin |
+| POST | `/{run_id}/unpin` | Unpin |
+
+### Scenarios (`/api/scenarios`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `` | Create scenario |
+| GET | `` | List scenarios |
+| GET | `/{id}` | Scenario detail |
+| PUT | `/{id}` | Update scenario |
+| DELETE | `/{id}` | Delete scenario |
+| POST | `/{id}/run` | Run from scenario |
+| POST | `/from-run/{run_id}` | Create scenario from run |
+| POST | `/import` | Import scenario |
+| GET | `/{id}/versions` | Version history |
+| GET | `/{id}/versions/{v}` | Version detail |
+| GET | `/{id}/diff?left=&right=` | Diff two versions |
+| GET | `/{id}/export` | Export scenario |
+
+### Custom Schemas (`/api/custom-schemas`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/validate` | Validate schema (no save) |
+| GET | `` | List schemas |
+| POST | `` | Create schema |
+| GET | `/{id}` | Schema detail |
+| PUT | `/{id}` | Update schema |
+| DELETE | `/{id}` | Delete schema |
+| GET | `/{id}/versions` | List versions |
+| GET | `/{id}/versions/{v}` | Version detail |
+| GET | `/{id}/diff?left=&right=` | Diff versions |
 
 ### CORS
 
@@ -85,20 +167,25 @@ data-forge/
 - **TableDef**: name, columns, primary_key, unique_constraints, description, row_estimate, order, tags
 - **RelationshipDef**: name, from_table, from_columns, to_table, to_columns, cardinality, optional, on_delete
 - **SchemaModel**: name, description, tables, relationships, source, source_type
-- **Schema validation**: `SchemaModel.validate_schema()` returns list of structural errors (duplicate names, invalid refs)
-- **Helpers**: `get_table()`, `get_relationships_from/to()`, `dependency_order()` (topological sort for generation)
+- **Schema validation**: `SchemaModel.validate_schema()` returns list of structural errors
+- **Helpers**: `get_table()`, `get_relationships_from/to()`, `dependency_order()`
+
+### Generation Rules (column-level)
+
+- **rule_type**: faker, uuid, sequence, range, static, weighted_choice
+- **params**: per-rule (e.g. faker provider, sequence start/step, weighted_choice choices/weights)
+- Validation via `validate_generation_rule()` in generators/generation_rules.py
 
 ### Schema Ingest
 
-- **load_schema(path)**: Supports .sql (DDL), .json (JSON Schema/OpenAPI), .yaml/.yml
+- **load_schema(path)**: .sql (DDL), .json (JSON Schema/OpenAPI), .yaml/.yml
 - **Path safety**: `ensure_path_allowed()` restricts to project_root, schemas, rules, output
-- **Parsers**: `parse_sql_ddl`, `parse_json_schema`, OpenAPI extraction
 
 ### Config Schema (`models/config_schema.py`)
 
 - **RunConfig** (versioned): generation, simulation, benchmark, privacy, export, load, runtime
-- **Flattening**: `to_flat_dict()`, `from_flat_dict()` for engine/API compatibility
-- **Legacy**: `normalize_legacy_config()` for flat configs
+- **custom_schema_id**: Optional; used when schema source is custom
+- **Flattening**: `to_flat_dict()`, `from_flat_dict()` for engine/API
 
 ---
 
@@ -114,34 +201,35 @@ data-forge/
 ### API (`routers/custom_schemas.py`)
 
 - CRUD and version/diff endpoints as listed above
-- Request body: `{ name, description?, tags?, schema }` (schema = SchemaModel-compatible dict)
+- Request body: `{ name, description?, tags?, schema }`
 - Response models: CustomSchemaSummary, CustomSchemaDetail, CustomSchemaVersionsResponse
 
 ### Integration
 
-- Advanced Config: Schema & Input section has Custom schema dropdown
-- Wizard: config supports custom_schema_id; passed to runs
-- Generate API: accepts custom_schema_id
-- See `docs/schema-studio.md` for full documentation
+- **Advanced Config**: Schema & Input section has Custom schema dropdown
+- **Wizard**: Choose input — Domain Pack or Custom Schema; config includes custom_schema_id
+- **Generate API**: Accepts custom_schema_id; loads schema from store
+- **Manifest/Lineage**: custom_schema_id, custom_schema_version, schema_source_type
 
 ---
 
 ## Frontend Routes
 
-| Route           | Purpose            |
-| --------------- | ------------------ |
+| Route | Purpose |
+|-------|---------|
 | `/` | Home; first-run onboarding or recent activity |
-| `/create/wizard` | Create Wizard (5 steps) |
-| `/create/advanced` | Advanced Config (tabs for all sections) |
+| `/create/wizard` | Create Wizard (5 steps: Choose Input, Use Case, Realism, Export, Review) |
+| `/create/advanced` | Advanced Config (tabs: Schema & Input, Rules, Generation, ETL, Simulation, etc.) |
 | `/scenarios` | Scenario list |
 | `/scenarios/[id]` | Scenario detail; version history & diff |
 | `/runs` | Run list with badges, storage, cleanup |
 | `/runs/[id]` | Run detail; lineage, manifest, timeline, artifacts |
+| `/runs/compare` | Compare two runs |
 | `/artifacts` | Artifact browser |
 | `/templates` | Domain packs list |
 | `/templates/[id]` | Pack detail; "Use This Template" → wizard |
 | `/schema` | Schema Visualizer (React Flow, pack-based) |
-| `/schema/studio` | Custom Schema Studio (JSON editor) |
+| `/schema/studio` | Custom Schema Studio (form + JSON mode) |
 | `/docs` | In-app docs with TOC |
 | `/about` | About page |
 | `/validate` | Validation center |
@@ -163,7 +251,7 @@ data-forge/
 5. **Review & Run**: Summary, preflight (auto), Run, Save as scenario
 
 - Uses `wizardStore` (Zustand); `customSchemaId` or `pack` in config
-- Maps to flat config for `/api/runs/generate` (includes `custom_schema_id`)
+- Maps to flat config for `/api/runs/generate`
 - Preflight runs automatically on Review step
 
 ---
@@ -172,25 +260,36 @@ data-forge/
 
 - Tabbed sections: Schema & Input, Rules, Generation, ETL Realism, Pipeline Simulation, Privacy, Contracts, Exports, Load, Validation, dbt/GE/Airflow, Benchmark, Raw Config
 - Prefill from `?scenario=<id>` or `?clone=<json>`
+- Custom schema dropdown in Schema & Input
 - Preflight & Run panel; Save/Update/Save-as scenario; Import/Export JSON
-- Full nested config editing (pipeline_simulation, benchmark, etc.)
 
 ---
 
 ## Run Generation Lifecycle
 
 1. **Start**: `POST /api/runs/generate` → create run record, queue `execute_generation_async`
-2. **Task runner** (`task_runner.py`): Normalizes config via `RunConfig.from_flat_dict()`; loads schema/rules; runs engine `run_generation`; exports; optionally pipeline simulation, benchmark, load, dbt/GE/Airflow; writes manifest
+2. **Task runner**: Normalizes config; loads schema/rules; runs engine `run_generation`; exports; optional simulation, benchmark, load; writes manifest
 3. **Stages**: preflight → schema_load → rule_load → generation → anomaly_injection → etl_transforms → export → contract_generation → warehouse_load → validation → manifest → complete
 4. **Output**: `output/<run_id>/` with datasets, manifest.json, manifest.md
 5. **Polling**: Frontend polls `GET /api/runs/{id}` for status
 
 ### Manifest + Lineage
 
-- **Manifest**: Built by `build_run_manifest`; written to `manifest.json` and `manifest.md` in output dir. Includes pack, seed, scale, mode, layer; custom_schema_id, custom_schema_version, schema_source_type (pack | custom_schema) when schema-driven.
-- **Lineage**: `get_run_lineage()` → run → scenario → version → pack (or custom_schema_id/custom_schema_version) → artifact_run_id. Includes schema_source_type.
-- **Manifest API**: `get_run_manifest_from_disk()` reads manifest.json from output dir
-- **Run detail UI**: Config card (pack), Lineage card (pack, scenario), Reproducibility manifest card
+- **Manifest**: `build_run_manifest()` — pack, seed, scale, mode, layer; custom_schema_id, custom_schema_version, schema_source_type (pack | custom_schema)
+- **Lineage**: `get_run_lineage()` → run → scenario → version → pack (or custom_schema_id/version) → artifact_run_id
+- **Manifest API**: Reads manifest.json from output dir
+- **Run detail UI**: Config card, Lineage card, Reproducibility manifest card; custom schema provenance when used
+
+---
+
+## Security Controls
+
+- **Request logging**: Middleware logs requests
+- **Request size limit**: 2MB global; 413 on exceed
+- **Schema body size**: 512KB limit; validate before create/update
+- **Schema ID validation**: `schema_[a-zA-Z0-9_-]{1,52}`; no path traversal
+- **Path safety**: `ensure_custom_schema_path_safe`; path must stay in base_dir
+- **Metadata sanitization**: name 500 chars, description 2000, tags 50 each, max 50 tags
 
 ---
 
@@ -199,23 +298,23 @@ data-forge/
 ### Backend (pytest)
 
 - **Location**: `tests/`
-- **Examples**: `test_api.py`, `test_custom_schemas.py`
+- **Examples**: test_api, test_custom_schemas, test_run_manifest_lineage, test_custom_schema_generation_rules, test_security, test_engine
 - **Client**: FastAPI TestClient against `data_forge.api.main:app`
-- **Coverage**: API endpoints, custom schema CRUD/versions/diff
+- **Run**: `uv run pytest tests -v` or `pytest tests -v`
 
 ### Frontend (Vitest)
 
 - **Location**: `frontend/src/**/*.test.tsx`
 - **Stack**: Vitest, React Testing Library, jsdom
-- **Pattern**: Mock `fetch`, `next/navigation` where needed
-- **Coverage**: Pages (wizard, advanced, templates, schema studio), lib/utils
+- **Pattern**: Mock `fetch`, `next/navigation`
+- **Run**: `cd frontend && npm test`
 
 ### E2E (Playwright)
 
 - **Config**: `frontend/playwright.config.ts`; `testDir: ./e2e`
-- **CI**: E2E job starts API + frontend, runs `npm run e2e` (continue-on-error: true)
-- **Web server**: Starts `npm run dev` on port 3000 (reuse locally, fresh in CI)
-- **Note**: CI in current state may not include Playwright (see CI section)
+- **Tests**: smoke.spec.ts — homepage load, create wizard load
+- **Run**: `cd frontend && npm run e2e`
+- **CI**: E2E job starts API + frontend; Playwright runs (continue-on-error: true)
 
 ---
 
@@ -227,22 +326,26 @@ data-forge/
 
 - Python 3.12
 - `pip install -e ".[dev]"`
-- `ruff check src tests`
-- `mypy src` (continue-on-error)
-- `pytest tests -v --tb=short`
+- `ruff check src tests` (strict)
+- `mypy src` (continue-on-error: true)
+- `pytest tests -v --tb=short` (strict)
+- `pip-audit` (continue-on-error: true)
 
-### Frontend Job (if `frontend/package.json` exists)
+### Frontend Job
 
 - Node 20, npm cache
 - `cd frontend && npm install`
-- `npx tsc --noEmit`
-- `npm test` (Vitest)
-- `npm run build`
+- `npx tsc --noEmit` (strict)
+- `npm test` (Vitest, strict)
+- `npm run build` (strict)
+- `npm audit` (continue-on-error: true)
 
 ### E2E Job
 
+- Installs backend, frontend, Playwright (chromium)
+- Builds frontend
 - Starts API (uvicorn) and frontend (`npm run start`)
-- `npx playwright test` (chromium)
+- Waits, then `npm run e2e`
 - continue-on-error: true
 
 ---
@@ -250,24 +353,4 @@ data-forge/
 ## Environment and Config
 
 - **Backend**: `DATA_FORGE_*` env vars; `.env` optional
-- **Frontend**: `NEXT_PUBLIC_API_URL` (default `http://localhost:8000`)
-- **`.env.example`**: Template for env vars; copy to `.env`
-- **Secrets**: Snowflake, BigQuery credentials via env; sensitive config fields redacted in scenario store
-
----
-
-## Dependencies
-
-### Backend (pyproject.toml)
-
-- Core: fastapi, uvicorn, pydantic, pydantic-settings, typer
-- Data: polars, pyarrow, duckdb, faker, mimesis
-- Integrations: great-expectations, psycopg, snowflake-connector-python, google-cloud-bigquery
-- Dev: pytest, ruff, mypy, pre-commit
-
-### Frontend (package.json)
-
-- Next 16, React 19, TypeScript
-- UI: tailwindcss, clsx, tailwind-merge, lucide-react, reactflow, recharts
-- State: zustand
-- Testing: vitest, @testing-library/react, @playwright/test
+- **Frontend**: `NEXT_PUBLIC_API_URL` or `API_BASE` (default `http://localhost:8000`)

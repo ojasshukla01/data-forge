@@ -16,7 +16,7 @@
   <a href="#-scenarios--runs"><strong>Scenarios</strong></a> •
   <a href="#-core-workflows"><strong>Workflows</strong></a> •
   <a href="docs/demo-walkthrough.md"><strong>Walkthrough</strong></a> •
-  <a href="docs/architecture-overview.md"><strong>Architecture</strong></a> •
+  <a href="docs/architecture-current-state.md"><strong>Architecture</strong></a> •
   <a href="#-contributing"><strong>Contributing</strong></a>
 </p>
 

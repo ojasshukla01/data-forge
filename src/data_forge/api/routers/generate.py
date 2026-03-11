@@ -1,5 +1,7 @@
 """Generate API router."""
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from data_forge.api.schemas import GenerateRequest
@@ -9,7 +11,7 @@ router = APIRouter(prefix="/api", tags=["generate"])
 
 
 @router.post("/generate")
-def api_generate(req: GenerateRequest) -> dict:
+def api_generate(req: GenerateRequest) -> dict[str, Any]:
     """Run synthetic data generation."""
     result = run_generate(req)
     if not result.get("success") and result.get("errors"):

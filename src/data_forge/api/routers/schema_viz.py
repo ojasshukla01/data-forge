@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, TypeAlias
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -13,6 +13,8 @@ from data_forge.generators.generation_rules import apply_generation_rule, column
 from data_forge.models.schema import SchemaModel
 
 router = APIRouter(prefix="/api/schema", tags=["schema"])
+
+RelationshipKey: TypeAlias = tuple[str, str, tuple[str, ...], tuple[str, ...]]
 
 
 def _sample_value_for_type(data_type: str, row_idx: int) -> Any:
@@ -65,11 +67,12 @@ def preview_sample_data(payload: dict[str, Any]) -> dict[str, list[dict[str, Any
         for i in range(n):
             row: dict[str, Any] = {}
             for c in t.columns:
-                if getattr(c, "generation_rule", None):
-                    rule_dict = {"rule_type": c.generation_rule.rule_type, "params": c.generation_rule.params}
-                    gr = column_rule_to_generation_rule(t.name, c.name, rule_dict)
-                    if gr is not None:
-                        row[c.name] = apply_generation_rule(gr, i, seed, locale="en_US")
+                gr = getattr(c, "generation_rule", None)
+                if gr is not None:
+                    rule_dict = {"rule_type": gr.rule_type, "params": gr.params}
+                    gen_rule = column_rule_to_generation_rule(t.name, c.name, rule_dict)
+                    if gen_rule is not None:
+                        row[c.name] = apply_generation_rule(gen_rule, i, seed, locale="en_US")
                     else:
                         dt = getattr(c.data_type, "value", str(c.data_type)) if hasattr(c.data_type, "value") else str(c.data_type)
                         row[c.name] = _sample_value_for_type(dt, i)
@@ -82,7 +85,7 @@ def preview_sample_data(payload: dict[str, Any]) -> dict[str, list[dict[str, Any
 
 
 @router.get("/visualize")
-def visualize_schema(pack_id: str = Query(..., description="Domain pack ID")) -> dict:
+def visualize_schema(pack_id: str = Query(..., description="Domain pack ID")) -> dict[str, Any]:
     """
     Return schema structure as nodes and edges for graph visualization.
     Uses domain pack schema; relationships become edges.
@@ -114,9 +117,9 @@ def visualize_schema(pack_id: str = Query(..., description="Domain pack ID")) ->
             },
             "position": {"x": (i % 4) * 260, "y": (i // 4) * 200},
         })
-    seen: set[tuple[str, str]] = set()
+    seen: set[RelationshipKey] = set()
     for r in schema.relationships:
-        key = (r.from_table, r.to_table, tuple(r.from_columns), tuple(r.to_columns))
+        key: RelationshipKey = (r.from_table, r.to_table, tuple(r.from_columns), tuple(r.to_columns))
         if key in seen:
             continue
         seen.add(key)

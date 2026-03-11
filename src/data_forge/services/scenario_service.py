@@ -1,6 +1,6 @@
 """Scenario service: thin facade over scenario store for API/CLI use."""
 
-from typing import Any
+from typing import Any, cast
 
 from data_forge.storage import get_scenario_store
 
@@ -89,10 +89,10 @@ def get_scenario_version_config(scenario_id: str, version: int) -> dict[str, Any
         return None
     current = record.get("version", 1)
     if version == 0 or version == current:
-        return record.get("config")
+        return cast(dict[str, Any] | None, record.get("config"))
     for v in reversed(record.get("versions") or []):
         if v.get("version") == version:
-            return v.get("config")
+            return cast(dict[str, Any] | None, v.get("config"))
     return None
 
 

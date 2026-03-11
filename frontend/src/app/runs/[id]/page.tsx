@@ -374,7 +374,7 @@ export default function RunDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lineage</CardTitle>
-          <p className="text-sm text-slate-500 mt-1">Run → scenario → version → pack → artifacts</p>
+          <p className="text-sm text-slate-500 mt-1">Run → scenario → pack or custom schema → artifacts</p>
         </CardHeader>
         <CardContent>
           {lineageManifestLoading && !lineage && !manifest ? (
@@ -387,6 +387,7 @@ export default function RunDetailPage() {
               <div><dt className="text-slate-500">Pack</dt><dd>{lineage.pack ?? "—"}</dd></div>
               {lineage.custom_schema_id && (
                 <>
+                  {lineage.custom_schema_name && <div><dt className="text-slate-500">Custom schema name</dt><dd>{lineage.custom_schema_name}</dd></div>}
                   <div><dt className="text-slate-500">Custom schema ID</dt><dd className="font-mono text-xs">{lineage.custom_schema_id}</dd></div>
                   {lineage.custom_schema_version != null && <div><dt className="text-slate-500">Schema version</dt><dd>v{lineage.custom_schema_version}</dd></div>}
                 </>
@@ -424,6 +425,7 @@ export default function RunDetailPage() {
               <div><dt className="text-slate-500">Pack</dt><dd>{manifest.pack ?? "—"}</dd></div>
               {manifest.custom_schema_id && (
                 <>
+                  {manifest.custom_schema_name && <div><dt className="text-slate-500">Custom schema name</dt><dd>{manifest.custom_schema_name}</dd></div>}
                   <div><dt className="text-slate-500">Custom schema ID</dt><dd className="font-mono text-xs">{manifest.custom_schema_id}</dd></div>
                   {manifest.custom_schema_version != null && <div><dt className="text-slate-500">Schema version</dt><dd>v{manifest.custom_schema_version}</dd></div>}
                 </>

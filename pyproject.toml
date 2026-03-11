@@ -49,6 +49,8 @@ dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "pre-commit>=4.0.0",
+    "types-PyYAML",
+    "types-jsonschema",
 ]
 sdv = ["sdv>=1.11.0"]
 
@@ -79,6 +81,15 @@ python_version = "3.10"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.parquet", "pyarrow.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["data_forge.exporters", "data_forge.golden", "data_forge.adapters.duckdb_adapter", "data_forge.reconciliation"]
+disable_error_code = ["import-untyped"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

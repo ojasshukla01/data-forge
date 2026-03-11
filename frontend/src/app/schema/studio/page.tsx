@@ -15,6 +15,7 @@ import {
   validateCustomSchema,
   fetchCustomSchemaVersions,
   fetchCustomSchemaDiff,
+  restoreSchemaVersion,
   type CustomSchemaSummary,
   type CustomSchemaDetail,
   type CustomSchemaValidateResponse,
@@ -23,7 +24,13 @@ import {
 } from "@/lib/api";
 import { SchemaFormEditor } from "./components/SchemaFormEditor";
 
-function VersionHistoryCard({ schemaId }: { schemaId: string }) {
+function VersionHistoryCard({
+  schemaId,
+  onRestore,
+}: {
+  schemaId: string;
+  onRestore?: (detail: CustomSchemaDetail) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [versionsData, setVersionsData] = useState<CustomSchemaVersionsResponse | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -31,6 +38,7 @@ function VersionHistoryCard({ schemaId }: { schemaId: string }) {
   const [rightVer, setRightVer] = useState<number>(1);
   const [diffData, setDiffData] = useState<CustomSchemaDiffResponse | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [restoringVer, setRestoringVer] = useState<number | null>(null);
 
   useEffect(() => {
     if (!expanded || !schemaId) return;
@@ -63,6 +71,18 @@ function VersionHistoryCard({ schemaId }: { schemaId: string }) {
   const versions = versionsData?.versions ?? [];
   const currentVersion = versionsData?.current_version ?? 1;
 
+  const handleRestore = async (version: number) => {
+    if (!onRestore) return;
+    setRestoringVer(version);
+    try {
+      const detail = await restoreSchemaVersion(schemaId, version);
+      onRestore(detail);
+      setExpanded(false);
+    } finally {
+      setRestoringVer(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -83,6 +103,21 @@ function VersionHistoryCard({ schemaId }: { schemaId: string }) {
             <p className="text-sm text-slate-500">No version history yet. Save changes to create versions.</p>
           ) : (
             <>
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <span className="text-sm text-slate-600">Restore version as new:</span>
+                {versions.map((v) => (
+                  <button
+                    key={v.version}
+                    type="button"
+                    onClick={() => handleRestore(v.version)}
+                    disabled={restoringVer !== null || v.version === currentVersion}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    v{v.version}{v.version === currentVersion ? " (current)" : ""}
+                    {restoringVer === v.version ? " …" : ""}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm text-slate-600">Compare:</span>
                 <select
@@ -268,6 +303,16 @@ function SchemaEditorWithMode({
               <ul className="list-disc list-inside mt-2 space-y-0.5">
                 {validationResult.errors.map((e, i) => (
                   <li key={i}>{e}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {(validationResult.warnings?.length ?? 0) > 0 && (
+            <div className="mt-2 pt-2 border-t border-amber-200">
+              <p className="font-medium text-amber-800">{validationResult.warnings!.length} warning{validationResult.warnings!.length !== 1 ? "s" : ""}</p>
+              <ul className="list-disc list-inside mt-1 space-y-0.5 text-amber-700">
+                {validationResult.warnings!.map((w, i) => (
+                  <li key={i}>{w}</li>
                 ))}
               </ul>
             </div>
@@ -656,7 +701,19 @@ export default function SchemaStudioPage() {
                 validationResult={validationResult}
               />
               {editing?.id && (
-                <VersionHistoryCard schemaId={editing.id} />
+                <VersionHistoryCard
+                  schemaId={editing.id}
+                  onRestore={(detail) => {
+                    setEditing(detail);
+                    setSchemas((prev) =>
+                      prev.map((s) =>
+                        s.id === detail.id
+                          ? { ...s, version: detail.version }
+                          : s
+                      )
+                    );
+                  }}
+                />
               )}
             </>
           )}

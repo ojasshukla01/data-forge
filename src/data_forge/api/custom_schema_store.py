@@ -9,7 +9,7 @@ import json
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from data_forge.api.security import ensure_custom_schema_path_safe, sanitize_schema_metadata, validate_schema_id
 from data_forge.models.schema import SchemaModel
@@ -43,7 +43,7 @@ def _load_record(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -207,6 +207,15 @@ def get_custom_schema_version_detail(schema_id: str, version: int) -> dict[str, 
                 "updated_at": v.get("updated_at"),
             }
     return None
+
+
+def restore_version_as_new(schema_id: str, version: int) -> dict[str, Any] | None:
+    """Restore a specific version as a new revision (non-destructive). Returns updated record."""
+    validate_schema_id(schema_id)
+    detail = get_custom_schema_version_detail(schema_id, version)
+    if not detail or not detail.get("schema"):
+        return None
+    return update_custom_schema(schema_id, schema=detail["schema"])
 
 
 def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[str, Any] | None:

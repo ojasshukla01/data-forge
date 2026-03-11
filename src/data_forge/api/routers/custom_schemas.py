@@ -23,15 +23,16 @@ router = APIRouter(prefix="/api/custom-schemas", tags=["custom-schemas"])
 
 @router.post("/validate", response_model=CustomSchemaValidateResponse)
 def validate_schema(payload: CustomSchemaValidateRequest) -> CustomSchemaValidateResponse:
-    """Validate schema structure without saving. Returns validation errors if any."""
+    """Validate schema structure without saving. Returns validation errors and warnings."""
     from data_forge.models.schema import SchemaModel
 
     try:
-        model = SchemaModel.model_validate(payload.schema)
+        model = SchemaModel.model_validate(payload.schema_body)
     except Exception as e:
-        return CustomSchemaValidateResponse(valid=False, errors=[str(e)])
+        return CustomSchemaValidateResponse(valid=False, errors=[str(e)], warnings=[])
     errors = model.validate_schema()
-    return CustomSchemaValidateResponse(valid=len(errors) == 0, errors=errors)
+    warnings = model.collect_warnings()
+    return CustomSchemaValidateResponse(valid=len(errors) == 0, errors=errors, warnings=warnings)
 
 
 @router.get("", response_model=list[CustomSchemaSummary])
@@ -61,16 +62,16 @@ def create_custom_schema(payload: CustomSchemaCreate) -> CustomSchemaDetail:
     from data_forge.models.schema import SchemaModel
 
     try:
-        validate_schema_body_size(payload.schema)
+        validate_schema_body_size(payload.schema_body)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    model = SchemaModel.model_validate(payload.schema)
+    model = SchemaModel.model_validate(payload.schema_body)
     errors = model.validate_schema()
     if errors:
         raise HTTPException(status_code=400, detail={"schema_errors": errors})
     rec = store.create_custom_schema(
         name=payload.name,
-        schema=payload.schema,
+        schema=payload.schema_body,
         description=payload.description or "",
         tags=payload.tags or [],
         created_from=payload.created_from,
@@ -123,7 +124,7 @@ def _validate_schema_id_or_400(schema_id: str) -> None:
 def update_custom_schema(schema_id: str, payload: CustomSchemaUpdate) -> CustomSchemaDetail:
     """Update metadata and/or append a new version if schema is provided. Runs structural validation on schema."""
     _validate_schema_id_or_400(schema_id)
-    schema = payload.schema
+    schema = payload.schema_body
     if schema is not None:
         from data_forge.api.security import validate_schema_body_size
         from data_forge.models.schema import SchemaModel
@@ -199,4 +200,25 @@ def diff_versions(schema_id: str, left: int, right: int) -> dict[str, Any]:
     if not diff:
         raise HTTPException(status_code=404, detail="Cannot diff versions")
     return diff
+
+
+@router.post("/{schema_id}/versions/{version}/restore", response_model=CustomSchemaDetail)
+def restore_version(schema_id: str, version: int) -> CustomSchemaDetail:
+    """Restore a specific version as a new revision. Non-destructive: creates new version from selected one."""
+    _validate_schema_id_or_400(schema_id)
+    rec = store.restore_version_as_new(schema_id, version)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Version not found")
+    versions = rec.get("versions") or []
+    latest = versions[-1] if versions else {}
+    return CustomSchemaDetail(
+        id=rec["id"],
+        name=rec.get("name", rec["id"]),
+        description=rec.get("description") or None,
+        tags=rec.get("tags") or [],
+        version=int(rec.get("version", 1)),
+        created_at=rec.get("created_at"),
+        updated_at=rec.get("updated_at"),
+        schema=latest.get("schema") or {},
+    )
 

@@ -29,8 +29,8 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 
 ### Form mode
 
-- **Tables**: Add, remove, rename tables
-- **Columns**: Define columns with data type, nullable, primary key
+- **Tables**: Add, remove, rename tables; unique constraints (one per line, comma-separated columns)
+- **Columns**: Define columns with data type, nullable, primary key, check constraint, generation rules
 - **Relationships**: Define foreign keys (from_table/from_columns → to_table/to_columns)
 - Data types: string, integer, bigint, float, date, datetime, uuid, email, etc.
 
@@ -49,8 +49,9 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 ### Validation
 
 - **Validate** button validates schema structure before save
-- `POST /api/custom-schemas/validate` — validates structure and column generation rules
+- `POST /api/custom-schemas/validate` — returns `{ valid, errors, warnings }`
 - Structural checks: unique table/column names, primary key refs, relationship refs, rule_type and params
+- **Warnings** (non-blocking): e.g. empty table, self-referential relationship
 - Error UX: highlights affected tables and columns in form mode
 
 ### Version history
@@ -58,6 +59,7 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 - Each save creates a new version (up to 50)
 - `GET /api/custom-schemas/{id}/versions` — list versions
 - `GET /api/custom-schemas/{id}/diff?left=1&right=2` — diff with tables_added, tables_removed, tables_modified (columns_added/removed/modified)
+- **Restore to new version**: `POST /api/custom-schemas/{id}/versions/{version}/restore` — creates a new version from a selected old version (non-destructive)
 
 ### Generation rules (column-level)
 
@@ -74,7 +76,7 @@ Columns can define `generation_rule` to override default value generation:
 }
 ```
 
-Supported `rule_type`: `faker`, `uuid`, `sequence`, `range`, `static`, `weighted_choice`. See [generation-engine.md](generation-engine.md).
+Supported `rule_type`: `faker`, `uuid`, `sequence`, `range`, `static`, `weighted_choice`. Optional param `null_probability` (0–1) for any rule returns `null` with that probability. See [generation-engine.md](generation-engine.md).
 
 ## Integration
 

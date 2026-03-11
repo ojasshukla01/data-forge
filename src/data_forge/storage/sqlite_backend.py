@@ -141,7 +141,7 @@ class SQLiteRunStore(RunStoreInterface):
     ) -> dict[str, Any]:
         now = time.time()
         config_summary = _redact_config(config)
-        record = {
+        record: dict[str, Any] = {
             "id": run_id,
             "status": "queued",
             "created_at": now,

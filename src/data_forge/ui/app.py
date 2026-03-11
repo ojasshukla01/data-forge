@@ -112,7 +112,7 @@ with tab_about:
     """)
 
 
-def main():
+def main() -> None:
     pass  # Streamlit runs by script execution
 
 

@@ -105,7 +105,7 @@ def reconcile_manifest_vs_data(
                     if missing:
                         missing_columns[table_name] = list(missing)
                 if pk_cols and rows:
-                    seen: dict[tuple, int] = {}
+                    seen: dict[tuple[Any, ...], int] = {}
                     for row in rows:
                         key = tuple(row.get(pk) for pk in pk_cols)
                         seen[key] = seen.get(key, 0) + 1

@@ -32,7 +32,7 @@ STAGES = [
 ]
 
 
-def _stage_record(name: str, status: str = "pending", **kw: Any) -> dict:
+def _stage_record(name: str, status: str = "pending", **kw: Any) -> dict[str, Any]:
     return {
         "name": name,
         "status": status,
@@ -142,9 +142,9 @@ def _run_pipeline_simulation(
     return paths, {"pipeline_simulation": summary}
 
 
-def _build_artifacts(output_dir: Path, export_paths: list[str], int_summaries: dict[str, Any]) -> list[dict]:
+def _build_artifacts(output_dir: Path, export_paths: list[str], int_summaries: dict[str, Any]) -> list[dict[str, Any]]:
     """Build artifact registry from export_paths and integration summaries."""
-    artifacts: list[dict] = []
+    artifacts: list[dict[str, Any]] = []
     seen: set[str] = set()
     output_dir = Path(output_dir)
 
@@ -171,7 +171,7 @@ def _build_artifacts(output_dir: Path, export_paths: list[str], int_summaries: d
     return artifacts
 
 
-def _mark_stage(stages: list[dict], name: str, status: str, msg: str | None = None) -> list[dict]:
+def _mark_stage(stages: list[dict[str, Any]], name: str, status: str, msg: str | None = None) -> list[dict[str, Any]]:
     stages = stages or []
     found = False
     for s in stages:
@@ -278,17 +278,21 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
         total_rows = sum((t.get("row_count") or 0) for t in tables)
         output_run_id = result.get("run_id")
         custom_schema_version = None
+        custom_schema_name = None
         if config.get("custom_schema_id"):
             try:
                 rec = custom_schema_store.get_custom_schema(config["custom_schema_id"])
-                if rec and rec.get("versions"):
-                    custom_schema_version = rec.get("version") or len(rec["versions"])
+                if rec:
+                    if rec.get("versions"):
+                        custom_schema_version = rec.get("version") or len(rec["versions"])
+                    custom_schema_name = rec.get("name") or config.get("custom_schema_id")
             except Exception:
                 pass
         summary = {
             "selected_pack": config.get("pack"),
             "custom_schema_id": config.get("custom_schema_id"),
             "custom_schema_version": custom_schema_version,
+            "custom_schema_name": custom_schema_name,
             "total_tables": len(tables),
             "total_rows": total_rows,
             "duration_seconds": result.get("duration_seconds"),
@@ -341,6 +345,7 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
                 duration_seconds=duration,
                 storage_backend=getattr(settings, "storage_backend", "file"),
                 project_root=settings.project_root,
+                custom_schema_name=custom_schema_name,
             )
             if output_dir_path and output_dir_path.exists():
                 write_manifest_json(manifest, output_dir_path)

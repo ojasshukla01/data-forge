@@ -7,7 +7,7 @@ validate-all:
 	@python -m ruff check src tests
 	@python -m pytest tests -v --tb=short
 	@if [ -f frontend/package.json ]; then \
-		(cd frontend && npx tsc --noEmit && npm test && npm run build); \
+		(cd frontend && npx tsc --noEmit && npm test -- --run && npm run build); \
 	fi
 	@echo "All checks passed."
 

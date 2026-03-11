@@ -78,6 +78,37 @@ def test_weighted_choice_column_rule_to_generation_rule() -> None:
     assert gr.params == {"choices": ["a", "b", "c"]}
 
 
+def test_null_probability_returns_none_sometimes() -> None:
+    """null_probability param causes some rows to return None."""
+    from data_forge.generators.generation_rules import apply_generation_rule
+    from data_forge.models.rules import GenerationRule, GenerationRuleType
+
+    gr = GenerationRule(
+        table="t",
+        column="c",
+        rule_type=GenerationRuleType.STATIC,
+        params={"value": "x", "null_probability": 0.5},
+    )
+    results = [apply_generation_rule(gr, i, 42) for i in range(100)]
+    null_count = sum(1 for v in results if v is None)
+    assert 10 <= null_count <= 90  # ~50% with some variance
+
+
+def test_null_probability_validation() -> None:
+    """validate_generation_rule rejects invalid null_probability."""
+    from data_forge.generators.generation_rules import validate_generation_rule
+    from data_forge.models.rules import GenerationRule, GenerationRuleType
+
+    gr = GenerationRule(
+        table="t",
+        column="c",
+        rule_type=GenerationRuleType.STATIC,
+        params={"value": "x", "null_probability": 1.5},
+    )
+    errs = validate_generation_rule(gr)
+    assert any("null_probability" in e for e in errs)
+
+
 def test_weighted_choice_validation_rejects_empty_choices() -> None:
     """validate_generation_rule rejects weighted_choice with empty choices."""
     from data_forge.generators.generation_rules import validate_generation_rule

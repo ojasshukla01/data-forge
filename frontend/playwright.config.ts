@@ -15,7 +15,8 @@ export default defineConfig({
   webServer: process.env.CI
     ? undefined
     : {
-        command: "npm run dev",
+        // Match CI: run against production build.
+        command: "npm run build && npm run start -- -p 3000",
         url: "http://127.0.0.1:3000",
         reuseExistingServer: true,
       },

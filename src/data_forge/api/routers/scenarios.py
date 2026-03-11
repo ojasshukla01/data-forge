@@ -55,7 +55,7 @@ def _normalize_scenario_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.post("")
-def create_scenario_api(payload: dict[str, Any] = Body(...)) -> dict:
+def create_scenario_api(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Create a new scenario from config payload."""
     _validate_scenario_payload(payload)
     config = _normalize_scenario_config(payload["config"])
@@ -84,7 +84,7 @@ def list_scenarios_api(
     tag: str | None = None,
     search: str | None = None,
     limit: int = 100,
-) -> dict:
+) -> dict[str, Any]:
     """List scenarios with optional filters."""
     scenarios = list_scenarios(
         category=category,
@@ -97,7 +97,7 @@ def list_scenarios_api(
 
 
 @router.get("/{scenario_id}")
-def get_scenario_detail(scenario_id: str) -> dict:
+def get_scenario_detail(scenario_id: str) -> dict[str, Any]:
     """Get scenario detail."""
     record = get_scenario(scenario_id)
     if not record:
@@ -112,7 +112,7 @@ def get_scenario_detail(scenario_id: str) -> dict:
 
 
 @router.put("/{scenario_id}")
-def update_scenario_api(scenario_id: str, payload: dict[str, Any] = Body(...)) -> dict:
+def update_scenario_api(scenario_id: str, payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Update scenario metadata and/or config."""
     record = get_scenario(scenario_id)
     if not record:
@@ -141,7 +141,7 @@ def update_scenario_api(scenario_id: str, payload: dict[str, Any] = Body(...)) -
 
 
 @router.delete("/{scenario_id}")
-def delete_scenario_api(scenario_id: str) -> dict:
+def delete_scenario_api(scenario_id: str) -> dict[str, Any]:
     """Delete a scenario."""
     deleted = delete_scenario(scenario_id)
     if not deleted:
@@ -150,7 +150,7 @@ def delete_scenario_api(scenario_id: str) -> dict:
 
 
 @router.post("/{scenario_id}/run")
-def run_from_scenario(scenario_id: str, background_tasks: BackgroundTasks) -> dict:
+def run_from_scenario(scenario_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
     """Start a run from a saved scenario."""
     record = get_scenario(scenario_id)
     if not record:
@@ -169,7 +169,7 @@ def run_from_scenario(scenario_id: str, background_tasks: BackgroundTasks) -> di
 
 
 @router.post("/from-run/{run_id}")
-def create_scenario_from_run(run_id: str, payload: dict[str, Any] = Body(default=None)) -> dict:
+def create_scenario_from_run(run_id: str, payload: dict[str, Any] = Body(default=None)) -> dict[str, Any]:
     """Create a scenario from an existing run's config."""
     record = get_run(run_id)
     if not record:
@@ -197,7 +197,7 @@ def create_scenario_from_run(run_id: str, payload: dict[str, Any] = Body(default
 
 
 @router.post("/import")
-def import_scenario(payload: dict[str, Any] = Body(...)) -> dict:
+def import_scenario(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     """Import a scenario from JSON payload."""
     _validate_scenario_payload(payload)
     config = payload["config"]
@@ -210,7 +210,7 @@ def import_scenario(payload: dict[str, Any] = Body(...)) -> dict:
 
 
 @router.get("/{scenario_id}/versions")
-def list_scenario_versions(scenario_id: str) -> dict:
+def list_scenario_versions(scenario_id: str) -> dict[str, Any]:
     """List version history for a scenario."""
     record = get_scenario(scenario_id)
     if not record:
@@ -220,7 +220,7 @@ def list_scenario_versions(scenario_id: str) -> dict:
 
 
 @router.get("/{scenario_id}/versions/{version}")
-def get_scenario_version(scenario_id: str, version: str) -> dict:
+def get_scenario_version(scenario_id: str, version: str) -> dict[str, Any]:
     """Get config snapshot for a specific version."""
     try:
         version_num = int(version)
@@ -238,7 +238,7 @@ def get_scenario_version(scenario_id: str, version: str) -> dict:
 
 
 @router.get("/{scenario_id}/diff")
-def diff_scenario(scenario_id: str, left: int, right: int) -> dict:
+def diff_scenario(scenario_id: str, left: int, right: int) -> dict[str, Any]:
     """Compare two scenario versions. Query: ?left=1&right=2."""
     record = get_scenario(scenario_id)
     if not record:
@@ -250,7 +250,7 @@ def diff_scenario(scenario_id: str, left: int, right: int) -> dict:
 
 
 @router.get("/{scenario_id}/export")
-def export_scenario(scenario_id: str) -> dict:
+def export_scenario(scenario_id: str) -> dict[str, Any]:
     """Export scenario as JSON (for download/import). Includes version info."""
     record = get_scenario(scenario_id)
     if not record:

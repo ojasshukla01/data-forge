@@ -1,5 +1,7 @@
 """Domain packs API router."""
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from data_forge.domain_packs import list_packs, get_pack, get_pack_metadata
@@ -38,7 +40,7 @@ def get_domain_packs() -> list[PackInfo]:
 
 
 @router.get("/{pack_id}")
-def get_pack_detail(pack_id: str) -> dict:
+def get_pack_detail(pack_id: str) -> dict[str, Any]:
     """Get pack details including tables, schema, and rich metadata."""
     pack = get_pack(pack_id)
     if not pack:

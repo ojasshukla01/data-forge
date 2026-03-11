@@ -3,7 +3,7 @@
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from data_forge.config import Settings
 
@@ -84,7 +84,7 @@ def get_run(run_id: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -128,7 +128,7 @@ def list_runs(
     runs_dir = _runs_dir()
     if not runs_dir.exists():
         return []
-    records = []
+    records: list[dict[str, Any]] = []
     for p in sorted(runs_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
         if len(records) >= limit:
             break

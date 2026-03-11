@@ -4,7 +4,7 @@ import json
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _SCENARIOS_DIR: Path | None = None
 
@@ -136,7 +136,7 @@ def get_scenario(scenario_id: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         return None
 
@@ -209,7 +209,7 @@ def list_scenarios(
     scenarios_dir = _scenarios_dir()
     if not scenarios_dir.exists():
         return []
-    records = []
+    records: list[dict[str, Any]] = []
     for p in sorted(scenarios_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
         if len(records) >= limit:
             break

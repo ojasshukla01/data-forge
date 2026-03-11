@@ -155,8 +155,8 @@ class SchemaModel(BaseModel):
             seen: dict[str, int] = {}
             for n in table_names:
                 seen[n] = seen.get(n, 0) + 1
-            for n, c in seen.items():
-                if c > 1:
+            for n, cnt in seen.items():
+                if cnt > 1:
                     errors.append(f"Duplicate table name: {n}")
 
         name_to_table = {t.name: t for t in self.tables}
@@ -166,8 +166,8 @@ class SchemaModel(BaseModel):
                 seen_c: dict[str, int] = {}
                 for n in col_names:
                     seen_c[n] = seen_c.get(n, 0) + 1
-                for n, c in seen_c.items():
-                    if c > 1:
+                for n, cnt in seen_c.items():
+                    if cnt > 1:
                         errors.append(f"Table '{t.name}': duplicate column name: {n}")
 
             for pk in t.primary_key:
@@ -185,15 +185,15 @@ class SchemaModel(BaseModel):
             if r.to_table not in name_to_table:
                 errors.append(f"Relationship '{r.name}': to_table '{r.to_table}' not found")
             if r.from_table in name_to_table:
-                from_cols = [c.name for c in name_to_table[r.from_table].columns]
-                for c in r.from_columns:
-                    if c not in from_cols:
-                        errors.append(f"Relationship '{r.name}': from_column '{c}' not in table '{r.from_table}'")
+                from_cols = [col.name for col in name_to_table[r.from_table].columns]
+                for col_name in r.from_columns:
+                    if col_name not in from_cols:
+                        errors.append(f"Relationship '{r.name}': from_column '{col_name}' not in table '{r.from_table}'")
             if r.to_table in name_to_table:
-                to_cols = [c.name for c in name_to_table[r.to_table].columns]
-                for c in r.to_columns:
-                    if c not in to_cols:
-                        errors.append(f"Relationship '{r.name}': to_column '{c}' not in table '{r.to_table}'")
+                to_cols = [col.name for col in name_to_table[r.to_table].columns]
+                for col_name in r.to_columns:
+                    if col_name not in to_cols:
+                        errors.append(f"Relationship '{r.name}': to_column '{col_name}' not in table '{r.to_table}'")
 
         for t in self.tables:
             for c in t.columns:
@@ -213,3 +213,16 @@ class SchemaModel(BaseModel):
                         errors.append(f"Table '{t.name}' column '{c.name}': {e}")
 
         return errors
+
+    def collect_warnings(self) -> list[str]:
+        """
+        Collect advisory warnings (non-blocking). Returns list of warning messages.
+        """
+        warnings: list[str] = []
+        for t in self.tables:
+            if not t.columns:
+                warnings.append(f"Table '{t.name}' has no columns")
+        for r in self.relationships:
+            if r.from_table == r.to_table:
+                warnings.append(f"Relationship '{r.name}': self-reference (from_table == to_table)")
+        return warnings

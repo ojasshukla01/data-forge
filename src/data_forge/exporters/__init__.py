@@ -90,7 +90,7 @@ def export_table_chunked(
     return path
 
 
-def _export_csv(rows: list[dict], path: Path) -> Path:
+def _export_csv(rows: list[dict[str, Any]], path: Path) -> Path:
     import csv
 
     if not rows:
@@ -108,14 +108,14 @@ def _export_csv(rows: list[dict], path: Path) -> Path:
     return path
 
 
-def _export_json(rows: list[dict], path: Path) -> Path:
+def _export_json(rows: list[dict[str, Any]], path: Path) -> Path:
     import json
 
     path.write_text(json.dumps(rows, indent=2, default=str), encoding="utf-8")
     return path
 
 
-def _export_jsonl(rows: list[dict], path: Path) -> Path:
+def _export_jsonl(rows: list[dict[str, Any]], path: Path) -> Path:
     import json
 
     with path.open("w", encoding="utf-8") as f:
@@ -124,7 +124,7 @@ def _export_jsonl(rows: list[dict], path: Path) -> Path:
     return path
 
 
-def _export_parquet(rows: list[dict], path: Path) -> Path:
+def _export_parquet(rows: list[dict[str, Any]], path: Path) -> Path:
     import pyarrow as pa
     import pyarrow.parquet as pq
 
@@ -147,7 +147,7 @@ def _export_parquet(rows: list[dict], path: Path) -> Path:
 
 
 def _export_sql(
-    rows: list[dict],
+    rows: list[dict[str, Any]],
     path: Path,
     table_name: str,
     dialect: str,

@@ -1,6 +1,7 @@
 """Validation API router."""
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -23,7 +24,7 @@ def _project_root() -> Path:
 
 
 @router.post("/validate")
-def api_validate(params: dict) -> dict:
+def api_validate(params: dict[str, Any]) -> dict[str, Any]:
     """
     Validate schema and data. Params: schema_path, data_path, rules_path?, privacy_mode?
     """
@@ -83,7 +84,7 @@ def api_validate(params: dict) -> dict:
 
 
 @router.post("/validate/ge")
-def api_validate_ge(params: dict) -> dict:
+def api_validate_ge(params: dict[str, Any]) -> dict[str, Any]:
     """Validate data against GE expectations. Params: expectations_path, data_path"""
     root = _project_root()
     exp_path = root / (params.get("expectations_path") or "").lstrip("/")
@@ -97,7 +98,7 @@ def api_validate_ge(params: dict) -> dict:
 
 
 @router.post("/reconcile")
-def api_reconcile(params: dict) -> dict:
+def api_reconcile(params: dict[str, Any]) -> dict[str, Any]:
     """Reconcile manifest vs data. Params: manifest_path, data_path, schema_path?"""
     root = _project_root()
     manifest_path = root / (params.get("manifest_path") or "").lstrip("/")

@@ -1,7 +1,7 @@
 """Airflow DAG template generation for Data Forge workflows."""
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 TemplateKind = Literal["generate_only", "generate_and_load", "generate_validate_and_load", "benchmark_pipeline"]
 
@@ -115,7 +115,7 @@ with DAG(
 def export_airflow(
     template: TemplateKind,
     output_dir: Path | str,
-) -> dict:
+) -> dict[str, Any]:
     """
     Export Airflow DAG template to output_dir/dags/.
     Returns report: {enabled, template, output_dir, files_generated, paths}
@@ -144,14 +144,14 @@ def export_airflow(
     }
 
 
-def export_all_airflow_templates(output_dir: Path | str) -> dict:
+def export_all_airflow_templates(output_dir: Path | str) -> dict[str, Any]:
     """Export all four DAG templates."""
     output_dir = Path(output_dir)
     dags_dir = output_dir / "dags"
     dags_dir.mkdir(parents=True, exist_ok=True)
     paths: list[str] = []
     for template in ("generate_only", "generate_and_load", "generate_validate_and_load", "benchmark_pipeline"):
-        tpl: TemplateKind = template  # type: ignore
+        tpl: TemplateKind = template
         content = DAG_TEMPLATES[tpl]
         file_map = {
             "generate_only": "data_forge_generate.py",

@@ -3,6 +3,7 @@
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Body
 
@@ -17,7 +18,7 @@ from data_forge.services import get_run, update_run, append_event
 router = APIRouter(prefix="/api", tags=["benchmark"])
 
 
-def _execute_benchmark_sync(pack: str, scale: int, fmt: str, iterations: int, config: dict | None = None) -> dict:
+def _execute_benchmark_sync(pack: str, scale: int, fmt: str, iterations: int, config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Run benchmark synchronously. Returns benchmark_results dict."""
     domain = get_pack(pack)
     if not domain:
@@ -94,7 +95,7 @@ def _execute_benchmark_sync(pack: str, scale: int, fmt: str, iterations: int, co
             pass
 
 
-def execute_benchmark_async(run_id: str, config: dict) -> None:
+def execute_benchmark_async(run_id: str, config: dict[str, Any]) -> None:
     """Execute benchmark in background and update run record."""
     import time
 
@@ -113,7 +114,7 @@ def execute_benchmark_async(run_id: str, config: dict) -> None:
         results = _execute_benchmark_sync(pack, scale, fmt, iterations)
         finished = time.time()
         record = get_run(run_id)
-        started = record.get("started_at") or finished
+        started = (record.get("started_at") if record else None) or finished
         duration = round(finished - started, 2)
 
         update_run(
@@ -139,7 +140,7 @@ def execute_benchmark_async(run_id: str, config: dict) -> None:
 
 
 @router.post("/benchmark")
-def api_benchmark_sync(params: dict | None = Body(default=None)) -> dict:
+def api_benchmark_sync(params: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
     """
     Run benchmark synchronously. Returns results inline.
     Body: { pack?, scale?, scale_preset?, profile?, format?, iterations? }

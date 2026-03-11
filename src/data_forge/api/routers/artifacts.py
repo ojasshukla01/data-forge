@@ -72,7 +72,7 @@ def _scan_artifacts(output_dir: Path) -> list[dict[str, Any]]:
 
 
 @router.get("")
-def list_artifacts(run_id: str | None = None, type_filter: str | None = None) -> dict:
+def list_artifacts(run_id: str | None = None, type_filter: str | None = None) -> dict[str, Any]:
     """
     List artifacts. If run_id given, prefer registry from run records; else scan output dir.
     type_filter: dataset|dbt|ge|airflow|contracts|manifest
