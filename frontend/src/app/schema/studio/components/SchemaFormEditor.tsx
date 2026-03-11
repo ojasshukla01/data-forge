@@ -341,6 +341,24 @@ export function SchemaFormEditor({
   const selectedTable = tables[selectedTableIndex];
   const { tableErrors, columnErrors } = parseValidationHighlights(validationErrors);
 
+  if (!schema) {
+    return (
+      <Card className="flex-1">
+        <CardHeader>
+          <CardTitle>Schema editor (form mode)</CardTitle>
+        </CardHeader>
+        <CardContent className="py-8">
+          <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-6 text-center">
+            <p className="font-medium text-amber-900">Choose or create a schema first</p>
+            <p className="text-sm text-amber-800 mt-2">
+              Select an existing schema from the list on the left, or click &quot;New schema&quot; to create one. After you have a schema open, you can add tables, columns, and relationships.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="flex-1">
       <CardHeader>

@@ -158,6 +158,21 @@ function VersionHistoryCard({ schemaId }: { schemaId: string }) {
   );
 }
 
+const HOW_IT_WORKS = (
+  <>
+    <p className="font-medium text-slate-800">Step 1: Choose or create a schema</p>
+    <p className="text-slate-600 mt-0.5">Select an existing schema from the list above, or click &quot;New schema&quot; in the top bar. You must have a schema open before adding tables.</p>
+    <p className="font-medium text-slate-800 mt-3">Step 2: Add tables and columns</p>
+    <p className="text-slate-600 mt-0.5">Use the Tables tab to add tables. Then use the Columns tab to add columns to each table—set data type, nullable, primary key, and optional generation rules (faker, sequence, uuid).</p>
+    <p className="font-medium text-slate-800 mt-3">Step 3: Define relationships</p>
+    <p className="text-slate-600 mt-0.5">Use the Relationships tab to add foreign keys (from_table/from_columns → to_table/to_columns).</p>
+    <p className="font-medium text-slate-800 mt-3">Step 4: Validate and save</p>
+    <p className="text-slate-600 mt-0.5">Click Validate to check structure and rules. Fix any errors, then Save. Versions are tracked—use Version history to compare changes.</p>
+    <p className="font-medium text-slate-800 mt-3">Step 5: Use in runs</p>
+    <p className="text-slate-600 mt-0.5">Use with Create wizard (custom schema) or Advanced config. Your saved schema appears in the dropdown.</p>
+  </>
+);
+
 function SchemaList({
   schemas,
   onSelect,
@@ -165,40 +180,47 @@ function SchemaList({
   schemas: CustomSchemaSummary[];
   onSelect: (id: string) => void;
 }) {
-  if (schemas.length === 0) {
-    return (
+  return (
+    <div className="space-y-3">
       <Card>
-        <CardContent className="py-8 text-sm text-slate-600">
-          No custom schemas yet. Create one to start designing your own data model.
+        <CardHeader>
+          <CardTitle className="text-sm">Custom schemas</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="max-h-[min(320px,40vh)] overflow-y-auto px-4 pb-4 space-y-3">
+            {schemas.length === 0 ? (
+              <p className="text-sm text-slate-600 py-6">No custom schemas yet. Click &quot;New schema&quot; above to create one.</p>
+            ) : (
+              schemas.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onSelect(s.id)}
+                  className="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:border-[var(--brand-teal)]/50 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-900 truncate">{s.name}</span>
+                    <span className="text-xs text-slate-500 font-mono shrink-0">v{s.version}</span>
+                  </div>
+                  {s.description && (
+                    <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{s.description}</p>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Custom schemas</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {schemas.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => onSelect(s.id)}
-            className="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:border-[var(--brand-teal)]/50 hover:bg-slate-50 transition-colors"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-slate-900 truncate">{s.name}</span>
-              <span className="text-xs text-slate-500 font-mono">v{s.version}</span>
-            </div>
-            {s.description && (
-              <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{s.description}</p>
-            )}
-          </button>
-        ))}
-      </CardContent>
-    </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">How it works</CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs text-slate-600 space-y-2">
+          {HOW_IT_WORKS}
+          <Link href="/create/wizard" className="block mt-3 text-[var(--brand-teal)] hover:underline">→ Start a run with this schema</Link>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -315,6 +337,24 @@ function SchemaEditor({
       return false;
     }
   };
+
+  if (!schema) {
+    return (
+      <Card className="flex-1">
+        <CardHeader>
+          <CardTitle>Schema editor (JSON mode)</CardTitle>
+        </CardHeader>
+        <CardContent className="py-8">
+          <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-6 text-center">
+            <p className="font-medium text-amber-900">Choose or create a schema first</p>
+            <p className="text-sm text-amber-800 mt-2">
+              Select an existing schema from the list on the left, or click &quot;New schema&quot; to create one.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="flex-1">
@@ -594,17 +634,6 @@ export default function SchemaStudioPage() {
           ) : (
             <SchemaList schemas={schemas} onSelect={setSelectedId} />
           )}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">How this works</CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-slate-600 space-y-1.5">
-              <p>1. Use Form mode to add tables, columns, relationships, or JSON for generation_rule and advanced control.</p>
-              <p>2. Save the schema; versions are tracked. Use Version history to compare changes.</p>
-              <p>3. Use with Create wizard (custom schema) or Advanced config.</p>
-              <Link href="/create/wizard" className="block mt-2 text-[var(--brand-teal)] hover:underline">→ Start a run with this schema</Link>
-            </CardContent>
-          </Card>
         </div>
         <div className="flex-1 space-y-4">
           {editingLoading && selectedId ? (

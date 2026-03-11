@@ -86,3 +86,14 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Focus visible for keyboard navigation (links, buttons, inputs) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--brand-teal);
+  outline-offset: 2px;
+}

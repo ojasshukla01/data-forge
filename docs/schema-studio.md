@@ -8,6 +8,23 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 - **API**: `/api/custom-schemas`
 - **Storage**: JSON files in `custom_schemas/` (schema_&lt;id&gt;.json)
 
+## How it works (workflow)
+
+1. **Choose or create a schema** — You must select an existing schema from the sidebar or click "New schema" before adding tables. The Add table button and editor tabs are only enabled when a schema is open.
+
+2. **Add tables and columns** — Use the Tables tab to add tables. Switch to the Columns tab to add columns to each table: data type, nullable, primary key, optional generation rules (faker, sequence, uuid, etc.).
+
+3. **Define relationships** — Use the Relationships tab to add foreign keys (from_table/from_columns → to_table/to_columns).
+
+4. **Validate and save** — Click Validate to check structure and rules. Fix any errors, then Save. Versions are tracked.
+
+5. **Use in runs** — Use with Create wizard (custom schema source) or Advanced config (custom schema dropdown). Your saved schema appears in the dropdown.
+
+## UI layout
+
+- **Sidebar (left):** Custom schemas list (first 5 visible; additional schemas in scrollable area). "How it works" section in the same scroll area.
+- **Editor (right):** Form mode and JSON mode tabs. Form mode has Tables, Columns, Relationships tabs. When no schema is selected, a clear message instructs you to choose or create a schema first.
+
 ## Features
 
 ### Form mode

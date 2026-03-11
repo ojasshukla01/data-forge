@@ -4,6 +4,18 @@ Comprehensive phase-by-phase breakdown of all tasks, implementations, limitation
 
 ---
 
+## Recent UX updates (Schema Studio, docs, nav)
+
+| Update | Implementation |
+|--------|----------------|
+| Schema Studio in Capabilities | Homepage Capabilities section now includes Schema Studio card (4 cards: Schema Studio, Synthetic data, Pipeline simulation, Validation) |
+| Schema Studio: choose first | Clear "Choose or create a schema first" message when no schema selected; Add table and editor tabs only active with a schema open |
+| Schema list layout | First 5 custom schemas visible at top; additional schemas in scrollable area; "How it works" in same scroll area with step-by-step instructions |
+| More dropdown icons | Nav More menu items (Schema Studio, Schema, Validate, Integrations, Settings) show icons consistently |
+| Docs | Schema Studio section added to docs page and index; schema-studio.md updated with workflow, UI layout, choose-first behavior |
+
+---
+
 ## Phase 1 — Repo Inspection, Gap Analysis, Baseline
 
 ### Task Implementation

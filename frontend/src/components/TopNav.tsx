@@ -4,25 +4,27 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
+import { Home, PlusCircle, FolderKanban, Play, FileOutput, BookOpen, Info, Settings, LayoutTemplate, Layers, FileCode2, CheckCircle2, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const mainNavItems = [
-  { href: "/", label: "Home" },
-  { href: "/create/wizard", label: "Create" },
-  { href: "/scenarios", label: "Scenarios" },
-  { href: "/runs", label: "Runs" },
-  { href: "/artifacts", label: "Artifacts" },
-  { href: "/docs", label: "Docs" },
-  { href: "/about", label: "About" },
+const mainNavItems: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/create/wizard", label: "Create", icon: PlusCircle },
+  { href: "/scenarios", label: "Scenarios", icon: FolderKanban },
+  { href: "/runs", label: "Runs", icon: Play },
+  { href: "/artifacts", label: "Artifacts", icon: FileOutput },
+  { href: "/docs", label: "Docs", icon: BookOpen },
+  { href: "/about", label: "About", icon: Info },
 ];
 
-const moreNavItems = [
-  { href: "/create/advanced", label: "Advanced config" },
-  { href: "/templates", label: "Templates" },
-  { href: "/schema/studio", label: "Schema Studio" },
-  { href: "/schema", label: "Schema" },
-  { href: "/validate", label: "Validate" },
-  { href: "/integrations", label: "Integrations" },
+const moreNavItems: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/create/advanced", label: "Advanced config", icon: Settings },
+  { href: "/templates", label: "Templates", icon: LayoutTemplate },
+  { href: "/schema/studio", label: "Schema Studio", icon: Layers },
+  { href: "/schema", label: "Schema", icon: FileCode2 },
+  { href: "/validate", label: "Validate", icon: CheckCircle2 },
+  { href: "/integrations", label: "Integrations", icon: Plug },
 ];
 
 function isActive(href: string, pathname: string): boolean {
@@ -75,19 +77,21 @@ export function TopNav() {
         )}>
           {(mobileOpen ? [...mainNavItems, ...moreNavItems] : mainNavItems).map((item) => {
             const active = isActive(item.href, pathname);
+            const IconComp = "icon" in item ? (item as { icon: LucideIcon }).icon : undefined;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  "px-3 py-2 text-sm font-medium rounded-md transition-colors block md:inline-block",
+                  "px-3 py-2 text-sm font-medium rounded-md transition-colors block md:inline-flex md:items-center gap-1.5",
                   active
-                    ? "text-[var(--brand-teal)] bg-slate-100"
-                    : "text-slate-600 hover:text-[var(--brand-teal)] hover:bg-slate-100"
+                    ? "text-[var(--brand-teal)] bg-slate-100 ring-1 ring-[var(--brand-teal)]/20"
+                    : "text-slate-600 hover:text-[var(--brand-teal)] hover:bg-slate-50"
                 )}
                 aria-current={active ? "page" : undefined}
               >
+                {IconComp && <IconComp className="w-4 h-4 shrink-0 opacity-80" aria-hidden />}
                 {item.label}
               </Link>
             );
@@ -98,10 +102,10 @@ export function TopNav() {
                 type="button"
                 onClick={() => setMoreOpen(!moreOpen)}
                 className={cn(
-                  "px-3 py-2 text-sm font-medium rounded-md transition-colors inline-flex items-center",
-                  moreOpen || isMoreActive
-                    ? "text-[var(--brand-teal)] bg-slate-100"
-                    : "text-slate-600 hover:text-[var(--brand-teal)] hover:bg-slate-100"
+                  "px-3 py-2 text-sm font-medium rounded-md transition-colors inline-flex items-center gap-1",
+                  (moreOpen || isMoreActive)
+                    ? "text-[var(--brand-teal)] bg-slate-100 ring-1 ring-[var(--brand-teal)]/20"
+                    : "text-slate-600 hover:text-[var(--brand-teal)] hover:bg-slate-50"
                 )}
                 aria-expanded={moreOpen}
                 aria-haspopup="true"
@@ -112,20 +116,22 @@ export function TopNav() {
                 </svg>
               </button>
               {moreOpen && (
-                <div className="absolute right-0 mt-1 w-48 py-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50" role="menu">
+                <div className="absolute right-0 mt-1 w-52 py-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50" role="menu">
                   {moreNavItems.map((item) => {
                     const active = isActive(item.href, pathname);
+                    const IconComp = item.icon;
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         onClick={() => setMoreOpen(false)}
                         className={cn(
-                          "block px-4 py-2 text-sm",
+                          "flex items-center gap-2 px-4 py-2 text-sm",
                           active ? "text-[var(--brand-teal)] bg-slate-50" : "text-slate-700 hover:bg-slate-50"
                         )}
                         role="menuitem"
                       >
+                        <IconComp className="w-4 h-4 shrink-0 opacity-80" aria-hidden />
                         {item.label}
                       </Link>
                     );
