@@ -45,10 +45,35 @@ class DistributionRule(BaseModel):
     # e.g. {"weights": [0.7, 0.2, 0.1], "categories": ["A","B","C"]}
 
 
+class GenerationRuleType(str, Enum):
+    """Column value generation strategy."""
+
+    FAKER = "faker"  # Faker provider: name, email, company, etc.
+    UUID = "uuid"  # UUID v4
+    SEQUENCE = "sequence"  # Integer sequence (start, step)
+    RANGE = "range"  # Random in [min, max]
+    STATIC = "static"  # Constant value from params.value
+    WEIGHTED_CHOICE = "weighted_choice"  # Pick from choices by weight
+
+
+class GenerationRule(BaseModel):
+    """Per-column generation rule: faker, uuid, sequence, range."""
+
+    table: str
+    column: str
+    rule_type: GenerationRuleType
+    params: dict[str, Any] = Field(default_factory=dict)
+    # faker: {"provider": "name"} or {"provider": "email"}
+    # uuid: {}
+    # sequence: {"start": 1, "step": 1}
+    # range: {"min": 0, "max": 100} or {"min": 0.0, "max": 1.0}
+
+
 class RuleSet(BaseModel):
     """Collection of rules for a schema or scenario."""
 
     name: str = "default"
     business_rules: list[BusinessRule] = Field(default_factory=list)
     distribution_rules: list[DistributionRule] = Field(default_factory=list)
+    generation_rules: list[GenerationRule] = Field(default_factory=list)
     scenario: str | None = None  # e.g. "saas_billing", "ecommerce_holiday"

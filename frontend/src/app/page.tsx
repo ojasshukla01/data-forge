@@ -51,9 +51,10 @@ export default function HomePage() {
           <p className="text-slate-600 text-sm mb-4">No runs or scenarios yet. Pick one:</p>
           <div className="flex flex-wrap gap-2">
             <Link href="/create/wizard"><Button size="sm">Create</Button></Link>
+            <Link href="/schema/studio"><Button variant="outline" size="sm">Schema Studio</Button></Link>
             <Link href="/templates"><Button variant="outline" size="sm">Templates</Button></Link>
             <Link href="/scenarios"><Button variant="outline" size="sm">Scenarios</Button></Link>
-            <Link href="/create/advanced"><Button variant="outline" size="sm">Advanced / Import</Button></Link>
+            <Link href="/create/advanced"><Button variant="outline" size="sm">Advanced</Button></Link>
           </div>
         </section>
       )}

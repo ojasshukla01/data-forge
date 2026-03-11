@@ -33,7 +33,7 @@ describe("Schema Studio page", () => {
     const newButton = screen.getByRole("button", { name: /New schema/i });
     fireEvent.click(newButton);
 
-    await screen.findByText("Schema editor");
+    await screen.findByText(/Schema editor/);
 
     const saveButton = screen.getByRole("button", { name: /Save schema/i });
     expect(saveButton).toBeInTheDocument();

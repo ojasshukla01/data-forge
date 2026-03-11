@@ -26,15 +26,67 @@ jobs:
       - name: Run ruff
         run: ruff check src tests
 
+      - name: Run mypy
+        run: mypy src
+        continue-on-error: true
+
       - name: Run pytest
         run: pytest tests -v --tb=short
 
+      - name: Pip audit (optional)
+        run: pip install pip-audit && pip-audit --desc || true
+        continue-on-error: true
+
   frontend:
     runs-on: ubuntu-latest
-    # Only run when frontend exists in the repo (e.g. optional or in monorepo)
-    if: hashFiles('frontend/package.json') != ''
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check frontend exists
+        id: frontend
+        run: echo "exists=$([ -f frontend/package.json ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Set up Node
+        if: steps.frontend.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies
+        if: steps.frontend.outputs.exists == 'true'
+        run: cd frontend && npm install
+
+      - name: Frontend type-check
+        if: steps.frontend.outputs.exists == 'true'
+        run: cd frontend && npx tsc --noEmit
+
+      - name: Frontend unit tests
+        if: steps.frontend.outputs.exists == 'true'
+        run: cd frontend && npm test
+
+      - name: Build frontend
+        if: steps.frontend.outputs.exists == 'true'
+        run: cd frontend && npm run build
+
+      - name: NPM audit (optional)
+        if: steps.frontend.outputs.exists == 'true'
+        run: cd frontend && npm audit --audit-level=moderate || true
+        continue-on-error: true
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend
+        run: pip install -e ".[dev]" && pip install uvicorn
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -43,14 +95,30 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package.json
 
-      - name: Install frontend dependencies
-        run: cd frontend && npm install
-
-      - name: Frontend type-check
-        run: cd frontend && npx tsc --noEmit
-
-      - name: Frontend unit tests
-        run: cd frontend && npm test
+      - name: Install frontend & Playwright
+        run: |
+          cd frontend && npm install
+          npx playwright install --with-deps chromium
 
       - name: Build frontend
         run: cd frontend && npm run build
+
+      - name: Start API
+        run: uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000 &
+        env:
+          DATA_FORGE_STORAGE_BACKEND: file
+
+      - name: Start frontend
+        run: cd frontend && npm run start &
+        env:
+          API_BASE: http://127.0.0.1:8000
+
+      - name: Wait for servers
+        run: |
+          sleep 5
+          curl -s http://127.0.0.1:8000/health || true
+          curl -s http://127.0.0.1:3000 || true
+
+      - name: Run Playwright E2E
+        run: cd frontend && npm run e2e
+        continue-on-error: true

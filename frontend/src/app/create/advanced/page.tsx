@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { fetchPacks, runPreflight, startRunGenerate, runBenchmark, startBenchmarkRun, fetchScenario, createScenario, updateScenario } from "@/lib/api";
+import { fetchPacks, fetchCustomSchemas, runPreflight, startRunGenerate, runBenchmark, startBenchmarkRun, fetchScenario, createScenario, updateScenario } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -26,6 +26,7 @@ const SECTIONS = [
 
 const DEFAULT_CONFIG: Record<string, unknown> = {
   pack: null,
+  custom_schema_id: null,
   schema_path: null,
   rules_path: null,
   seed: 42,
@@ -63,6 +64,7 @@ function AdvancedConfigContent() {
   const [section, setSection] = useState("schema");
   const [config, setConfig] = useState<Record<string, unknown>>(DEFAULT_CONFIG);
   const [packs, setPacks] = useState<{ id: string; description: string }[]>([]);
+  const [customSchemas, setCustomSchemas] = useState<{ id: string; name: string }[]>([]);
   const [preflight, setPreflight] = useState<Record<string, unknown> | null>(null);
   const [preflightLoading, setPreflightLoading] = useState(false);
   const [runLoading, setRunLoading] = useState(false);
@@ -85,6 +87,11 @@ function AdvancedConfigContent() {
 
   useEffect(() => {
     fetchPacks().then(setPacks).catch(() => setPacks([]));
+  }, []);
+  useEffect(() => {
+    fetchCustomSchemas()
+      .then((s) => setCustomSchemas(Array.isArray(s) ? s : []))
+      .catch(() => setCustomSchemas([]));
   }, []);
 
   // Clone prefill: read ?clone= JSON from URL and prefill config
@@ -272,6 +279,20 @@ function AdvancedConfigContent() {
                     <option key={p.id} value={p.id}>{p.id}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Custom schema (from Schema Studio)</label>
+                <select
+                  value={(config.custom_schema_id as string) || ""}
+                  onChange={(e) => update("custom_schema_id", e.target.value || null)}
+                  className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+                  <option value="">None</option>
+                  {(customSchemas ?? []).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">Use a schema from Schema Studio when pack is empty or as override</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Schema path (optional)</label>

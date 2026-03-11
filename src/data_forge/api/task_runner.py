@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from data_forge.storage import get_run_store
+from data_forge.api import custom_schema_store
 from data_forge.api.services import run_generate
 from data_forge.api.schemas import GenerateRequest
 from data_forge.models.config_schema import RunConfig
@@ -276,8 +277,18 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
         tables = result.get("tables", [])
         total_rows = sum((t.get("row_count") or 0) for t in tables)
         output_run_id = result.get("run_id")
+        custom_schema_version = None
+        if config.get("custom_schema_id"):
+            try:
+                rec = custom_schema_store.get_custom_schema(config["custom_schema_id"])
+                if rec and rec.get("versions"):
+                    custom_schema_version = rec.get("version") or len(rec["versions"])
+            except Exception:
+                pass
         summary = {
             "selected_pack": config.get("pack"),
+            "custom_schema_id": config.get("custom_schema_id"),
+            "custom_schema_version": custom_schema_version,
             "total_tables": len(tables),
             "total_rows": total_rows,
             "duration_seconds": result.get("duration_seconds"),
@@ -316,10 +327,13 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
         )
         try:
             settings = Settings()
+            manifest_config = dict(config)
+            if custom_schema_version is not None:
+                manifest_config["custom_schema_version"] = custom_schema_version
             manifest = build_run_manifest(
                 run_id,
                 record.get("run_type", "generate"),
-                config,
+                manifest_config,
                 scenario_id=record.get("source_scenario_id"),
                 scenario_version=record.get("scenario_version"),
                 output_run_id=output_run_id,

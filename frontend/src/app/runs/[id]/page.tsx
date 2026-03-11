@@ -203,7 +203,14 @@ export default function RunDetailPage() {
           label="Artifacts"
           value={Array.isArray(summary?.export_paths) ? String(summary.export_paths.length) : (summary?.output_dir ? "Yes" : "—")}
         />
-        <StatCard label="Domain Pack" value={String(run.selected_pack ?? cfg.pack ?? "—")} />
+        <StatCard
+          label={cfg.custom_schema_id ? "Custom schema" : "Domain Pack"}
+          value={
+            cfg.custom_schema_id
+              ? String(cfg.custom_schema_id)
+              : String(run.selected_pack ?? cfg.pack ?? "—")
+          }
+        />
         <StatCard label="Run Mode" value={String(cfg.mode ?? "full_snapshot")} />
       </div>
 
@@ -325,7 +332,17 @@ export default function RunDetailPage() {
           </CardHeader>
           <CardContent>
             <dl className="text-sm space-y-2 min-w-0 overflow-hidden">
-              <div className="min-w-0"><dt className="text-slate-500 truncate">Pack</dt><dd className="font-medium truncate">{String(run.selected_pack ?? cfg.pack ?? "—")}</dd></div>
+              <div className="min-w-0"><dt className="text-slate-500 truncate">Schema source</dt><dd className="font-medium truncate">{cfg.custom_schema_id ? "Custom schema" : "Pack"}</dd></div>
+              {cfg.custom_schema_id ? (
+                <>
+                  <div className="min-w-0"><dt className="text-slate-500 truncate">Custom schema ID</dt><dd className="font-mono text-xs truncate">{String(cfg.custom_schema_id)}</dd></div>
+                  {(cfg.custom_schema_version ?? summary?.custom_schema_version) != null && (
+                    <div className="min-w-0"><dt className="text-slate-500 truncate">Schema version</dt><dd className="font-medium truncate">v{String(cfg.custom_schema_version ?? summary?.custom_schema_version)}</dd></div>
+                  )}
+                </>
+              ) : (
+                <div className="min-w-0"><dt className="text-slate-500 truncate">Pack</dt><dd className="font-medium truncate">{String(run.selected_pack ?? cfg.pack ?? "—")}</dd></div>
+              )}
               <div className="min-w-0"><dt className="text-slate-500 truncate">Mode</dt><dd className="font-medium truncate">{String(cfg.mode ?? "full_snapshot")}</dd></div>
               <div className="min-w-0"><dt className="text-slate-500 truncate">Layer</dt><dd className="font-medium truncate">{String(cfg.layer ?? "bronze")}</dd></div>
               <div className="min-w-0"><dt className="text-slate-500 truncate">Scale</dt><dd className="font-medium truncate">{String(cfg.scale ?? "—")}</dd></div>
@@ -366,7 +383,14 @@ export default function RunDetailPage() {
             <dl className="text-sm space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <div><dt className="text-slate-500">Run ID</dt><dd className="font-mono">{lineage.run_id}</dd></div>
               <div><dt className="text-slate-500">Run type</dt><dd>{lineage.run_type ?? "—"}</dd></div>
+              <div><dt className="text-slate-500">Schema source</dt><dd>{lineage.schema_source_type === "custom_schema" ? "Custom schema" : "Pack"}</dd></div>
               <div><dt className="text-slate-500">Pack</dt><dd>{lineage.pack ?? "—"}</dd></div>
+              {lineage.custom_schema_id && (
+                <>
+                  <div><dt className="text-slate-500">Custom schema ID</dt><dd className="font-mono text-xs">{lineage.custom_schema_id}</dd></div>
+                  {lineage.custom_schema_version != null && <div><dt className="text-slate-500">Schema version</dt><dd>v{lineage.custom_schema_version}</dd></div>}
+                </>
+              )}
               <div><dt className="text-slate-500">Artifact run ID</dt><dd className="font-mono">{lineage.artifact_run_id ?? "—"}</dd></div>
               {lineage.scenario_id && (
                 <>
@@ -395,8 +419,15 @@ export default function RunDetailPage() {
             <dl className="text-sm space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4">
               <div><dt className="text-slate-500">Run ID</dt><dd className="font-mono">{manifest.run_id}</dd></div>
               <div><dt className="text-slate-500">Config schema version</dt><dd>{manifest.config_schema_version ?? "—"}</dd></div>
+              <div><dt className="text-slate-500">Schema source</dt><dd>{manifest.schema_source_type === "custom_schema" ? "Custom schema" : "Pack"}</dd></div>
               <div><dt className="text-slate-500">Seed</dt><dd>{manifest.seed != null ? String(manifest.seed) : "—"}</dd></div>
               <div><dt className="text-slate-500">Pack</dt><dd>{manifest.pack ?? "—"}</dd></div>
+              {manifest.custom_schema_id && (
+                <>
+                  <div><dt className="text-slate-500">Custom schema ID</dt><dd className="font-mono text-xs">{manifest.custom_schema_id}</dd></div>
+                  {manifest.custom_schema_version != null && <div><dt className="text-slate-500">Schema version</dt><dd>v{manifest.custom_schema_version}</dd></div>}
+                </>
+              )}
               <div><dt className="text-slate-500">Scale</dt><dd>{manifest.scale != null ? String(manifest.scale) : "—"}</dd></div>
               <div><dt className="text-slate-500">Storage backend</dt><dd>{manifest.storage_backend ?? "—"}</dd></div>
               {manifest.git_commit_sha && <div><dt className="text-slate-500">Git commit</dt><dd className="font-mono text-xs">{manifest.git_commit_sha}</dd></div>}

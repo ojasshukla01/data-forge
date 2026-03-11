@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export interface WizardConfig {
   pack: string | null;
+  customSchemaId: string | null;
   schemaPath: string | null;
   useCase: string;
   scale: number;
@@ -22,6 +23,7 @@ export interface WizardConfig {
 
 const defaultConfig: WizardConfig = {
   pack: null,
+  customSchemaId: null,
   schemaPath: null,
   useCase: "demo",
   scale: 1000,
@@ -44,6 +46,7 @@ export function scenarioConfigToWizardConfig(scenarioConfig: Record<string, unkn
   const c = scenarioConfig || {};
   const out: Partial<WizardConfig> = {};
   if (c.pack != null) out.pack = String(c.pack);
+  if (c.custom_schema_id != null) out.customSchemaId = String(c.custom_schema_id);
   if (c.schema_path != null) out.schemaPath = String(c.schema_path);
   if (c.scale != null) out.scale = Number(c.scale) || 1000;
   if (c.messiness != null) out.messiness = String(c.messiness);

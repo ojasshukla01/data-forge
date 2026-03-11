@@ -14,6 +14,7 @@ class GenerationConfig(BaseModel):
     """Core generation parameters."""
 
     pack: str | None = None
+    custom_schema_id: str | None = None
     schema_path: str | None = None
     rules_path: str | None = None
     seed: int = 42
@@ -115,6 +116,7 @@ class RunConfig(BaseModel):
         d: dict[str, Any] = {}
         g = self.generation
         d["pack"] = g.pack
+        d["custom_schema_id"] = g.custom_schema_id
         d["schema_path"] = g.schema_path
         d["rules_path"] = g.rules_path
         d["seed"] = g.seed
@@ -190,6 +192,7 @@ def normalize_legacy_config(raw: dict[str, Any]) -> RunConfig:
 
     gen = GenerationConfig(
         pack=r.get("pack"),
+        custom_schema_id=r.get("custom_schema_id"),
         schema_path=r.get("schema_path"),
         rules_path=r.get("rules_path"),
         seed=int(r.get("seed", 42)),

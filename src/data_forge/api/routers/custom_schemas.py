@@ -8,13 +8,30 @@ from fastapi import APIRouter, HTTPException
 
 from data_forge.api import custom_schema_store as store
 from data_forge.api.schemas import (
-    CustomSchemaSummary,
+    CustomSchemaCreate,
     CustomSchemaDetail,
-    CustomSchemaVersionsResponse,
+    CustomSchemaSummary,
+    CustomSchemaUpdate,
+    CustomSchemaValidateRequest,
+    CustomSchemaValidateResponse,
     CustomSchemaVersionInfo,
+    CustomSchemaVersionsResponse,
 )
 
 router = APIRouter(prefix="/api/custom-schemas", tags=["custom-schemas"])
+
+
+@router.post("/validate", response_model=CustomSchemaValidateResponse)
+def validate_schema(payload: CustomSchemaValidateRequest) -> CustomSchemaValidateResponse:
+    """Validate schema structure without saving. Returns validation errors if any."""
+    from data_forge.models.schema import SchemaModel
+
+    try:
+        model = SchemaModel.model_validate(payload.schema)
+    except Exception as e:
+        return CustomSchemaValidateResponse(valid=False, errors=[str(e)])
+    errors = model.validate_schema()
+    return CustomSchemaValidateResponse(valid=len(errors) == 0, errors=errors)
 
 
 @router.get("", response_model=list[CustomSchemaSummary])
@@ -38,30 +55,25 @@ def list_custom_schemas(limit: int = 100) -> list[CustomSchemaSummary]:
 
 
 @router.post("", response_model=CustomSchemaDetail)
-def create_custom_schema(payload: dict[str, Any]) -> CustomSchemaDetail:
-    """Create a new custom schema.
+def create_custom_schema(payload: CustomSchemaCreate) -> CustomSchemaDetail:
+    """Create a new custom schema. Runs structural validation before save."""
+    from data_forge.api.security import validate_schema_body_size
+    from data_forge.models.schema import SchemaModel
 
-    Expected payload:
-    {
-      "name": "...",
-      "description": "...",
-      "tags": [...],
-      "schema": { ... SchemaModel-like dict ... }
-    }
-    """
-    name = payload.get("name")
-    if not name:
-        raise HTTPException(status_code=400, detail="name is required")
-    schema = payload.get("schema")
-    if not isinstance(schema, dict):
-        raise HTTPException(status_code=400, detail="schema must be an object")
-
+    try:
+        validate_schema_body_size(payload.schema)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    model = SchemaModel.model_validate(payload.schema)
+    errors = model.validate_schema()
+    if errors:
+        raise HTTPException(status_code=400, detail={"schema_errors": errors})
     rec = store.create_custom_schema(
-        name=name,
-        schema=schema,
-        description=payload.get("description") or "",
-        tags=payload.get("tags") or [],
-        created_from=payload.get("created_from"),
+        name=payload.name,
+        schema=payload.schema,
+        description=payload.description or "",
+        tags=payload.tags or [],
+        created_from=payload.created_from,
     )
     latest_version = (rec.get("versions") or [])[-1]
     return CustomSchemaDetail(
@@ -78,6 +90,7 @@ def create_custom_schema(payload: dict[str, Any]) -> CustomSchemaDetail:
 
 @router.get("/{schema_id}", response_model=CustomSchemaDetail)
 def get_custom_schema(schema_id: str) -> CustomSchemaDetail:
+    _validate_schema_id_or_400(schema_id)
     rec = store.get_custom_schema(schema_id)
     if not rec:
         raise HTTPException(status_code=404, detail="Schema not found")
@@ -97,14 +110,36 @@ def get_custom_schema(schema_id: str) -> CustomSchemaDetail:
     )
 
 
+def _validate_schema_id_or_400(schema_id: str) -> None:
+    from data_forge.api.security import validate_schema_id
+
+    try:
+        validate_schema_id(schema_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 @router.put("/{schema_id}", response_model=CustomSchemaDetail)
-def update_custom_schema(schema_id: str, payload: dict[str, Any]) -> CustomSchemaDetail:
-    """Update metadata and/or append a new version if schema is provided."""
-    schema = payload.get("schema")
+def update_custom_schema(schema_id: str, payload: CustomSchemaUpdate) -> CustomSchemaDetail:
+    """Update metadata and/or append a new version if schema is provided. Runs structural validation on schema."""
+    _validate_schema_id_or_400(schema_id)
+    schema = payload.schema
+    if schema is not None:
+        from data_forge.api.security import validate_schema_body_size
+        from data_forge.models.schema import SchemaModel
+
+        try:
+            validate_schema_body_size(schema)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        model = SchemaModel.model_validate(schema)
+        errors = model.validate_schema()
+        if errors:
+            raise HTTPException(status_code=400, detail={"schema_errors": errors})
     meta = {
-        "name": payload.get("name"),
-        "description": payload.get("description"),
-        "tags": payload.get("tags"),
+        "name": payload.name,
+        "description": payload.description,
+        "tags": payload.tags,
     }
     rec = store.update_custom_schema(schema_id, schema=schema, **meta)
     if not rec:
@@ -125,6 +160,7 @@ def update_custom_schema(schema_id: str, payload: dict[str, Any]) -> CustomSchem
 
 @router.delete("/{schema_id}")
 def delete_custom_schema(schema_id: str) -> dict[str, Any]:
+    _validate_schema_id_or_400(schema_id)
     if not store.delete_custom_schema(schema_id):
         raise HTTPException(status_code=404, detail="Schema not found")
     return {"deleted": schema_id}
@@ -132,6 +168,7 @@ def delete_custom_schema(schema_id: str) -> dict[str, Any]:
 
 @router.get("/{schema_id}/versions", response_model=CustomSchemaVersionsResponse)
 def get_versions(schema_id: str) -> CustomSchemaVersionsResponse:
+    _validate_schema_id_or_400(schema_id)
     data = store.get_custom_schema_versions(schema_id)
     if not data:
         raise HTTPException(status_code=404, detail="Schema not found")
@@ -148,6 +185,7 @@ def get_versions(schema_id: str) -> CustomSchemaVersionsResponse:
 
 @router.get("/{schema_id}/versions/{version}")
 def get_version_detail(schema_id: str, version: int) -> dict[str, Any]:
+    _validate_schema_id_or_400(schema_id)
     detail = store.get_custom_schema_version_detail(schema_id, version)
     if not detail:
         raise HTTPException(status_code=404, detail="Version not found")
@@ -156,6 +194,7 @@ def get_version_detail(schema_id: str, version: int) -> dict[str, Any]:
 
 @router.get("/{schema_id}/diff")
 def diff_versions(schema_id: str, left: int, right: int) -> dict[str, Any]:
+    _validate_schema_id_or_400(schema_id)
     diff = store.diff_custom_schema_versions(schema_id, left, right)
     if not diff:
         raise HTTPException(status_code=404, detail="Cannot diff versions")
