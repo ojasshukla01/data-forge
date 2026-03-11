@@ -35,6 +35,7 @@ export default function DocsPage() {
         <ul className="text-sm space-y-1">
           <li><a href="#quick-start" className="text-[var(--brand-teal)] hover:underline">Quick start</a></li>
           <li><a href="#packs" className="text-[var(--brand-teal)] hover:underline">Domain packs</a></li>
+          <li><a href="#schema-studio" className="text-[var(--brand-teal)] hover:underline">Schema Studio</a></li>
           <li><a href="#runs" className="text-[var(--brand-teal)] hover:underline">Runs</a></li>
           <li><a href="#simulation" className="text-[var(--brand-teal)] hover:underline">Pipeline simulation</a></li>
           <li><a href="#benchmark" className="text-[var(--brand-teal)] hover:underline">Benchmark</a></li>
@@ -96,6 +97,33 @@ export default function DocsPage() {
         </p>
         <Link href="/templates">
           <Button variant="outline" size="md">Browse templates</Button>
+        </Link>
+      </section>
+
+      {/* Schema Studio */}
+      <section id="schema-studio" className="scroll-mt-6 border-b border-slate-200 pb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-2 flex items-center gap-2">
+          Schema Studio
+          <InfoTooltip content="Design and manage custom relational schemas. Use with the Create wizard or Advanced config." />
+        </h2>
+        <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
+          Schema Studio lets you design custom relational schemas from scratch—tables, columns, relationships, and column-level generation rules (faker, sequence, uuid, etc.).
+        </p>
+        <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
+          <strong>Important:</strong> You must choose or create a schema first before adding tables. Select an existing schema from the sidebar or click &quot;New schema&quot;.
+        </p>
+        <ul className="list-disc list-inside text-slate-600 text-sm sm:text-base space-y-1 mb-4">
+          <li><strong>Form mode</strong> — Tables, Columns, and Relationships tabs; add tables, columns, PK, FK, generation rules</li>
+          <li><strong>JSON mode</strong> — Edit raw schema JSON for advanced control</li>
+          <li><strong>Validate</strong> — Check structure and rules before save</li>
+          <li><strong>Version history</strong> — Compare versions, diff tables and columns</li>
+          <li><strong>Sample preview</strong> — Generate sample rows without a full run</li>
+        </ul>
+        <p className="text-slate-600 text-sm sm:text-base mb-4">
+          Schemas are used in the Create wizard (custom schema source) or Advanced config (custom schema dropdown).
+        </p>
+        <Link href="/schema/studio">
+          <Button variant="outline" size="md">Open Schema Studio</Button>
         </Link>
       </section>
 

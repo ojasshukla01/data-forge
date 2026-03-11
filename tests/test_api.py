@@ -32,6 +32,24 @@ def test_domain_pack_detail():
     assert len(data["tables"]) > 0
 
 
+def test_generate_with_custom_schema():
+    """Generation works with custom_schema_id."""
+    r_create = client.post(
+        "/api/custom-schemas",
+        json={"name": "Gen Test", "schema": {"tables": [{"name": "users", "columns": [{"name": "id", "data_type": "integer"}, {"name": "name", "data_type": "string"}]}], "relationships": []}},
+    )
+    assert r_create.status_code == 200
+    schema_id = r_create.json()["id"]
+    r = client.post(
+        "/api/generate",
+        json={"custom_schema_id": schema_id, "scale": 10, "export_format": "csv"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("success") is True
+    assert "tables" in data
+
+
 def test_generate_pack():
     r = client.post(
         "/api/generate",
@@ -61,6 +79,25 @@ def test_preflight():
     assert "warnings" in data
 
 
+def test_preflight_with_custom_schema():
+    """Preflight accepts custom_schema_id when schema exists."""
+    # Create a custom schema first
+    r_create = client.post(
+        "/api/custom-schemas",
+        json={"name": "Preflight Test", "schema": {"tables": [{"name": "t1", "columns": [{"name": "id", "data_type": "integer"}]}], "relationships": []}},
+    )
+    assert r_create.status_code == 200
+    schema_id = r_create.json()["id"]
+    r = client.post(
+        "/api/preflight",
+        json={"custom_schema_id": schema_id, "scale": 100},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("valid") is True
+    assert len(data.get("blockers", [])) == 0
+
+
 def test_preflight_invalid_pack():
     r = client.post(
         "/api/preflight",
@@ -85,6 +122,125 @@ def test_schema_visualize():
 def test_schema_visualize_not_found():
     r = client.get("/api/schema/visualize?pack_id=nonexistent")
     assert r.status_code == 404
+
+
+def test_custom_schema_validate_valid():
+    """POST /api/custom-schemas/validate returns valid=true for a valid schema."""
+    r = client.post(
+        "/api/custom-schemas/validate",
+        json={
+            "schema": {
+                "name": "valid",
+                "tables": [
+                    {
+                        "name": "users",
+                        "columns": [
+                            {"name": "id", "data_type": "integer", "primary_key": True},
+                            {"name": "email", "data_type": "email"},
+                        ],
+                        "primary_key": ["id"],
+                    },
+                ],
+                "relationships": [],
+            },
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("valid") is True
+    assert data.get("errors", []) == []
+
+
+def test_custom_schema_validate_invalid():
+    """POST /api/custom-schemas/validate returns valid=false with errors for invalid schema."""
+    r = client.post(
+        "/api/custom-schemas/validate",
+        json={
+            "schema": {
+                "name": "invalid",
+                "tables": [
+                    {
+                        "name": "users",
+                        "columns": [{"name": "id", "data_type": "integer"}],
+                        "primary_key": ["missing_col"],
+                    },
+                ],
+                "relationships": [],
+            },
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("valid") is False
+    assert len(data.get("errors", [])) > 0
+
+
+def test_schema_preview_api():
+    """POST /api/schema/preview returns sample rows per table."""
+    r = client.post(
+        "/api/schema/preview",
+        json={
+            "schema": {
+                "name": "preview_test",
+                "tables": [
+                    {
+                        "name": "t1",
+                        "columns": [
+                            {"name": "id", "data_type": "integer"},
+                            {"name": "label", "data_type": "string"},
+                        ],
+                        "primary_key": [],
+                    },
+                ],
+                "relationships": [],
+            },
+            "rows_per_table": 3,
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "t1" in data
+    assert len(data["t1"]) == 3
+
+
+def test_custom_schema_versions_and_diff():
+    """Custom schema versions and diff endpoints return expected structure."""
+    r_create = client.post(
+        "/api/custom-schemas",
+        json={
+            "name": "Version Test",
+            "schema": {
+                "name": "v1",
+                "tables": [{"name": "a", "columns": [{"name": "id", "data_type": "integer"}], "primary_key": []}],
+                "relationships": [],
+            },
+        },
+    )
+    assert r_create.status_code == 200
+    schema_id = r_create.json()["id"]
+    client.put(
+        f"/api/custom-schemas/{schema_id}",
+        json={
+            "schema": {
+                "name": "v2",
+                "tables": [
+                    {"name": "a", "columns": [{"name": "id", "data_type": "integer"}], "primary_key": []},
+                    {"name": "b", "columns": [{"name": "id", "data_type": "integer"}], "primary_key": []},
+                ],
+                "relationships": [],
+            },
+        },
+    )
+    r_versions = client.get(f"/api/custom-schemas/{schema_id}/versions")
+    assert r_versions.status_code == 200
+    vd = r_versions.json()
+    assert "versions" in vd
+    assert len(vd["versions"]) >= 2
+    r_diff = client.get(f"/api/custom-schemas/{schema_id}/diff?left=1&right=2")
+    assert r_diff.status_code == 200
+    diff = r_diff.json()
+    assert "tables_added" in diff
+    assert "b" in diff["tables_added"]
 
 
 def test_artifacts_list():
@@ -489,3 +645,77 @@ def test_run_lineage_and_manifest():
     assert r_lineage.status_code == 404
     r_manifest = client.get("/api/runs/nonexistent_run_id/manifest")
     assert r_manifest.status_code == 404
+
+
+def test_custom_schema_create_and_invalid_schema_id():
+    """Custom schema: create works with valid payload; invalid schema_id returns 400."""
+    r = client.post(
+        "/api/custom-schemas",
+        json={
+            "name": "Test Schema",
+            "schema": {"tables": [{"name": "t1", "columns": [{"name": "id", "data_type": "integer"}]}], "relationships": []},
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "id" in data
+    assert data["name"] == "Test Schema"
+    assert data["id"].startswith("schema_")
+
+    # Invalid schema_id in path returns 400 (e.g. does not match schema_<alphanumeric>)
+    r_bad = client.get("/api/custom-schemas/invalid_id")
+    assert r_bad.status_code == 400
+
+    # Validate endpoint: valid schema returns valid=True
+    r_val = client.post(
+        "/api/custom-schemas/validate",
+        json={
+            "schema": {"tables": [{"name": "t1", "columns": [{"name": "id", "data_type": "integer"}]}], "relationships": []},
+        },
+    )
+    assert r_val.status_code == 200
+    assert r_val.json()["valid"] is True
+    assert r_val.json()["errors"] == []
+
+    # Schema preview endpoint
+    r_preview = client.post(
+        "/api/schema/preview",
+        json={"schema": {"tables": [{"name": "t1", "columns": [{"name": "id", "data_type": "integer"}]}], "relationships": []}, "rows_per_table": 2},
+    )
+    assert r_preview.status_code == 200
+    data_preview = r_preview.json()
+    assert "t1" in data_preview
+    assert len(data_preview["t1"]) == 2
+
+    # Validate endpoint: invalid schema (orphan relationship) returns valid=False
+    r_inv = client.post(
+        "/api/custom-schemas/validate",
+        json={
+            "schema": {
+                "tables": [{"name": "t1", "columns": [{"name": "id", "data_type": "integer"}]}],
+                "relationships": [{"name": "r1", "from_table": "t1", "from_columns": ["id"], "to_table": "missing", "to_columns": ["id"]}],
+            },
+        },
+    )
+    assert r_inv.status_code == 200
+    assert r_inv.json()["valid"] is False
+    assert len(r_inv.json()["errors"]) > 0
+
+    # Custom schema diff: create schema, update (add table), diff v1 vs v2
+    schema_id = data["id"]
+    v2_schema = {
+        "tables": [
+            {"name": "a", "columns": [{"name": "id", "data_type": "integer"}]},
+            {"name": "b", "columns": [{"name": "id", "data_type": "integer"}]},
+        ],
+        "relationships": [],
+    }
+    client.put(
+        f"/api/custom-schemas/{schema_id}",
+        json={"schema": v2_schema},
+    )
+    r_diff = client.get(f"/api/custom-schemas/{schema_id}/diff?left=1&right=2")
+    assert r_diff.status_code == 200
+    diff_data = r_diff.json()
+    assert "tables_added" in diff_data
+    assert "b" in diff_data["tables_added"]

@@ -3,6 +3,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from data_forge.api.middleware import (
+    RateLimitPlaceholderMiddleware,
+    RequestLoggingMiddleware,
+    RequestSizeLimitMiddleware,
+)
 from data_forge.api.routers import (
     domain_packs,
     generate,
@@ -24,6 +29,9 @@ app = FastAPI(
     version=__version__,
 )
 
+app.add_middleware(RateLimitPlaceholderMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],

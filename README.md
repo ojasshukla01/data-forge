@@ -114,7 +114,7 @@ Outputs go to `demo_output/`. Start the API and frontend to inspect runs and art
 
 ## 🔄 Core workflows
 
-1. **Generate a dataset** — Wizard or Advanced → pick pack (or schema) → set scale/options → run. Output in Runs and Artifacts.
+1. **Generate a dataset** — Wizard or Advanced → pick pack or custom schema (Schema Studio) → set scale/options → run. Output in Runs and Artifacts.
 2. **Run simulation** — Advanced → Pipeline Simulation → enable event streams, set density/pattern/replay → run.
 3. **Benchmark warehouse load** — Advanced → Benchmark → profile and scale preset → run. View throughput and duration on run detail.
 4. **Compare runs** — Runs → open a run → “Compare with another run”, or `/runs/compare`. Use raw JSON diff for debugging.
@@ -149,7 +149,7 @@ data-forge/
 
 - **CLI** — `data-forge generate`, `benchmark`, `validate`, `reconcile`, `packs`; full control from the shell.
 - **API** — Start runs, list runs/artifacts/scenarios, compare runs, preflight, benchmark. Local JSON persistence.
-- **UI** — Wizard and Advanced config, run history and detail, scenario library, artifact browser, schema visualizer, validation center, run comparison.
+- **UI** — Wizard and Advanced config, run history and detail, scenario library, artifact browser, Schema Studio (custom schemas, validation, version diff), validation center, run comparison.
 - **CI** — GitHub Actions: backend tests, frontend tests, type-check, build. Local: `make validate-all`.
 - **API** — `POST /api/runs/generate`, `GET /api/runs`, `GET /api/runs/compare`, `POST /api/benchmark`, `GET /api/scenarios`, `GET /api/artifacts`, `POST /api/preflight`.
 

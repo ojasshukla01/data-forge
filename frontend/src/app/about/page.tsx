@@ -49,6 +49,7 @@ export default function AboutPage() {
           <li><strong>Scenario</strong> — Saved config (name, category, tags). Run from a scenario or clone to create one.</li>
           <li><strong>Artifact</strong> — Output files: datasets, event streams, dbt seeds, GE suites, manifests.</li>
           <li><strong>Pack</strong> — Pre-built domain (schema + rules). e.g. SaaS Billing, E-commerce.</li>
+          <li><strong>Custom schema</strong> — User-defined schema in Schema Studio. Use instead of a pack for full control.</li>
           <li><strong>Benchmark</strong> — Performance run with scale presets and metrics.</li>
           <li><strong>Simulation</strong> — Pipeline simulation: event streams, full snapshot, incremental, CDC.</li>
         </ul>

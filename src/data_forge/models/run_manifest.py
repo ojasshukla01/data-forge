@@ -41,6 +41,10 @@ def build_run_manifest(
     """Build a reproducibility manifest for a run."""
     now = time.time()
     root = project_root or Path.cwd()
+    custom_schema_id = config.get("custom_schema_id")
+    schema_source_type = "custom_schema" if custom_schema_id else "pack"
+    custom_schema_version = config.get("custom_schema_version")
+
     return {
         "run_id": run_id,
         "output_run_id": output_run_id or run_id,
@@ -50,6 +54,9 @@ def build_run_manifest(
         "config_schema_version": config.get("config_schema_version"),
         "seed": config.get("seed"),
         "pack": config.get("pack"),
+        "custom_schema_id": custom_schema_id,
+        "custom_schema_version": custom_schema_version,
+        "schema_source_type": schema_source_type,
         "scale": config.get("scale"),
         "mode": config.get("mode"),
         "layer": config.get("layer"),
@@ -76,6 +83,10 @@ def write_manifest_json(manifest: dict[str, Any], output_dir: Path) -> Path:
 def write_manifest_markdown(manifest: dict[str, Any], output_dir: Path) -> Path:
     """Write human-readable manifest as markdown."""
     path = output_dir / "manifest.md"
+    schema_source = manifest.get("schema_source_type") or "pack"
+    pack_line = f"- **Pack**: {manifest.get('pack') or '—'}"
+    if schema_source == "custom_schema":
+        pack_line = "- **Schema source**: Custom schema"
     lines = [
         "# Run manifest",
         "",
@@ -86,13 +97,21 @@ def write_manifest_markdown(manifest: dict[str, Any], output_dir: Path) -> Path:
         f"- **Scenario version**: {manifest.get('scenario_version') or '—'}",
         f"- **Config schema version**: {manifest.get('config_schema_version') or '—'}",
         f"- **Seed**: {manifest.get('seed')}",
-        f"- **Pack**: {manifest.get('pack') or '—'}",
+        pack_line,
+    ]
+    if manifest.get("custom_schema_id"):
+        lines.append(f"- **Custom schema ID**: {manifest.get('custom_schema_id')}")
+    if manifest.get("custom_schema_version") is not None:
+        lines.append(f"- **Custom schema version**: {manifest.get('custom_schema_version')}")
+    lines.extend([
         f"- **Scale**: {manifest.get('scale')}",
+    ])
+    lines.extend([
         f"- **Total rows**: {manifest.get('total_rows_generated') or '—'}",
         f"- **Duration (s)**: {manifest.get('duration_seconds')}",
         f"- **Storage backend**: {manifest.get('storage_backend', 'file')}",
         f"- **Git SHA**: {manifest.get('git_commit_sha') or '—'}",
         f"- **Created at**: {manifest.get('created_at')}",
-    ]
+    ])
     path.write_text("\n".join(lines), encoding="utf-8")
     return path

@@ -63,6 +63,7 @@ class GenerateRequest(BaseModel):
     """Request body for /api/generate."""
 
     pack: str | None = None
+    custom_schema_id: str | None = None  # Use schema from Custom Schema Studio
     schema_path: str | None = None
     rules_path: str | None = None
     schema_text: str | None = None
@@ -174,3 +175,35 @@ class CustomSchemaVersionsResponse(BaseModel):
     schema_id: str
     versions: list[CustomSchemaVersionInfo]
     current_version: int
+
+
+class CustomSchemaCreate(BaseModel):
+    """Request body for POST /api/custom-schemas."""
+
+    name: str
+    schema: dict[str, Any]
+    description: str | None = None
+    tags: list[str] | None = None
+    created_from: str | None = None
+
+
+class CustomSchemaUpdate(BaseModel):
+    """Request body for PUT /api/custom-schemas/{schema_id}."""
+
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    schema: dict[str, Any] | None = None
+
+
+class CustomSchemaValidateRequest(BaseModel):
+    """Request body for POST /api/custom-schemas/validate."""
+
+    schema: dict[str, Any]
+
+
+class CustomSchemaValidateResponse(BaseModel):
+    """Response for POST /api/custom-schemas/validate."""
+
+    valid: bool
+    errors: list[str] = []

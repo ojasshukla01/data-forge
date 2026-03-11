@@ -8,7 +8,8 @@ import { scenarioConfigToWizardConfig, scenarioHasAdvancedOnlySettings } from "@
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { startRunGenerate, runPreflight, fetchPacks, fetchScenarios, fetchScenario, createScenario, type PackInfo } from "@/lib/api";
+import { startRunGenerate, runPreflight, fetchPacks, fetchScenarios, fetchScenario, createScenario, fetchCustomSchemas, type PackInfo } from "@/lib/api";
+import type { CustomSchemaSummary } from "@/lib/api";
 import type { ScenarioRecord } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,10 @@ function WizardContent() {
   const [packs, setPacks] = useState<PackInfo[]>([]);
   const [packsLoading, setPacksLoading] = useState(true);
   const [packsError, setPacksError] = useState<string | null>(null);
+  const [schemaSource, setSchemaSource] = useState<"pack" | "custom">("pack");
+  const [customSchemas, setCustomSchemas] = useState<CustomSchemaSummary[]>([]);
+  const [customSchemasLoading, setCustomSchemasLoading] = useState(false);
+  const [customSchemasError, setCustomSchemasError] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioRecord[]>([]);
   const [scenariosLoading, setScenariosLoading] = useState(false);
   const [loadedScenario, setLoadedScenario] = useState<ScenarioRecord | null>(null);
@@ -83,8 +88,23 @@ function WizardContent() {
   }, []);
 
   useEffect(() => {
-    if (packFromUrl && packs.some((p) => p.id === packFromUrl)) setConfig({ pack: packFromUrl });
+    if (packFromUrl && packs.some((p) => p.id === packFromUrl)) {
+      setConfig({ pack: packFromUrl, customSchemaId: null });
+      setSchemaSource("pack");
+    }
   }, [packFromUrl, packs, setConfig]);
+
+  useEffect(() => {
+    if (schemaSource !== "custom") return;
+    let cancelled = false;
+    setCustomSchemasLoading(true);
+    setCustomSchemasError(null);
+    fetchCustomSchemas()
+      .then((data) => { if (!cancelled) setCustomSchemas(data); })
+      .catch((e) => { if (!cancelled) setCustomSchemasError(e instanceof Error ? e.message : "Failed to load custom schemas"); setCustomSchemas([]); })
+      .finally(() => { if (!cancelled) setCustomSchemasLoading(false); });
+    return () => { cancelled = true; };
+  }, [schemaSource]);
 
   // Load scenario from ?scenario=<id>
   useEffect(() => {
@@ -117,14 +137,16 @@ function WizardContent() {
     reset();
     setLoadedScenario(null);
     setEntryMode("scratch");
+    setSchemaSource("pack");
   };
 
   const runPreflightCheck = async () => {
     setPreflightLoading(true);
     setPreflight(null);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         pack: config.pack,
+        custom_schema_id: config.customSchemaId,
         schema_path: config.schemaPath,
         scale: config.scale,
         messiness: config.messiness,
@@ -137,7 +159,7 @@ function WizardContent() {
         export_dbt: config.exportDbt,
         contracts: config.contracts,
       };
-      const data = await runPreflight(payload);
+      const data = await runPreflight(payload as Record<string, unknown>);
       setPreflight(data);
       setError(null);
     } catch (e) {
@@ -148,7 +170,7 @@ function WizardContent() {
   };
 
   useEffect(() => {
-    if (stepId === "review" && config.pack) {
+    if (stepId === "review" && (config.pack || config.customSchemaId)) {
       runPreflightCheck();
     } else if (stepId !== "review") {
       setPreflight(null);
@@ -157,6 +179,7 @@ function WizardContent() {
 
   const wizardConfigToApiConfig = (): Record<string, unknown> => ({
     pack: config.pack,
+    custom_schema_id: config.customSchemaId,
     schema_path: config.schemaPath,
     seed: config.seed,
     scale: config.scale,
@@ -203,6 +226,7 @@ function WizardContent() {
     try {
       const payload = {
         pack: config.pack,
+        custom_schema_id: config.customSchemaId,
         schema_path: config.schemaPath,
         seed: config.seed,
         scale: config.scale,
@@ -349,8 +373,37 @@ function WizardContent() {
                 )
               ) : (
                 <>
+                  <div className="flex gap-3 mb-4">
+                    <button
+                      onClick={() => { setSchemaSource("pack"); setConfig({ pack: config.pack, customSchemaId: null }); }}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                        schemaSource === "pack"
+                          ? "bg-slate-900 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      )}
+                    >
+                      Domain Pack
+                    </button>
+                    <button
+                      onClick={() => { setSchemaSource("custom"); setConfig({ customSchemaId: config.customSchemaId, pack: null }); }}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                        schemaSource === "custom"
+                          ? "bg-slate-900 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      )}
+                    >
+                      Custom Schema
+                    </button>
+                  </div>
+                  {schemaSource === "pack" && (
                   <p className="text-sm text-slate-600">Choose a domain pack to get started quickly.</p>
-                  {packsLoading ? (
+                  )}
+                  {schemaSource === "custom" && (
+                  <p className="text-sm text-slate-600">Choose a custom schema from Schema Studio. <Link href="/schema/studio" className="text-[var(--brand-teal)] hover:underline">Create or edit schemas →</Link></p>
+                  )}
+                  {schemaSource === "pack" && packsLoading ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {[1, 2].map((i) => (
                     <div key={i} className="h-24 rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
@@ -387,6 +440,50 @@ function WizardContent() {
                   ))}
                 </div>
               )}
+                  {schemaSource === "custom" && (
+                    customSchemasLoading ? (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {[1, 2].map((i) => (
+                          <div key={i} className="h-24 rounded-lg border border-slate-200 bg-slate-50 animate-pulse" />
+                        ))}
+                      </div>
+                    ) : customSchemasError ? (
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
+                        <p>Could not load custom schemas. Ensure the API is running.</p>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={() => setSchemaSource("custom")}>
+                          Retry
+                        </Button>
+                      </div>
+                    ) : customSchemas.length === 0 ? (
+                      <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
+                        No custom schemas yet. Create one in Schema Studio.
+                        <div className="mt-3">
+                          <Link href="/schema/studio"><Button variant="outline" size="sm">Open Schema Studio</Button></Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {customSchemas.map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => setConfig({ customSchemaId: s.id, pack: null })}
+                            className={cn(
+                              "text-left p-4 rounded-lg border-2 transition-colors",
+                              config.customSchemaId === s.id
+                                ? "border-slate-900 bg-slate-50"
+                                : "border-slate-200 hover:border-slate-300"
+                            )}
+                          >
+                            <p className="font-medium text-slate-900">{s.name}</p>
+                            <p className="text-sm text-slate-600 mt-1">{s.description || "No description"}</p>
+                            {s.version != null && (
+                              <p className="text-xs text-slate-500 mt-1">v{s.version}</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
               </>
             )}
           </>
@@ -541,9 +638,27 @@ function WizardContent() {
 
           {stepId === "review" && (
             <div className="space-y-4 text-sm">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="font-medium text-slate-700 mb-2">Schema source</p>
+                <p>
+                  {config.customSchemaId ? (
+                    <>
+                      <span className="text-slate-600">Custom schema: </span>
+                      <span className="font-medium">
+                        {customSchemas.find((s) => s.id === config.customSchemaId)?.name ?? config.customSchemaId}
+                      </span>
+                    </>
+                  ) : config.pack ? (
+                    <>
+                      <span className="text-slate-600">Domain pack: </span>
+                      <span className="font-medium">{formatPackLabel(config.pack)}</span>
+                    </>
+                  ) : (
+                    <span className="text-amber-700">— Select a schema source in step 1</span>
+                  )}
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <span className="text-slate-500">Pack</span>
-                <span>{config.pack ? formatPackLabel(config.pack) : "—"}</span>
                 <span className="text-slate-500">Scale</span>
                 <span>{config.scale}</span>
                 <span className="text-slate-500">Messiness</span>
@@ -662,7 +777,7 @@ function WizardContent() {
         </Button>
         {stepIndex < STEPS.length - 1 ? (
           <Button
-            disabled={stepId === "input" && (entryMode === "scratch" ? !config.pack : !loadedScenario)}
+            disabled={stepId === "input" && (entryMode === "scratch" ? !config.pack && !config.customSchemaId : !loadedScenario)}
             onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
           >
             Next

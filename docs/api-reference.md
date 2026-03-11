@@ -1,77 +1,43 @@
-# API reference
+# API Reference
 
-The Data Forge API is a REST API served by FastAPI. Base URL is typically `http://localhost:8000`.
+Key API endpoints for the Data Forge platform.
 
-## OpenAPI
+## Schema
 
-- **JSON**: [GET /openapi.json](http://localhost:8000/openapi.json)
-- **Swagger UI**: [GET /docs](http://localhost:8000/docs)
-- **ReDoc**: [GET /redoc](http://localhost:8000/redoc)
+### Custom Schemas (`/api/custom-schemas`)
 
-## Endpoints overview
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/validate` | Validate schema structure before save. Body: `{ schema }`. Response: `{ valid, errors }` |
+| GET | `` | List custom schemas |
+| POST | `` | Create custom schema. Body: `{ name, description?, tags?, schema }` |
+| GET | `/{id}` | Get schema detail (latest version) |
+| PUT | `/{id}` | Update schema (appends new version) |
+| DELETE | `/{id}` | Delete schema |
+| GET | `/{id}/versions` | List versions |
+| GET | `/{id}/versions/{v}` | Get specific version |
+| GET | `/{id}/diff?left=1&right=2` | Diff between versions; returns tables_added, tables_removed, tables_modified |
 
-### Health
+### Schema Preview
 
-- `GET /health` — Status and version.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/schema/preview` | Generate sample rows. Body: `{ schema, rows_per_table }`. Uses column generation rules when present. |
 
-### Domain packs
+## Generation
 
-- `GET /api/domain-packs` — List packs (id, description, metadata).
-- `GET /api/domain-packs/{pack_id}` — Pack detail (tables, relationships).
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/generate` | Synchronous generation. Body: `{ pack?, custom_schema_id?, scale, ... }` |
+| POST | `/api/preflight` | Validate run config. Body: `{ pack?, custom_schema_id?, scale, mode, layer, ... }` |
+| POST | `/api/runs/generate` | Async generation; returns `run_id` |
 
-### Generation and preflight
+## Runs & Scenarios
 
-- `POST /api/generate` — Synchronous generation (body: config with pack, scale, etc.).
-- `POST /api/preflight` — Validate config (body: config).
-- `POST /api/runs/generate` — Start async generation (body: config). Returns `run_id`.
-- `POST /api/runs/benchmark` — Start async benchmark (body: config).
-
-### Runs
-
-- `GET /api/runs` — List runs (query: status, run_type, pack, mode, layer, limit, include_archived).
-- `GET /api/runs/metrics` — Aggregate metrics (total runs, by type/status, avg duration, etc.).
-- `GET /api/runs/storage/summary` — Storage usage (runs, artifacts, size).
-- `GET /api/runs/cleanup/preview` — Dry-run cleanup candidates.
-- `POST /api/runs/cleanup/execute` — Run cleanup (body: delete_artifacts, retention_count, retention_days).
-- `GET /api/runs/{run_id}` — Run detail.
-- `GET /api/runs/{run_id}/status` — Lightweight status.
-- `GET /api/runs/{run_id}/timeline` — Stage timeline and “why slow?” hint.
-- `GET /api/runs/{run_id}/lineage` — Lineage (run → scenario → pack → artifacts).
-- `GET /api/runs/{run_id}/manifest` — Reproducibility manifest.
-- `GET /api/runs/{run_id}/logs` — Run events.
-- `POST /api/runs/{run_id}/rerun` — Start a new run with same config.
-- `POST /api/runs/{run_id}/clone` — Get config for cloning.
-- `POST /api/runs/{run_id}/archive` — Archive run.
-- `POST /api/runs/{run_id}/unarchive` — Unarchive.
-- `POST /api/runs/{run_id}/pin` — Pin (exclude from cleanup).
-- `POST /api/runs/{run_id}/unpin` — Unpin.
-- `POST /api/runs/{run_id}/delete` — Delete run (body: delete_artifacts).
-- `GET /api/runs/compare?left=&right=` — Compare two runs.
-
-### Scenarios
-
-- `GET /api/scenarios` — List scenarios (query: category, source_pack, tag, search, limit).
-- `POST /api/scenarios` — Create scenario (body: name, description, category, tags, config).
-- `GET /api/scenarios/{id}` — Scenario detail.
-- `PUT /api/scenarios/{id}` — Update scenario.
-- `DELETE /api/scenarios/{id}` — Delete scenario.
-- `GET /api/scenarios/{id}/versions` — Version history.
-- `GET /api/scenarios/{id}/versions/{version}` — Config for a version.
-- `GET /api/scenarios/{id}/diff?left=&right=` — Diff two versions.
-- `GET /api/scenarios/{id}/export` — Export as JSON (includes version).
-- `POST /api/scenarios/import` — Import from JSON.
-- `POST /api/scenarios/{id}/run` — Start run from scenario.
-
-### Artifacts
-
-- `GET /api/artifacts` — List artifacts (query: run_id, type_filter).
-- `GET /api/artifacts/file?run_id=&path=` — Download artifact file.
-
-### Schema and validation
-
-- `GET /api/schema/visualize?pack_id=` — Schema graph (nodes, edges).
-- `POST /api/validate` — Validate schema/data (body: schema_path, data_path, rules_path, privacy_mode).
-
-## Config schema
-
-Generation config supports flat or nested structure. Key fields (flat): `pack`, `scale`, `seed`, `mode`, `layer`, `export_format`, `pipeline_simulation`, `benchmark`, `config_schema_version`. See `/openapi.json` for full request/response schemas.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/runs` | List runs |
+| GET | `/api/runs/{id}` | Run detail |
+| GET | `/api/scenarios` | List scenarios |
+| POST | `/api/scenarios` | Create scenario |
+| GET | `/api/domain-packs` | List domain packs |

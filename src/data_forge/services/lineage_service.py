@@ -19,7 +19,10 @@ def get_run_lineage(run_id: str) -> dict[str, Any] | None:
         scenario = get_scenario(scenario_id)
         if scenario:
             scenario_version = scenario.get("version", 1)
-    pack = record.get("selected_pack") or (record.get("config") or record.get("config_summary") or {}).get("pack")
+    cfg = record.get("config") or record.get("config_summary") or {}
+    pack = record.get("selected_pack") or cfg.get("pack")
+    custom_schema_id = cfg.get("custom_schema_id")
+    custom_schema_version = cfg.get("custom_schema_version") or (summary.get("custom_schema_version") if summary else None)
     output_run_id = summary.get("artifact_run_id") or summary.get("output_run_id") or run_id
     return {
         "run_id": run_id,
@@ -27,6 +30,9 @@ def get_run_lineage(run_id: str) -> dict[str, Any] | None:
         "scenario_id": scenario_id,
         "scenario": {"id": scenario_id, "name": scenario.get("name"), "version": scenario_version} if scenario else None,
         "pack": pack,
+        "custom_schema_id": custom_schema_id,
+        "custom_schema_version": custom_schema_version,
+        "schema_source_type": "custom_schema" if custom_schema_id else "pack",
         "artifact_run_id": output_run_id,
         "output_dir": record.get("output_dir") or summary.get("output_dir"),
     }

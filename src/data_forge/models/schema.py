@@ -1,7 +1,7 @@
 """Schema models: tables, columns, relationships, data types."""
 
 from enum import Enum
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -29,6 +29,13 @@ class DataType(str, Enum):
     PERCENT = "percent"
 
 
+class ColumnGenerationRule(BaseModel):
+    """Per-column generation rule embedded in schema. Overrides generator_hint when present."""
+
+    rule_type: str  # faker, uuid, sequence, range
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class ColumnDef(BaseModel):
     """Definition of a single column."""
 
@@ -44,8 +51,11 @@ class ColumnDef(BaseModel):
     max_value: int | float | None = None
     enum_values: list[str] | None = None
     pattern: str | None = None
+    check: str | None = None  # Check constraint expression, e.g. "amount >= 0"
     generator_hint: str | None = None  # e.g. "name", "email", "company"
+    generation_rule: ColumnGenerationRule | None = None  # Overrides generator_hint
     description: str | None = None
+    display_name: str | None = None  # Human-friendly label for UI
 
 
 class RelationshipDef(BaseModel):
@@ -67,15 +77,18 @@ class TableDef(BaseModel):
     name: str
     columns: list[ColumnDef] = Field(default_factory=list)
     primary_key: list[str] = Field(default_factory=list)
+    unique_constraints: list[list[str]] | None = None  # Multi-column unique, e.g. [["org_id", "slug"]]
     description: str | None = None
     row_estimate: int | None = None  # Hint for scale
     order: int = 0  # Generation order (dependencies first)
+    tags: list[str] | None = None  # Labels for grouping
 
 
 class SchemaModel(BaseModel):
     """Full schema: multiple tables and relationships."""
 
     name: str = "default"
+    description: str | None = None  # Schema-level description
     tables: list[TableDef] = Field(default_factory=list)
     relationships: list[RelationshipDef] = Field(default_factory=list)
     source: str | None = None  # File path or identifier
@@ -118,3 +131,85 @@ class SchemaModel(BaseModel):
                         in_degree[r.from_table] -= 1
         name_to_table = {t.name: t for t in self.tables}
         return [name_to_table[n] for n in order if n in name_to_table]
+
+    MAX_TABLES: ClassVar[int] = 100
+    MAX_COLUMNS_PER_TABLE: ClassVar[int] = 200
+    MAX_RELATIONSHIPS: ClassVar[int] = 100
+
+    def validate_schema(self) -> list[str]:
+        """
+        Validate schema structure. Returns list of error messages; empty means valid.
+        Checks: size limits, unique table names, unique column names per table,
+        primary_key refs, unique_constraints refs, relationship table/column refs.
+        """
+        errors: list[str] = []
+        if len(self.tables) > self.MAX_TABLES:
+            errors.append(f"Schema exceeds maximum tables ({self.MAX_TABLES})")
+        for t in self.tables:
+            if len(t.columns) > self.MAX_COLUMNS_PER_TABLE:
+                errors.append(f"Table '{t.name}' exceeds maximum columns ({self.MAX_COLUMNS_PER_TABLE})")
+        if len(self.relationships) > self.MAX_RELATIONSHIPS:
+            errors.append(f"Schema exceeds maximum relationships ({self.MAX_RELATIONSHIPS})")
+        table_names = [t.name for t in self.tables]
+        if len(table_names) != len(set(table_names)):
+            seen: dict[str, int] = {}
+            for n in table_names:
+                seen[n] = seen.get(n, 0) + 1
+            for n, c in seen.items():
+                if c > 1:
+                    errors.append(f"Duplicate table name: {n}")
+
+        name_to_table = {t.name: t for t in self.tables}
+        for t in self.tables:
+            col_names = [c.name for c in t.columns]
+            if len(col_names) != len(set(col_names)):
+                seen_c: dict[str, int] = {}
+                for n in col_names:
+                    seen_c[n] = seen_c.get(n, 0) + 1
+                for n, c in seen_c.items():
+                    if c > 1:
+                        errors.append(f"Table '{t.name}': duplicate column name: {n}")
+
+            for pk in t.primary_key:
+                if pk not in col_names:
+                    errors.append(f"Table '{t.name}': primary_key '{pk}' not in columns")
+
+            for uc in t.unique_constraints or []:
+                for col in uc:
+                    if col not in col_names:
+                        errors.append(f"Table '{t.name}': unique_constraint column '{col}' not in columns")
+
+        for r in self.relationships:
+            if r.from_table not in name_to_table:
+                errors.append(f"Relationship '{r.name}': from_table '{r.from_table}' not found")
+            if r.to_table not in name_to_table:
+                errors.append(f"Relationship '{r.name}': to_table '{r.to_table}' not found")
+            if r.from_table in name_to_table:
+                from_cols = [c.name for c in name_to_table[r.from_table].columns]
+                for c in r.from_columns:
+                    if c not in from_cols:
+                        errors.append(f"Relationship '{r.name}': from_column '{c}' not in table '{r.from_table}'")
+            if r.to_table in name_to_table:
+                to_cols = [c.name for c in name_to_table[r.to_table].columns]
+                for c in r.to_columns:
+                    if c not in to_cols:
+                        errors.append(f"Relationship '{r.name}': to_column '{c}' not in table '{r.to_table}'")
+
+        for t in self.tables:
+            for c in t.columns:
+                if c.generation_rule is None:
+                    continue
+                from data_forge.generators.generation_rules import (
+                    column_rule_to_generation_rule,
+                    validate_generation_rule,
+                )
+                rule_dict = {"rule_type": c.generation_rule.rule_type, "params": c.generation_rule.params}
+                gr = column_rule_to_generation_rule(t.name, c.name, rule_dict)
+                if gr is None:
+                    errors.append(f"Table '{t.name}' column '{c.name}': invalid rule_type '{c.generation_rule.rule_type}'. Use: faker, uuid, sequence, range, static, weighted_choice")
+                else:
+                    val_errs = validate_generation_rule(gr)
+                    for e in val_errs:
+                        errors.append(f"Table '{t.name}' column '{c.name}': {e}")
+
+        return errors

@@ -12,6 +12,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -47,6 +48,10 @@ scenarios/
 *.json
 !**/fixtures/**/*.json
 !**/schemas/**/*.json
+!**/package.json
+!**/package-lock.json
+!**/tsconfig.json
+!**/tsconfig*.json
 
 # Env
 .env

@@ -1,6 +1,6 @@
 # Data Forge make targets (optional; scripts/validate_all.* work without make)
 
-.PHONY: validate-all backend-check frontend-check
+.PHONY: validate-all backend-check frontend-check e2e
 
 validate-all:
 	@echo "Running full validation (ruff, pytest, frontend tsc + test + build)..."
@@ -21,3 +21,7 @@ frontend-check:
 	else \
 		echo "No frontend/package.json, skipping frontend."; \
 	fi
+
+e2e:
+	@echo "Running E2E (Playwright)..."
+	@cd frontend && npm run e2e

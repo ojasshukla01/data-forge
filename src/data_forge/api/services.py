@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from data_forge.api import custom_schema_store
 from data_forge.domain_packs import get_pack
 from data_forge.engine import run_generation, export_result
 from data_forge.models.generation import (
@@ -174,12 +175,24 @@ def run_generate(req: Any) -> dict[str, Any]:
     schema_path = None
     rules_path = None
 
+    custom_schema_id = getattr(req, "custom_schema_id", None)
     if req.pack:
         pack = get_pack(req.pack)
         if not pack:
             return {"success": False, "errors": [f"Unknown pack: {req.pack}"]}
         schema_obj = pack.schema
         rule_set = pack.rule_set
+    elif custom_schema_id:
+        rec = custom_schema_store.get_custom_schema(custom_schema_id)
+        if not rec:
+            return {"success": False, "errors": [f"Custom schema not found: {custom_schema_id}"]}
+        from data_forge.models.schema import SchemaModel
+        versions = rec.get("versions") or []
+        if not versions:
+            return {"success": False, "errors": [f"Custom schema {custom_schema_id} has no versions"]}
+        schema_dict = versions[-1].get("schema") or {}
+        schema_obj = SchemaModel.model_validate(schema_dict)
+        rule_set = None
     elif req.schema_path:
         try:
             schema_path = project_root / req.schema_path.lstrip("/")
@@ -200,7 +213,7 @@ def run_generate(req: Any) -> dict[str, Any]:
         except Exception as e:
             return {"success": False, "errors": [str(e)]}
     else:
-        return {"success": False, "errors": ["Provide pack, schema_path, or schema_text"]}
+        return {"success": False, "errors": ["Provide pack, custom_schema_id, schema_path, or schema_text"]}
 
     if schema_obj is None:
         return {"success": False, "errors": ["Failed to load schema"]}
@@ -226,7 +239,7 @@ def run_generate(req: Any) -> dict[str, Any]:
         mess = MessinessProfile.CLEAN
 
     gen_req = GenerationRequest(
-        schema_name=req.pack or (schema_obj.name if schema_obj else "custom"),
+        schema_name=req.pack or custom_schema_id or (schema_obj.name if schema_obj else "custom"),
         rule_set_name=req.rules_path,
         seed=req.seed,
         scale=req.scale,
