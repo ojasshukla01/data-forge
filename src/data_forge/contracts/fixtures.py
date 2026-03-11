@@ -77,7 +77,6 @@ def _sample_from_schema(schema: dict[str, Any], root: dict[str, Any], seed: int 
     if js_type == "object":
         props = schema.get("properties", {})
         obj: dict[str, Any] = {}
-        required = set(schema.get("required", []))
         for i, (k, v) in enumerate(props.items()):
             if isinstance(v, dict):
                 obj[k] = _sample_from_schema(v, root, seed + i * 7)
@@ -125,7 +124,6 @@ def generate_contract_fixtures(
             op = path_item.get(method)
             if not isinstance(op, dict):
                 continue
-            op_id = op.get("operationId") or f"{method}_{base_name}"
 
             # Request body
             req_body = op.get("requestBody", {})

@@ -5,7 +5,7 @@ from typing import Any
 
 from data_forge.adapters.registry import get_adapter, AdapterNotSupportedError
 from data_forge.models.schema import SchemaModel
-from data_forge.models.generation import GenerationResult, TableSnapshot
+from data_forge.models.generation import GenerationResult
 
 
 def load_to_database(

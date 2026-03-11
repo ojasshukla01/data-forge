@@ -1,13 +1,9 @@
 """Tests for exporters."""
 
 import json
-import tempfile
-from pathlib import Path
-
-import pytest
 
 from data_forge.config import OutputFormat
-from data_forge.exporters import export_table, export_tables
+from data_forge.exporters import export_table
 
 
 def test_export_csv(tmp_path):
@@ -32,7 +28,7 @@ def test_export_jsonl(tmp_path):
     rows = [{"n": 1}, {"n": 2}]
     path = export_table(rows, tmp_path / "out", fmt=OutputFormat.JSONL)
     assert path is not None
-    lines = [json.loads(l) for l in path.read_text().strip().split("\n") if l]
+    lines = [json.loads(line) for line in path.read_text().strip().split("\n") if line]
     assert lines == rows
 
 

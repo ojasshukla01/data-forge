@@ -3,7 +3,23 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from data_forge.api.routers import domain_packs, generate, preflight, validate, artifacts, schema_viz, runs, benchmark
+from data_forge.api.middleware import (
+    RateLimitPlaceholderMiddleware,
+    RequestLoggingMiddleware,
+    RequestSizeLimitMiddleware,
+)
+from data_forge.api.routers import (
+    domain_packs,
+    generate,
+    preflight,
+    validate,
+    artifacts,
+    schema_viz,
+    runs,
+    benchmark,
+    scenarios,
+    custom_schemas,
+)
 from data_forge.api.schemas import HealthResponse
 from data_forge import __version__
 
@@ -13,6 +29,9 @@ app = FastAPI(
     version=__version__,
 )
 
+app.add_middleware(RateLimitPlaceholderMiddleware)
+app.add_middleware(RequestSizeLimitMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -29,6 +48,8 @@ app.include_router(artifacts.router)
 app.include_router(schema_viz.router)
 app.include_router(runs.router)
 app.include_router(benchmark.router)
+app.include_router(scenarios.router)
+app.include_router(custom_schemas.router)
 
 
 @app.get("/health", response_model=HealthResponse)

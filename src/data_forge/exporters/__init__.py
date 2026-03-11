@@ -1,7 +1,8 @@
 """Export generated data to CSV, JSON, Parquet, SQL."""
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from data_forge.config import OutputFormat
 
@@ -140,7 +141,7 @@ def _export_parquet(rows: list[dict], path: Path) -> Path:
         except (pa.ArrowInvalid, TypeError):
             arr = pa.array([str(v) if v is not None else None for v in vals])
         arrays.append(arr)
-    table = pa.table(dict(zip(cols, arrays)))
+    table = pa.table(dict(zip(cols, arrays, strict=True)))
     pq.write_table(table, path)
     return path
 

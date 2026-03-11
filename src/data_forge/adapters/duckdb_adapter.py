@@ -70,7 +70,7 @@ class DuckDBAdapter(BaseDatabaseAdapter):
                 except (pa.ArrowInvalid, TypeError):
                     arr = pa.array([str(v) if v is not None else None for v in vals])
                 arrays.append(arr)
-            arrow_tbl = pa.table(dict(zip(cols, arrays)))
+            arrow_tbl = pa.table(dict(zip(cols, arrays, strict=True)))
             reg_name = "_load_tmp"
             self._conn.register(reg_name, arrow_tbl)
             self._conn.execute(f'INSERT INTO "{table_name}" SELECT * FROM {reg_name}')

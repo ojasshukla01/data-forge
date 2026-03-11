@@ -4,16 +4,17 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
 
 from data_forge.models.rules import (
     BusinessRule,
     DistributionRule,
+    GenerationRule,
+    GenerationRuleType,
     RuleSet,
     RuleType,
 )
 
-__all__ = ["load_rule_set", "RuleSet", "evaluate_rule"]
+__all__ = ["load_rule_set", "RuleSet", "evaluate_rule", "GenerationRule", "GenerationRuleType"]
 
 
 def load_rule_set(path: Path | str, project_root: Path | None = None) -> RuleSet:
@@ -57,10 +58,26 @@ def _dict_to_rule_set(data: dict[str, Any], name: str = "default") -> RuleSet:
                     params=d.get("params", {}),
                 )
             )
+    gen = []
+    for g in data.get("generation_rules", []):
+        if isinstance(g, dict):
+            rt = g.get("rule_type", "faker")
+            try:
+                gen.append(
+                    GenerationRule(
+                        table=g.get("table", ""),
+                        column=g.get("column", ""),
+                        rule_type=GenerationRuleType(rt),
+                        params=g.get("params", {}),
+                    )
+                )
+            except ValueError:
+                pass
     return RuleSet(
         name=data.get("name", name),
         business_rules=business,
         distribution_rules=dist,
+        generation_rules=gen,
         scenario=data.get("scenario"),
     )
 

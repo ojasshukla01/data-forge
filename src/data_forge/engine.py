@@ -6,12 +6,11 @@ import time
 from pathlib import Path
 from typing import Any
 
-from data_forge.config import OutputFormat, Settings
-from data_forge.performance import timed, collect_performance_warnings, estimate_peak_memory_mb
+from data_forge.config import OutputFormat
+from data_forge.performance import collect_performance_warnings
 from data_forge.models.generation import (
     DataLayer,
     DriftProfile,
-    GenerationMode,
     GenerationRequest,
     GenerationResult,
     MessinessProfile,
@@ -23,6 +22,7 @@ from data_forge.schema_ingest import load_schema
 from data_forge.rule_engine import load_rule_set
 from data_forge.generators.primitives import PrimitiveGenerator
 from data_forge.generators.table import generate_table
+from data_forge.generators.generation_rules import validate_generation_rule
 from data_forge.generators.relationship_builder import RelationshipBuilder
 from data_forge.generators.cdc_simulator import apply_mode as apply_cdc_mode
 from data_forge.generators.messiness import apply_messiness
@@ -71,12 +71,24 @@ def run_generation(
             )
     if schema is None:
         return GenerationResult(request=request, success=False, errors=["No schema provided"])
+    schema_errors = schema.validate_schema()
+    if schema_errors:
+        return GenerationResult(request=request, success=False, errors=schema_errors)
     t0 = time.perf_counter()
     if rule_set is None and rules_path:
         rule_set = load_rule_set(Path(rules_path))
     timings["rule_load_seconds"] = round(time.perf_counter() - t0, 4)
     if rule_set is None:
         rule_set = RuleSet(name="default")
+
+    for gr in rule_set.generation_rules:
+        val_errors = validate_generation_rule(gr)
+        if val_errors:
+            return GenerationResult(
+                request=request,
+                success=False,
+                errors=[f"Generation rule {gr.table}.{gr.column}: " + "; ".join(val_errors)],
+            )
 
     tables_order = schema.dependency_order()
     if request.tables_filter:
@@ -108,6 +120,7 @@ def run_generation(
                     seed=request.seed + hash(table.name),
                     offset=off,
                     limit=chunk_size,
+                    locale=request.locale,
                 )
                 all_rows.extend(chunk)
                 _log("chunk_generated", table=table.name, offset=off, count=len(chunk))
@@ -120,6 +133,7 @@ def run_generation(
                 rule_set,
                 parent_key_supplier=None,
                 seed=request.seed + hash(table.name),
+                locale=request.locale,
             )
             table_data[table.name] = rows
     timings["generation_seconds"] = round(time.perf_counter() - start, 4)

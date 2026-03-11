@@ -1,6 +1,5 @@
 """Tests for ETL/ELT realism milestone."""
 
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -17,10 +16,10 @@ from data_forge.models.generation import (
     MessinessProfile,
 )
 from data_forge.generators.cdc_simulator import apply_mode
-from data_forge.generators.layers import bronze_to_silver, silver_to_gold, transform_to_layer
+from data_forge.generators.layers import bronze_to_silver, silver_to_gold
 from data_forge.generators.messiness import apply_messiness
 from data_forge.generators.schema_drift import apply_drift
-from data_forge.golden import create_manifest, load_manifest, schema_signature, validate_against_manifest, write_manifest
+from data_forge.golden import create_manifest, load_manifest, validate_against_manifest, write_manifest
 from data_forge.config import OutputFormat
 
 

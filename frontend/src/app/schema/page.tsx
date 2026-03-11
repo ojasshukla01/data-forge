@@ -12,6 +12,7 @@ import ReactFlow, {
   addEdge,
   Connection,
   BackgroundVariant,
+  MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import Link from "next/link";
@@ -37,13 +38,15 @@ interface ApiEdge {
 function TableNode({ data }: { data: { label: string; columns?: { name: string; type: string; pk: boolean }[] } }) {
   const cols = data.columns ?? [];
   return (
-    <div className="rounded-lg border-2 border-slate-300 bg-white shadow-md min-w-[200px] overflow-hidden">
-      <div className="bg-slate-800 text-white px-3 py-2 font-semibold">{data.label}</div>
-      <div className="divide-y divide-slate-100">
+    <div className="rounded-lg border-2 border-slate-200 bg-white shadow-md min-w-[200px] overflow-hidden">
+      <div className="bg-[var(--brand-teal)] text-white px-3 py-2 font-semibold font-mono">{data.label}</div>
+      <div className="divide-y divide-slate-200 border-t border-slate-200">
         {cols.slice(0, 8).map((c) => (
-          <div key={c.name} className="px-3 py-1.5 text-sm flex justify-between gap-4">
-            <span className={c.pk ? "font-medium" : ""}>{c.name}{c.pk ? " 🔑" : ""}</span>
-            <span className="text-slate-500 text-xs">{c.type}</span>
+          <div key={c.name} className="px-3 py-1.5 text-sm flex justify-between gap-4 border-b border-slate-100 last:border-0">
+            <span className={c.pk ? "font-medium text-[var(--brand-teal)]" : "text-slate-700"}>
+              {c.name}{c.pk ? " 🔑" : ""}
+            </span>
+            <span className="text-slate-500 text-xs font-mono">{c.type}</span>
           </div>
         ))}
         {cols.length > 8 && <div className="px-3 py-1 text-xs text-slate-500">+{cols.length - 8} more</div>}
@@ -85,6 +88,9 @@ function SchemaContent() {
         source: e.source,
         target: e.target,
         label: e.label,
+        style: { stroke: "#06b6d4", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#06b6d4" },
+        type: "smoothstep",
       }));
       setNodes(flowNodes);
       setEdges(flowEdges);

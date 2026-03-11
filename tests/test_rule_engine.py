@@ -1,8 +1,6 @@
 """Tests for rule engine."""
 
-import pytest
-
-from data_forge.models.rules import BusinessRule, RuleSet, RuleType
+from data_forge.models.rules import BusinessRule, RuleType
 from data_forge.rule_engine import evaluate_rule
 
 

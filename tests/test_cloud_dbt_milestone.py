@@ -2,9 +2,8 @@
 
 import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-from data_forge.adapters import get_adapter, DATABASE_ADAPTERS, AdapterNotSupportedError
+from data_forge.adapters import get_adapter, DATABASE_ADAPTERS
 from data_forge.adapters.snowflake_adapter import SnowflakeAdapter
 from data_forge.adapters.bigquery_adapter import BigQueryAdapter
 from data_forge.dbt_export import export_dbt
@@ -75,7 +74,7 @@ def test_dbt_export_seeds(tmp_path):
 
 def test_dbt_export_sources_yml(tmp_path):
     table_data = {"customers": [{"id": 1}], "orders": [{"id": 1}]}
-    report = export_dbt(table_data, None, tmp_path)
+    export_dbt(table_data, None, tmp_path)
     sources = (tmp_path / "models" / "sources.yml").read_text()
     assert "data_forge" in sources
     assert "customers" in sources

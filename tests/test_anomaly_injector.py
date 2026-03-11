@@ -1,7 +1,5 @@
 """Tests for anomaly injector."""
 
-import pytest
-
 from data_forge.anomaly_injector import inject_anomalies, AnomalyType
 
 

@@ -28,7 +28,6 @@ def run_warehouse_validation(
         report["checks_passed"] = False
         return report
 
-    expected_names = {s.table_name for s in table_snapshots}
     row_counts = load_report.get("row_counts", {})
     report["tables_checked"] = len(row_counts)
 

@@ -1,8 +1,36 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8fafc;
+/* Force light mode: dark variants only apply when .dark class is present (we never add it) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light theme - default (white background, black text) */
+:root,
+.light {
+  --background: #ffffff;
   --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+}
+
+/* Dark theme (default) */
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --surface: #1e293b;
+  --surface-muted: #334155;
+  --border: #334155;
+  --border-strong: #475569;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+}
+
+:root {
   /* Data Forge brand palette */
   --brand-teal: #0d9488;
   --brand-teal-light: #14b8a6;
@@ -10,10 +38,6 @@
   --brand-deep-blue: #0e7490;
   --brand-accent: #f97316;
   --brand-accent-muted: #fb923c;
-  --surface: #ffffff;
-  --surface-muted: #f1f5f9;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
 }
 
 @theme inline {
@@ -23,9 +47,53 @@
   --color-brand-cyan: var(--brand-cyan);
   --color-brand-accent: var(--brand-accent);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Typography utilities */
+.text-hero {
+  font-family: var(--font-heading), var(--font-inter), sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.text-page-title {
+  font-family: var(--font-heading), var(--font-inter), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.text-ui-label {
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  font-weight: 500;
+}
+
+.text-code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus visible for keyboard navigation (links, buttons, inputs) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--brand-teal);
+  outline-offset: 2px;
 }

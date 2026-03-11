@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class GenerationMode(str, Enum):
@@ -32,10 +32,38 @@ class MessinessProfile(str, Enum):
     CHAOTIC = "chaotic"
 
 
+class PipelineSimulationSchema(BaseModel):
+    """Pipeline simulation config for API requests."""
+
+    enabled: bool = False
+    scenario: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    event_density: str = "medium"
+    event_pattern: str = "steady"
+    parallel_streams: int = 1
+    late_arrival_ratio: float = 0.0
+    replay_mode: str = "ordered"
+
+
+class BenchmarkConfigSchema(BaseModel):
+    """Benchmark config for API requests."""
+
+    enabled: bool = False
+    profile: str | None = None
+    scale_preset: str | None = None
+    parallel_tables: int = 1
+    batch_size: int = 1000
+    write_strategy: str = "auto"
+    iterations: int = 3
+    collect_stage_metrics: bool = True
+
+
 class GenerateRequest(BaseModel):
     """Request body for /api/generate."""
 
     pack: str | None = None
+    custom_schema_id: str | None = None  # Use schema from Custom Schema Studio
     schema_path: str | None = None
     rules_path: str | None = None
     schema_text: str | None = None
@@ -66,6 +94,8 @@ class GenerateRequest(BaseModel):
     batch_id: str | None = None
     change_ratio: float = 0.1
     write_manifest: bool = False
+    pipeline_simulation: PipelineSimulationSchema | None = None
+    benchmark: BenchmarkConfigSchema | None = None
 
 
 class ValidateRequest(BaseModel):
@@ -99,6 +129,9 @@ class PackInfo(BaseModel):
     key_entities: list[str] | None = None
     recommended_use_cases: list[str] | None = None
     supported_features: list[str] | None = None
+    supports_event_streams: bool = False
+    simulation_event_types: list[str] | None = None
+    benchmark_relevance: str | None = None  # low | medium | high
 
 
 class TableSummary(BaseModel):
@@ -106,3 +139,71 @@ class TableSummary(BaseModel):
     columns: list[str]
     primary_key: list[str]
     row_estimate: int | None = None
+
+
+class CustomSchemaSummary(BaseModel):
+    """Summary view of a custom schema in the registry."""
+
+    id: str
+    name: str
+    description: str | None = None
+    tags: list[str] | None = None
+    version: int
+    created_at: float | None = None
+    updated_at: float | None = None
+
+
+class CustomSchemaDetail(BaseModel):
+    """Full custom schema definition and metadata."""
+
+    id: str
+    name: str
+    description: str | None = None
+    tags: list[str] | None = None
+    version: int
+    created_at: float | None = None
+    updated_at: float | None = None
+    schema: dict[str, Any]
+
+
+class CustomSchemaVersionInfo(BaseModel):
+    version: int
+    updated_at: float | None = None
+
+
+class CustomSchemaVersionsResponse(BaseModel):
+    schema_id: str
+    versions: list[CustomSchemaVersionInfo]
+    current_version: int
+
+
+class CustomSchemaCreate(BaseModel):
+    """Request body for POST /api/custom-schemas."""
+
+    name: str
+    schema: dict[str, Any]
+    description: str | None = None
+    tags: list[str] | None = None
+    created_from: str | None = None
+
+
+class CustomSchemaUpdate(BaseModel):
+    """Request body for PUT /api/custom-schemas/{schema_id}."""
+
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    schema: dict[str, Any] | None = None
+
+
+class CustomSchemaValidateRequest(BaseModel):
+    """Request body for POST /api/custom-schemas/validate."""
+
+    schema: dict[str, Any]
+
+
+class CustomSchemaValidateResponse(BaseModel):
+    """Response for POST /api/custom-schemas/validate."""
+
+    valid: bool
+    errors: list[str] = []

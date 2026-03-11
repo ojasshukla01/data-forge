@@ -1,7 +1,6 @@
 """Parse SQL DDL to SchemaModel (CREATE TABLE, primary/foreign keys)."""
 
 import re
-from typing import Any
 
 from data_forge.models.schema import (
     ColumnDef,

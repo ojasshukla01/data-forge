@@ -2,20 +2,31 @@
 
 from fastapi import APIRouter
 
+from data_forge.api import custom_schema_store
 from data_forge.domain_packs import get_pack
 from data_forge.performance import estimate_peak_memory_mb, collect_performance_warnings
 
 router = APIRouter(prefix="/api", tags=["preflight"])
 
 
-def _estimate_rows(scale: int, pack_id: str | None) -> int:
-    """Rough row count estimate for a pack at given scale."""
+def _estimate_rows(scale: int, pack_id: str | None, custom_schema_id: str | None = None) -> int:
+    """Rough row count estimate for a pack or custom schema at given scale."""
     pack = get_pack(pack_id or "") if pack_id else None
-    if not pack:
-        return scale * 5  # fallback
-    n_tables = len(pack.schema.tables)
+    if pack:
+        n_tables = len(pack.schema.tables)
+        line_items = sum(1 for t in pack.schema.tables if "line" in t.name or "item" in t.name or "detail" in t.name)
+    elif custom_schema_id:
+        rec = custom_schema_store.get_custom_schema(custom_schema_id)
+        if rec and rec.get("versions"):
+            schema_dict = rec["versions"][-1].get("schema") or {}
+            tables = schema_dict.get("tables") or []
+            n_tables = len(tables)
+            line_items = sum(1 for t in tables if "line" in (t.get("name") or "") or "item" in (t.get("name") or "") or "detail" in (t.get("name") or ""))
+        else:
+            return scale * 5
+    else:
+        return scale * 5
     base = scale
-    line_items = sum(1 for t in pack.schema.tables if "line" in t.name or "item" in t.name or "detail" in t.name)
     return base * n_tables + scale * 2 * line_items
 
 
@@ -44,12 +55,17 @@ def api_preflight(config: dict) -> dict:
     chunk_size = config.get("chunk_size")
 
     # Input validity
-    if not pack and not config.get("schema_path") and not config.get("schema_text"):
-        blockers.append("Provide a domain pack or schema.")
+    custom_schema_id = config.get("custom_schema_id")
+    if not pack and not custom_schema_id and not config.get("schema_path") and not config.get("schema_text"):
+        blockers.append("Provide a domain pack, custom schema, schema path, or schema text.")
     elif pack:
         p = get_pack(pack)
         if not p:
             blockers.append(f"Domain pack '{pack}' not found.")
+    elif custom_schema_id:
+        rec = custom_schema_store.get_custom_schema(custom_schema_id)
+        if not rec:
+            blockers.append(f"Custom schema '{custom_schema_id}' not found.")
 
     # Mode/layer validity
     valid_modes = ("full_snapshot", "incremental", "cdc")
@@ -76,7 +92,7 @@ def api_preflight(config: dict) -> dict:
         recommendations.append("Contracts require OpenAPI schema. Ensure schema is OpenAPI-compatible.")
 
     # Performance
-    est_rows = _estimate_rows(scale, pack)
+    est_rows = _estimate_rows(scale, pack, custom_schema_id)
     est_mem = round(estimate_peak_memory_mb(est_rows), 1)
     perf_warnings = collect_performance_warnings(scale, chunk_size, export_format)
     warnings.extend(perf_warnings)
@@ -112,6 +128,7 @@ def api_preflight(config: dict) -> dict:
         "integrations_to_run": integrations,
         "config_summary": {
             "pack": pack,
+            "custom_schema_id": custom_schema_id,
             "scale": scale,
             "mode": mode,
             "layer": layer,

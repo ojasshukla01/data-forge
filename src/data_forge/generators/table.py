@@ -6,6 +6,7 @@ from data_forge.models.schema import TableDef
 from data_forge.models.rules import RuleSet
 from data_forge.generators.primitives import PrimitiveGenerator
 from data_forge.generators.distributions import apply_distribution
+from data_forge.generators.generation_rules import apply_generation_rule
 
 
 def generate_table(
@@ -17,6 +18,7 @@ def generate_table(
     seed: int,
     offset: int = 0,
     limit: int | None = None,
+    locale: str = "en_US",
 ) -> list[dict[str, Any]]:
     """
     Generate rows for table. When offset/limit set, generates slice [offset:offset+limit].
@@ -36,16 +38,26 @@ def generate_table(
         c.name for c in table.columns if c.primary_key
     ]
     dist_rules = {}
+    gen_rules = {}
     if rule_set:
         for d in rule_set.distribution_rules:
             if d.table == table.name:
                 dist_rules[d.column] = d
+        for g in rule_set.generation_rules:
+            if g.table == table.name:
+                gen_rules[g.column] = g
+    for col in table.columns:
+        if col.name not in gen_rules and getattr(col, "generation_rule", None):
+            from data_forge.generators.generation_rules import column_rule_to_generation_rule
+            rule_dict = {"rule_type": col.generation_rule.rule_type, "params": col.generation_rule.params}
+            gr = column_rule_to_generation_rule(table.name, col.name, rule_dict)
+            if gr is not None:
+                gen_rules[col.name] = gr
 
     for idx, i in enumerate(indices):
         row: dict[str, Any] = {}
         for col in table.columns:
             # If this column is a FK, take from parent_key_supplier
-            key = (table.name, col.name)
             if parent_key_supplier:
                 # Format: parent_key_supplier can be { "parent_table": [pk1, pk2, ...] }
                 # and we have a relationship table -> parent_table on col.name
@@ -58,7 +70,11 @@ def generate_table(
                 if by_table_col is not None and isinstance(by_table_col, list) and len(by_table_col) > idx:
                     row[col.name] = by_table_col[idx]
                     continue
-            val = primitive_gen.generate_value(col, row_index=i)
+            gen_rule = gen_rules.get(col.name)
+            if gen_rule:
+                val = apply_generation_rule(gen_rule, i, seed, locale=locale)
+            else:
+                val = primitive_gen.generate_value(col, row_index=i)
             if dist_rules.get(col.name):
                 val = apply_distribution(
                     val,
@@ -71,10 +87,13 @@ def generate_table(
 
     # Enforce uniqueness on PK/unique columns with deterministic ids
     pk_set = set(pk_columns)
+    pk_gen_rule_columns = {c for c in pk_set if c in gen_rules}
     if pk_set:
         for local_i, row in enumerate(rows):
             global_i = offset + local_i
             for pk in pk_set:
+                if pk in pk_gen_rule_columns:
+                    continue
                 if pk in row:
                     row[pk] = seed + hash(table.name) % 100000 + global_i
     return rows

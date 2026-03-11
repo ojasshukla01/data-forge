@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { CodeBlock } from "@/components/ui/CodeBlock";
+import { CopyButton } from "@/components/CopyButton";
 import { fetchArtifacts } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { API_BASE } from "@/lib/utils";
@@ -61,7 +63,22 @@ function ArtifactsContent() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const categories = ["all", ...Array.from(new Set(artifacts.map((a) => a.type ?? a.category ?? "dataset")))];
+  const rawCategories = Array.from(new Set(artifacts.map((a) => a.type ?? a.category ?? "dataset")));
+  const categories = ["all", ...rawCategories];
+  const TYPE_LABELS: Record<string, string> = {
+    dataset: "Dataset",
+    sql: "SQL",
+    parquet: "Parquet",
+    csv: "CSV",
+    event_stream: "Event stream",
+    pipeline_snapshot: "Pipeline snapshot",
+    benchmark_profile: "Benchmark profile",
+    contract: "Contract",
+    manifest: "Manifest",
+    dbt: "dbt",
+    ge: "Great Expectations",
+    airflow: "Airflow",
+  };
 
   const loadPreview = (a: Artifact) => {
     setSelected(a);
@@ -96,10 +113,10 @@ function ArtifactsContent() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Artifact Explorer</h1>
-          <p className="mt-1 text-slate-600">Browse datasets, contracts, manifests, dbt seeds, GE suites, and DAGs</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Artifacts</h1>
+          <p className="mt-1.5 text-slate-600 text-sm sm:text-base">Browse datasets, event streams, contracts, manifests, dbt seeds, GE suites, and DAGs</p>
         </div>
         <Link href="/create/wizard"><Button variant="outline" size="sm">New run</Button></Link>
       </div>
@@ -114,11 +131,11 @@ function ArtifactsContent() {
           </CardContent>
         </Card>
       ) : artifacts.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-slate-600">No artifacts found</p>
-            <p className="text-sm text-slate-500 mt-2">Run a generation to create datasets and artifacts.</p>
-            <Link href="/create/wizard"><Button className="mt-6">Create dataset</Button></Link>
+        <Card className="border-slate-200">
+          <CardContent className="py-14 px-6 text-center">
+            <p className="text-slate-600 font-medium">No artifacts found</p>
+            <p className="text-sm text-slate-500 mt-1">Run a generation or benchmark to create datasets and artifacts. Filter by run if you have runs with outputs.</p>
+            <Link href="/create/wizard"><Button size="sm" className="mt-5">Create a run</Button></Link>
           </CardContent>
         </Card>
       ) : (
@@ -140,7 +157,7 @@ function ArtifactsContent() {
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
             >
               {categories.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>{c === "all" ? "All types" : TYPE_LABELS[c] ?? c}</option>
               ))}
             </select>
             <input
@@ -179,15 +196,36 @@ function ArtifactsContent() {
               <CardHeader>
                 <CardTitle>Preview</CardTitle>
                 {selected && (
-                  <div className="flex gap-2 mt-2 text-sm text-slate-500">
-                    <span>{selected.type ?? selected.category ?? "dataset"}</span>
-                    <span>{formatSize(selected.size ?? 0)}</span>
-                    {selected.run_id && (
-                      <Link href={`/runs/${selected.run_id}`} className="text-slate-700 hover:underline">View run</Link>
-                    )}
-                    {downloadUrl && (
-                      <a href={downloadUrl} download={selected.name} className="text-slate-700 hover:underline">Download</a>
-                    )}
+                  <div className="mt-3 p-4 rounded-lg border border-slate-200 bg-slate-50">
+                    <p className="text-xs font-medium text-slate-500 mb-3">File metadata</p>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                      <dt className="text-slate-500">File type</dt>
+                      <dd className="font-mono text-slate-900">{selected.type ?? selected.category ?? "dataset"}</dd>
+                      <dt className="text-slate-500">File size</dt>
+                      <dd className="font-mono tabular-nums text-slate-900">{formatSize(selected.size ?? 0)}</dd>
+                      <dt className="text-slate-500">Created</dt>
+                      <dd className="font-mono text-xs text-slate-900">
+                        {selected.modified != null ? new Date(selected.modified * 1000).toLocaleString() : "—"}
+                      </dd>
+                      <dt className="text-slate-500">Run ID</dt>
+                      <dd>
+                        {selected.run_id ? (
+                          <Link href={`/runs/${selected.run_id}`} className="font-mono text-[var(--brand-teal)] hover:underline text-xs">
+                            {selected.run_id}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </dd>
+                    </dl>
+                    <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-200">
+                      <CopyButton text={selected.path} label="Copy path" title="Copy artifact path" />
+                      {downloadUrl && (
+                        <a href={downloadUrl} download={selected.name}>
+                          <Button variant="outline" size="sm">Download</Button>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardHeader>
@@ -197,9 +235,15 @@ function ArtifactsContent() {
                 ) : preview === null ? (
                   <p className="text-slate-500 text-sm">Loading…</p>
                 ) : (
-                  <pre className="p-4 bg-slate-50 rounded-lg text-xs overflow-auto max-h-96 font-mono whitespace-pre-wrap break-words">
-                    {preview}
-                  </pre>
+                  <div className="max-h-96 overflow-auto rounded-lg border border-slate-200">
+                    {(selected.name.endsWith(".json") || selected.path.endsWith(".json")) && typeof preview === "string" && !preview.startsWith("(File too large") ? (
+                      <CodeBlock copyable className="font-mono text-code">{preview}</CodeBlock>
+                    ) : (
+                      <pre className="p-4 bg-slate-900 text-xs overflow-auto max-h-96 font-mono text-slate-100 whitespace-pre-wrap break-words text-code">
+                        {preview}
+                      </pre>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

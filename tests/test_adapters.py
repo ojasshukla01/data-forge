@@ -4,7 +4,6 @@ import pytest
 from pathlib import Path
 
 from data_forge.models.schema import SchemaModel, TableDef, ColumnDef, DataType
-from data_forge.models.generation import TableSnapshot
 from data_forge.adapters import get_adapter, AdapterNotSupportedError
 from data_forge.adapters.sqlite_adapter import SQLiteAdapter
 from data_forge.adapters.duckdb_adapter import DuckDBAdapter
@@ -167,8 +166,7 @@ def test_postgres_create_tables(simple_schema):
 # --- CLI ---
 def test_warehouse_load_report(tmp_path, simple_schema, sample_rows):
     """Verify warehouse_load appears in quality report when loading."""
-    from data_forge.engine import run_generation
-    from data_forge.models.generation import GenerationRequest, TableSnapshot
+    from data_forge.models.generation import GenerationRequest, GenerationResult, TableSnapshot
 
     uri = str(tmp_path / "test.db")
     req = GenerationRequest(
@@ -182,7 +180,7 @@ def test_warehouse_load_report(tmp_path, simple_schema, sample_rows):
         TableSnapshot(table_name="users", columns=["id", "name"], rows=sample_rows, row_count=2),
     ]
     from data_forge.adapters.load import load_to_database
-    from data_forge.models.generation import GenerationResult
+
     result = GenerationResult(request=req, tables=snapshots, success=True)
     report = load_to_database(result, simple_schema, "sqlite", uri)
     assert report["target"] == "sqlite"

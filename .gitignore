@@ -12,6 +12,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!frontend/src/lib/
 parts/
 sdist/
 var/
@@ -38,13 +39,19 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Output
+# Output and runtime data
 output/
+runs/
+scenarios/
 *.parquet
 *.csv
 *.json
 !**/fixtures/**/*.json
 !**/schemas/**/*.json
+!**/package.json
+!**/package-lock.json
+!**/tsconfig.json
+!**/tsconfig*.json
 
 # Env
 .env
