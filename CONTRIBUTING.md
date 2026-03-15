@@ -93,7 +93,7 @@ npm run lint
 
 ## Code style and pre-commit (optional)
 
-Install [pre-commit](https://pre-commit.com/) and run `pre-commit install`. On each commit, hooks run: **trailing-whitespace**, **end-of-file-fixer**, **ruff** (check + fix on `src` and `tests`), **mypy** (on `src`). This matches the CI backend checks. To run manually: `pre-commit run --all-files`. See [testing.md](docs/testing.md) and [ci-cd.md](docs/ci-cd.md) for full validation commands.
+Install [pre-commit](https://pre-commit.com/) and run `pre-commit install`. On each commit, hooks run: **trailing-whitespace**, **end-of-file-fixer**, **ruff** (check + fix on `src` and `tests`), **mypy** (on `src`). This matches the CI backend checks. To run manually: `pre-commit run --all-files`. See [testing.md](docs/testing.md), [ci-cd.md](docs/ci-cd.md), and [versioning.md](docs/versioning.md) for full validation and release workflow.
 
 ## Full validation (same as CI)
 

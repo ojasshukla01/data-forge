@@ -23,6 +23,7 @@
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-14b8a6?style=flat" alt="License" /></a>
   <img src="https://img.shields.io/badge/Python-3.10+-14b8a6?style=flat" alt="Python" />
+  <img src="https://img.shields.io/badge/Node-18+-14b8a6?style=flat" alt="Node" />
   <img src="https://img.shields.io/badge/Next.js-16-14b8a6?style=flat" alt="Next.js" />
 </p>
 
@@ -230,7 +231,7 @@ Steps: backend **ruff**, **mypy**, pytest; frontend typecheck, unit tests, build
 | [Lineage & reproducibility](docs/lineage-and-reproducibility.md) | Run lineage, manifest, custom schema provenance |
 | [Demo walkthrough](docs/demo-walkthrough.md) | Step-by-step UI walkthrough |
 
-For the docs index and release checklist, see [docs/INDEX.md](docs/INDEX.md) and [docs/release-checklist.md](docs/release-checklist.md).
+For the full docs index, versioning, and release checklist: [docs/INDEX.md](docs/INDEX.md), [docs/versioning.md](docs/versioning.md), [docs/release-checklist.md](docs/release-checklist.md). See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ---
 

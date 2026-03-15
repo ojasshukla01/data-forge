@@ -29,7 +29,10 @@ These are the **current, authoritative** docs for users and contributors. Keep t
 - [Retention and cleanup](retention-and-cleanup.md)  
 - [Scenario versioning](scenario-versioning.md)  
 - [Pack authoring](pack-authoring.md)
-- [Release process](release-process.md) — Release tagging, CHANGELOG, version bump  
+- [Repository cleanup summary](repository-cleanup-summary.md) — What was cleaned and left in place
+- [Release process](release-process.md) — Release tagging, CHANGELOG, version bump
+- [Versioning](versioning.md) — Semantic Versioning, tag format, bump rules
+- [Release-prep plan](release-prep-plan.md) — Goals and checklist for open-source launch
 
 ---
 

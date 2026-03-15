@@ -68,9 +68,9 @@ See [README](../README.md#-known-limitations) and [release-prep-plan.md](release
 
 ## 7. Versioning and changelog
 
-- [ ] Version bumped in `pyproject.toml` (and any other version files) if doing a tagged release  
-- [ ] CHANGELOG or release notes updated with user-facing changes and known limitations  
-- [ ] Tag format consistent (e.g. `v0.2.0`)  
+- [ ] Version bumped in `pyproject.toml` and `src/data_forge/__init__.py` (and frontend `package.json` if applicable)  
+- [ ] CHANGELOG.md: "Unreleased" items moved into `[X.Y.Z] - YYYY-MM-DD` for the release  
+- [ ] Tag format: `vX.Y.Z` (e.g. `v0.1.0`). See [versioning.md](versioning.md).
 
 ---
 

@@ -25,9 +25,10 @@ flowchart TB
 
 All three jobs run in parallel. The E2E job installs and builds the frontend itself and starts API + frontend; it does not use the Frontend job’s build. All three must succeed for the workflow to pass.
 
-## Workflow file
+## Workflow files
 
-- **`.github/workflows/ci.yml`** — Single workflow with three jobs: `backend`, `frontend`, `e2e`.
+- **`.github/workflows/ci.yml`** — CI on push/PR: three jobs `backend`, `frontend`, `e2e`.
+- **`.github/workflows/release.yml`** — Release on tag push `v*`: runs full validation, then creates GitHub release with CHANGELOG section. See [release-process.md](release-process.md) and [versioning.md](versioning.md).
 
 ## Backend job
 
@@ -90,6 +91,16 @@ This runs, in order: **ruff**, **mypy**, **pytest**, then (if `frontend/package.
 - **E2E job fails on “Wait for servers”:** API or frontend did not respond in time. Check that no other process uses port 8000 or 3000; ensure install and build steps completed; review job logs for startup errors.
 - **E2E job fails on Playwright:** Run E2E locally with API and frontend started; use `npm run e2e -- --debug` for the inspector. Check for flaky selectors or timing; see [testing.md](testing.md) for golden path coverage and debug tips.
 
+## Release workflow
+
+Pushing a tag `v*` (e.g. `v0.1.0`) triggers `.github/workflows/release.yml`:
+
+1. Runs full validation (ruff, mypy, pytest, frontend, E2E)
+2. Extracts the matching version section from CHANGELOG.md
+3. Creates a GitHub release with that section as the release notes
+
+See [versioning.md](versioning.md) and [release-process.md](release-process.md) for version bump and tagging steps.
+
 ## See also
 
 - [testing.md](testing.md) — Test layout, commands, strict vs optional, debugging
@@ -97,3 +108,4 @@ This runs, in order: **ruff**, **mypy**, **pytest**, then (if `frontend/package.
 - [security.md](security.md) — Security and rate limiting
 - [README](../README.md) — Setup and quick start
 - [CONTRIBUTING](../CONTRIBUTING.md) — Full validation and contribution flow
+- [versioning.md](versioning.md) — Semantic Versioning and tag format

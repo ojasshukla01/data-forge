@@ -27,8 +27,8 @@ test.describe.serial("validation recovery", () => {
     await page.getByRole("button", { name: /Columns/i }).click();
     await page.getByRole("button", { name: /Add column/i }).click();
 
-    // Fill column name and set as primary key (form may have name input and primary_key checkbox)
-    const nameInput = page.getByLabel(/Column name|name/i).first();
+    // Fill column name and set as primary key (form may have placeholder, no label)
+    const nameInput = page.getByPlaceholder(/Column name/i).first();
     await nameInput.fill("id");
     const pkCheck = page.getByRole("checkbox", { name: /primary|pk/i }).first();
     if (await pkCheck.isVisible().catch(() => false)) {

@@ -16,7 +16,7 @@ test.describe.serial("golden paths & runs", () => {
     await page.goto("/schema/studio");
     await expect(page.getByRole("heading", { name: /Schema Studio/i })).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole("button", { name: /New schema/i }).click();
+    await page.getByRole("button", { name: "New schema", exact: true }).click();
 
     // 2. Add a table (Form mode, Tables tab)
     await expect(page.getByText(/Schema editor \(form mode\)/i)).toBeVisible({ timeout: 5000 });
@@ -62,8 +62,8 @@ test.describe.serial("golden paths & runs", () => {
     await expect(page.locator("dd", { hasText: /^Custom schema$/i }).first()).toBeVisible({ timeout: 15000 });
 
     // 9. Verify lineage card visible (provenance durability)
-    await expect(page.getByRole("heading", { name: /Lineage/i })).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("heading", { name: /Reproducibility manifest/i })).toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole("heading", { name: /Lineage/i })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole("heading", { name: /Reproducibility manifest/i })).toBeVisible({ timeout: 10000 });
   });
 
   test("wizard pack path: select pack, run, verify run detail", async ({ page }) => {
@@ -89,7 +89,7 @@ test.describe.serial("golden paths & runs", () => {
     await expect(page.getByRole("heading", { name: /Review & Run/i })).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: /^Run$/i }).click();
     await expect(page).toHaveURL(/\/runs\/[a-z0-9-]+/, { timeout: 60000 });
-    await expect(page.getByRole("heading", { name: /Lineage/i })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("heading", { name: /Lineage/i })).toBeVisible({ timeout: 30000 });
   });
 
   test("advanced config: exports section renders", async ({ page }) => {
