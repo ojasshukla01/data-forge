@@ -11,7 +11,7 @@ test.describe.serial("validation recovery", () => {
     await page.goto("/schema/studio");
     await expect(page.getByRole("heading", { name: /Schema Studio/i })).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole("button", { name: /New schema/i }).click();
+    await page.getByRole("button", { name: "New schema", exact: true }).click();
     await expect(page.getByText(/Schema editor \(form mode\)/i)).toBeVisible({ timeout: 5000 });
 
     // Add a table (no columns yet — may trigger validation error or warning)
@@ -24,7 +24,7 @@ test.describe.serial("validation recovery", () => {
     ).toBeVisible({ timeout: 8000 });
 
     // Fix: go to Columns tab and add a primary key column so schema becomes valid
-    await page.getByRole("tab", { name: /Columns/i }).click();
+    await page.getByRole("button", { name: /Columns/i }).click();
     await page.getByRole("button", { name: /Add column/i }).click();
 
     // Fill column name and set as primary key (form may have name input and primary_key checkbox)
