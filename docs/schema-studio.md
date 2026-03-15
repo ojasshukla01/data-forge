@@ -5,8 +5,8 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 ## Overview
 
 - **Route**: `/schema/studio`
-- **API**: `/api/custom-schemas`
-- **Storage**: JSON files in `custom_schemas/` (schema_&lt;id&gt;.json)
+- **API**: `/api/custom-schemas` — full endpoint list (validate, CRUD, versions, diff, restore) is in [api-reference.md](api-reference.md).
+- **Storage**: JSON files in `custom_schemas/` at the repo root: `custom_schemas/schema_<id>.json` (metadata, version, versions history).
 
 ## How it works (workflow)
 
@@ -54,12 +54,17 @@ Schema Studio lets you design and manage custom relational schemas for use with 
 - **Warnings** (non-blocking): e.g. empty table, self-referential relationship
 - Error UX: highlights affected tables and columns in form mode
 
-### Version history
+### Version history and restore
 
 - Each save creates a new version (up to 50)
+- **Version history** (expandable card in the editor): list versions, compare any two with diff (tables_added/removed/modified, columns_added/removed/modified), and **Restore** a version as a new revision (non-destructive). Restore creates a new version from the selected one; use it to roll back without losing history.
 - `GET /api/custom-schemas/{id}/versions` — list versions
-- `GET /api/custom-schemas/{id}/diff?left=1&right=2` — diff with tables_added, tables_removed, tables_modified (columns_added/removed/modified)
-- **Restore to new version**: `POST /api/custom-schemas/{id}/versions/{version}/restore` — creates a new version from a selected old version (non-destructive)
+- `GET /api/custom-schemas/{id}/diff?left=1&right=2` — diff
+- `POST /api/custom-schemas/{id}/versions/{version}/restore` — restore that version as a new revision
+
+### Duplicate schema
+
+- Use **Duplicate** (when a schema is open) to create a copy with a new name and id. Useful for variants or templates.
 
 ### Generation rules (column-level)
 
@@ -77,6 +82,12 @@ Columns can define `generation_rule` to override default value generation:
 ```
 
 Supported `rule_type`: `faker`, `uuid`, `sequence`, `range`, `static`, `weighted_choice`. Optional param `null_probability` (0–1) for any rule returns `null` with that probability. See [generation-engine.md](generation-engine.md).
+
+## Loading and error states
+
+- **No schema selected:** The editor shows a clear message to choose a schema from the sidebar or click "New schema". Form and JSON tabs are disabled until a schema is selected or created.
+- **Validation:** After clicking Validate, errors (blocking) and warnings (advisory) appear in a summary box; errors are listed so you can fix them before save.
+- **Save/restore:** Saving shows a brief loading state; restore shows which version is being restored until the new revision is loaded.
 
 ## Integration
 

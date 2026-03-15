@@ -4,6 +4,7 @@ from typing import Any, cast
 
 from data_forge.services import get_run, get_scenario
 from data_forge.config import Settings
+from data_forge.api import custom_schema_store
 
 
 def get_run_lineage(run_id: str) -> dict[str, Any] | None:
@@ -25,7 +26,14 @@ def get_run_lineage(run_id: str) -> dict[str, Any] | None:
     custom_schema_version = cfg.get("custom_schema_version") or (summary.get("custom_schema_version") if summary else None)
     custom_schema_name = summary.get("custom_schema_name") if summary else None
     output_run_id = summary.get("artifact_run_id") or summary.get("output_run_id") or run_id
-    return {
+    schema_missing = False
+    if custom_schema_id:
+        try:
+            if custom_schema_store.get_custom_schema(custom_schema_id) is None:
+                schema_missing = True
+        except Exception:
+            schema_missing = True
+    out: dict[str, Any] = {
         "run_id": run_id,
         "run_type": record.get("run_type"),
         "scenario_id": scenario_id,
@@ -38,6 +46,13 @@ def get_run_lineage(run_id: str) -> dict[str, Any] | None:
         "artifact_run_id": output_run_id,
         "output_dir": record.get("output_dir") or summary.get("output_dir"),
     }
+    if custom_schema_id:
+        out["schema_missing"] = schema_missing
+        if summary.get("custom_schema_snapshot_hash") is not None:
+            out["custom_schema_snapshot_hash"] = summary["custom_schema_snapshot_hash"]
+        if summary.get("custom_schema_table_names") is not None:
+            out["custom_schema_table_names"] = summary["custom_schema_table_names"]
+    return out
 
 
 def get_run_manifest_from_disk(run_id: str) -> dict[str, Any] | None:

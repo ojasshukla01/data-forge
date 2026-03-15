@@ -38,8 +38,11 @@ def build_run_manifest(
     storage_backend: str = "file",
     project_root: Path | None = None,
     custom_schema_name: str | None = None,
+    custom_schema_snapshot_hash: str | None = None,
+    custom_schema_table_names: list[str] | None = None,
+    schema_missing: bool = False,
 ) -> dict[str, Any]:
-    """Build a reproducibility manifest for a run. Include custom_schema_name when available for provenance durability."""
+    """Build a reproducibility manifest for a run. Include custom_schema_name and snapshot for provenance durability."""
     now = time.time()
     root = project_root or Path.cwd()
     custom_schema_id = config.get("custom_schema_id")
@@ -72,6 +75,12 @@ def build_run_manifest(
     }
     if custom_schema_name:
         manifest["custom_schema_name"] = custom_schema_name
+    if custom_schema_id and schema_missing:
+        manifest["schema_missing"] = True
+    if custom_schema_snapshot_hash:
+        manifest["custom_schema_snapshot_hash"] = custom_schema_snapshot_hash
+    if custom_schema_table_names:
+        manifest["custom_schema_table_names"] = custom_schema_table_names
     return manifest
 
 

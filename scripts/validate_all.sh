@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Full validation (same as CI): ruff, pytest, frontend tsc + test + build
+# Full validation (same as CI): ruff, mypy, pytest, frontend tsc + test + build
 set -e
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 echo "=== Backend: ruff ==="
 python -m ruff check src tests
+
+echo ""
+echo "=== Backend: mypy ==="
+python -m mypy src
 
 echo ""
 echo "=== Backend: pytest ==="

@@ -138,10 +138,10 @@ export default function DocsPage() {
         </p>
         <ul className="list-disc list-inside text-slate-600 text-sm sm:text-base space-y-2 mb-4">
           <li><strong>Pipeline flow</strong> — Visual flow: Generation → Transform → Validate → Export → Load → Complete</li>
-          <li><strong>Run summary</strong> — Status, duration, rows generated, domain pack, run-type badge (Standard / Simulation / Benchmark)</li>
+          <li><strong>Run summary</strong> — Status, duration, rows generated, domain pack or custom schema, run-type badge (Standard / Simulation / Benchmark)</li>
           <li><strong>Stage timeline</strong> — Each stage (preflight, schema load, generation, export, etc.) with status and duration; &quot;Why slow?&quot; hint</li>
-          <li><strong>Lineage</strong> — Run → scenario → version → pack → artifacts</li>
-          <li><strong>Reproducibility manifest</strong> — Seed, config version, git SHA, environment (when run has completed)</li>
+          <li><strong>Lineage</strong> — Run → scenario (if any) → pack or custom schema → artifacts. When a run used a custom schema, lineage shows schema name, version, and snapshot; if the schema was later deleted, a notice explains that metadata is preserved.</li>
+          <li><strong>Reproducibility manifest</strong> — Seed, config version, git SHA, environment (when run has completed). For custom-schema runs, includes schema name and snapshot hash when available.</li>
           <li><strong>Logs</strong> — Event log with timestamps and severity</li>
           <li><strong>Integration summaries</strong> — dbt, GE, Airflow, contracts, manifest status</li>
           <li><strong>Artifacts link</strong> — Browse and download outputs</li>
@@ -324,7 +324,7 @@ export default function DocsPage() {
             <Button variant="outline" size="md">ReDoc (localhost:8000/redoc)</Button>
           </a>
         </div>
-        <p className="text-sm text-slate-500 mt-2">See <code className="bg-slate-100 px-1 rounded">docs/api-reference.md</code> in the repo for an endpoint overview.</p>
+        <p className="text-sm text-slate-500 mt-2">Canonical docs in the repo: <code className="bg-slate-100 px-1 rounded">docs/api-reference.md</code> (endpoints, errors, lineage), <code className="bg-slate-100 px-1 rounded">docs/testing.md</code> (test layout and commands), <code className="bg-slate-100 px-1 rounded">docs/ci-cd.md</code> (CI and local parity), <code className="bg-slate-100 px-1 rounded">docs/security.md</code> (limits and rate limiting).</p>
       </section>
 
       {/* Glossary */}

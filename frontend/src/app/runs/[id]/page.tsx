@@ -387,9 +387,18 @@ export default function RunDetailPage() {
               <div><dt className="text-slate-500">Pack</dt><dd>{lineage.pack ?? "—"}</dd></div>
               {lineage.custom_schema_id && (
                 <>
+                  {lineage.schema_missing && (
+                    <div className="sm:col-span-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
+                      Custom schema no longer available (deleted or missing). Name, ID, version and snapshot are preserved for provenance.
+                    </div>
+                  )}
                   {lineage.custom_schema_name && <div><dt className="text-slate-500">Custom schema name</dt><dd>{lineage.custom_schema_name}</dd></div>}
                   <div><dt className="text-slate-500">Custom schema ID</dt><dd className="font-mono text-xs">{lineage.custom_schema_id}</dd></div>
                   {lineage.custom_schema_version != null && <div><dt className="text-slate-500">Schema version</dt><dd>v{lineage.custom_schema_version}</dd></div>}
+                  {lineage.custom_schema_snapshot_hash && <div><dt className="text-slate-500">Schema snapshot hash</dt><dd className="font-mono text-xs">{lineage.custom_schema_snapshot_hash}</dd></div>}
+                  {lineage.custom_schema_table_names && lineage.custom_schema_table_names.length > 0 && (
+                    <div className="sm:col-span-2"><dt className="text-slate-500">Tables (at run time)</dt><dd className="font-mono text-xs">{lineage.custom_schema_table_names.join(", ")}</dd></div>
+                  )}
                 </>
               )}
               <div><dt className="text-slate-500">Artifact run ID</dt><dd className="font-mono">{lineage.artifact_run_id ?? "—"}</dd></div>
@@ -425,9 +434,18 @@ export default function RunDetailPage() {
               <div><dt className="text-slate-500">Pack</dt><dd>{manifest.pack ?? "—"}</dd></div>
               {manifest.custom_schema_id && (
                 <>
+                  {manifest.schema_missing && (
+                    <div className="sm:col-span-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
+                      Custom schema no longer available. Provenance metadata preserved.
+                    </div>
+                  )}
                   {manifest.custom_schema_name && <div><dt className="text-slate-500">Custom schema name</dt><dd>{manifest.custom_schema_name}</dd></div>}
                   <div><dt className="text-slate-500">Custom schema ID</dt><dd className="font-mono text-xs">{manifest.custom_schema_id}</dd></div>
                   {manifest.custom_schema_version != null && <div><dt className="text-slate-500">Schema version</dt><dd>v{manifest.custom_schema_version}</dd></div>}
+                  {manifest.custom_schema_snapshot_hash && <div><dt className="text-slate-500">Schema snapshot hash</dt><dd className="font-mono text-xs">{manifest.custom_schema_snapshot_hash}</dd></div>}
+                  {manifest.custom_schema_table_names && manifest.custom_schema_table_names.length > 0 && (
+                    <div className="sm:col-span-2"><dt className="text-slate-500">Tables (at run time)</dt><dd className="font-mono text-xs">{manifest.custom_schema_table_names.join(", ")}</dd></div>
+                  )}
                 </>
               )}
               <div><dt className="text-slate-500">Scale</dt><dd>{manifest.scale != null ? String(manifest.scale) : "—"}</dd></div>

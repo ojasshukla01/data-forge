@@ -586,6 +586,10 @@ export interface RunLineage {
   custom_schema_version?: number;
   custom_schema_name?: string;
   schema_source_type?: "pack" | "custom_schema";
+  /** True when run used a custom schema that has since been deleted. Metadata (name, id, version, snapshot) is preserved. */
+  schema_missing?: boolean;
+  custom_schema_snapshot_hash?: string;
+  custom_schema_table_names?: string[];
   artifact_run_id?: string;
   output_dir?: string;
 }
@@ -603,6 +607,9 @@ export interface RunManifest {
   custom_schema_version?: number;
   custom_schema_name?: string;
   schema_source_type?: "pack" | "custom_schema";
+  schema_missing?: boolean;
+  custom_schema_snapshot_hash?: string;
+  custom_schema_table_names?: string[];
   scale?: number;
   mode?: string;
   layer?: string;
