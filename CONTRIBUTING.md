@@ -91,6 +91,10 @@ npm run lint
 
 **Build reliability (EPERM / file lock):** On some environments (e.g. OneDrive-synced folders or when another process holds files), the production build may fail with `EPERM` or "operation not permitted" when writing under `.next/`. That is usually an environment or file-lock issue, not a code bug. Run `npx tsc --noEmit` and `npm test` to verify code; if those pass, the codebase is valid. Retry build from a non-synced directory or after closing other tools that might lock the project folder.
 
+## Code style and pre-commit (optional)
+
+Install [pre-commit](https://pre-commit.com/) and run `pre-commit install`. On each commit, hooks run: **trailing-whitespace**, **end-of-file-fixer**, **ruff** (check + fix on `src` and `tests`), **mypy** (on `src`). This matches the CI backend checks. To run manually: `pre-commit run --all-files`. See [testing.md](docs/testing.md), [ci-cd.md](docs/ci-cd.md), and [versioning.md](docs/versioning.md) for full validation and release workflow.
+
 ## Full validation (same as CI)
 
 Run the full suite locally before submitting:
@@ -113,7 +117,7 @@ make validate-all
 
 **Manual sequence:**
 
-1. Backend: `uv run pytest -q` (or `python -m pytest -q`)
+1. Backend: `uv run ruff check src tests` then `uv run mypy src` then `uv run pytest -q` (or `python -m pytest -q`)
 2. Frontend: `cd frontend && npm test`
 3. Frontend types: `cd frontend && npx tsc --noEmit`
 4. Frontend build: `cd frontend && npm run build` (see note above if it fails with EPERM)
@@ -186,10 +190,10 @@ Frontend tests use Vitest and React Testing Library in `frontend/src`.
 
 ## Code style and quality gates
 
-- **Backend**: type hints, Ruff (lint), mypy (type check). Run `make backend-lint` and `make backend-typecheck` (or `uv run ruff check src tests`, `uv run python -m mypy src`).
+- **Backend**: type hints, Ruff (lint), mypy (type check). Run `make backend-check` (or `uv run ruff check src tests`, `uv run mypy src`, `uv run pytest`).
 - **Frontend**: TypeScript, Tailwind CSS, existing component structure.
 - CI runs: backend tests, Ruff, mypy, frontend tests, frontend typecheck, frontend build, and Playwright e2e. Fix lint and type errors before submitting.
-- **Pre-commit**: Install hooks with `pre-commit install` (from repo root). This will run Black, Ruff, mypy (on `src`), and basic whitespace fixes on changed files before each commit.
+- **Pre-commit**: Install hooks with `pre-commit install` (from repo root). This will run whitespace hygiene hooks, Ruff (with `--fix`), and mypy on changed Python files before each commit.
 - Prefer incremental changes and backward compatibility.
 
 ## Submitting changes

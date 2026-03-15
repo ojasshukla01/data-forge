@@ -32,12 +32,17 @@ ENV/
 *.swp
 *.swo
 
+# OS
+.DS_Store
+
 # Testing / coverage
 .coverage
 htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+frontend/playwright-report/
+frontend/test-results/
 
 # Output and runtime data
 output/

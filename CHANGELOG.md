@@ -1,13 +1,16 @@
 # Changelog
 
-All notable changes to Data Forge are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). We use **Semantic Versioning** (major.minor.patch); see [docs/release-process.md](docs/release-process.md) for release steps.
+All notable changes to Data Forge are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). We use **Semantic Versioning** (major.minor.patch); see [docs/versioning.md](docs/versioning.md) and [docs/release-process.md](docs/release-process.md).
 
 ## [Unreleased]
 
 ### Added
 
-- **GitHub launch polish:** README upgrade (feature matrix, “Why Data Forge is different”, core workflows, project structure, quick links). Architecture docs and Mermaid diagrams (platform overview, generation pipeline, run/scenario/artifact, pipeline simulation, benchmark, frontend–backend API). Screenshot checklist and target filenames in `docs/screenshots/`. Demo walkthrough (`docs/demo-walkthrough.md`), use cases (`docs/use-cases.md`), release process (`docs/release-process.md`). Light UI polish on landing, runs, scenarios, compare, and templates for screenshot-readiness.
-- CI/CD: GitHub Actions workflow (`.github/workflows/ci.yml`) for backend tests, frontend tests, type-check, and build on push/PR.
+- Release-prep: GitHub release workflow on v* tags; docs/versioning.md; gap-analysis, release-prep-plan; documentation issue template; LICENSE. **GitHub launch polish (earlier):** README upgrade (feature matrix, “Why Data Forge is different”, core workflows, project structure, quick links). Architecture docs and Mermaid diagrams (platform overview, generation pipeline, run/scenario/artifact, pipeline simulation, benchmark, frontend–backend API). Screenshot checklist and target filenames in `docs/screenshots/`. Demo walkthrough (`docs/demo-walkthrough.md`), use cases (`docs/use-cases.md`), release process (`docs/release-process.md`). Light UI polish on landing, runs, scenarios, compare, and templates for screenshot-readiness.
+### Docs
+
+- Release-prep: README badges (CI, Python, Node, License); docs map includes versioning.
+- Release-prep: docs/INDEX.md updated with versioning, release-prep-plan; cross-links.
 - Local validation: Makefile targets (`backend-test`, `frontend-test`, `frontend-typecheck`, `frontend-build`, `validate-all`) and `scripts/validate_all.ps1` / `validate_all.sh`.
 - Demo: One-command demo via `make demo-data` or `scripts/run_demo.ps1` / `run_demo.sh` (standard generation, scenario-style run, benchmark).
 - Example scenarios in `examples/scenarios/` (ecommerce quick start, saas billing benchmark, fintech pipeline).

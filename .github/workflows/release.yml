@@ -1,0 +1,101 @@
+# Release workflow: runs on v* tag push, validates, then creates GitHub release.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend
+        run: pip install -e ".[dev]" && pip install uvicorn
+
+      - name: Run ruff
+        run: ruff check src tests
+
+      - name: Run mypy
+        run: mypy src
+
+      - name: Run pytest
+        run: pytest tests -v --tb=short
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend & Playwright
+        run: |
+          cd frontend && npm install
+          npx playwright install --with-deps chromium
+
+      - name: Frontend type-check
+        run: cd frontend && npx tsc --noEmit
+
+      - name: Frontend tests
+        run: cd frontend && npm test
+
+      - name: Frontend build
+        run: cd frontend && npm run build
+
+      - name: Start API
+        run: uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000 &
+        env:
+          DATA_FORGE_STORAGE_BACKEND: file
+
+      - name: Start frontend
+        run: cd frontend && npm run start &
+        env:
+          API_BASE: http://127.0.0.1:8000
+
+      - name: Wait for servers
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/health && curl -sf -o /dev/null http://127.0.0.1:3000 && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8000/health
+          curl -sf -o /dev/null http://127.0.0.1:3000
+
+      - name: Run E2E
+        run: cd frontend && npm run e2e
+
+  release:
+    name: Create Release
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Extract CHANGELOG
+        run: |
+          chmod +x scripts/extract_changelog.sh
+          ./scripts/extract_changelog.sh "${{ steps.version.outputs.VERSION }}" > release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          draft: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

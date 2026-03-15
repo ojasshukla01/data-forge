@@ -15,14 +15,15 @@
   <a href="#-demo"><strong>Demo</strong></a> •
   <a href="#-scenarios--runs"><strong>Scenarios</strong></a> •
   <a href="#-core-workflows"><strong>Workflows</strong></a> •
+  <a href="#-docs"><strong>Docs</strong></a> •
   <a href="docs/demo-walkthrough.md"><strong>Walkthrough</strong></a> •
-  <a href="docs/architecture-current-state.md"><strong>Architecture</strong></a> •
   <a href="#-contributing"><strong>Contributing</strong></a>
 </p>
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-14b8a6?style=flat" alt="License" /></a>
   <img src="https://img.shields.io/badge/Python-3.10+-14b8a6?style=flat" alt="Python" />
+  <img src="https://img.shields.io/badge/Node-18+-14b8a6?style=flat" alt="Node" />
   <img src="https://img.shields.io/badge/Next.js-16-14b8a6?style=flat" alt="Next.js" />
 </p>
 
@@ -127,7 +128,9 @@ Outputs go to `demo_output/`. Start the API and frontend to inspect runs and art
 ```
 data-forge/
 ├── src/data_forge/          # Backend
-│   ├── models/              # Schema, rules, generation request/result
+│   ├── api/                 # FastAPI app, routers, stores, middleware
+│   ├── models/              # Schema, config, generation, manifest
+│   ├── engine.py            # Core run_generation, export_result
 │   ├── schema_ingest/       # SQL, JSON Schema, OpenAPI parsers
 │   ├── rule_engine/         # YAML business rules
 │   ├── generators/          # Primitives, distributions, FK resolution
@@ -135,12 +138,14 @@ data-forge/
 │   ├── exporters/           # CSV, JSON, Parquet, SQL
 │   ├── domain_packs/        # Pre-built schemas and rules
 │   ├── simulation/          # Event streams, time patterns
-│   └── api/                 # FastAPI backend
-├── frontend/                # Next.js product UI
+│   └── services/            # Run, scenario, lineage, retention, metrics
+├── frontend/                # Next.js product UI (wizard, runs, Schema Studio)
+├── tests/                   # Pytest backend tests
+├── frontend/e2e/            # Playwright E2E tests
 ├── examples/scenarios/      # Example scenario JSONs
 ├── scripts/                 # validate_all.*, run_demo.*
-├── docs/                    # Architecture, walkthrough, screenshots
-└── .github/workflows/       # CI
+├── docs/                    # Architecture, API reference, testing, CI, security
+└── .github/workflows/       # CI (backend, frontend, E2E)
 ```
 
 ---
@@ -150,7 +155,7 @@ data-forge/
 - **CLI** — `data-forge generate`, `benchmark`, `validate`, `reconcile`, `packs`; full control from the shell.
 - **API** — Start runs, list runs/artifacts/scenarios, compare runs, preflight, benchmark. Local JSON persistence.
 - **UI** — Wizard and Advanced config, run history and detail, scenario library, artifact browser, Schema Studio (custom schemas, validation, version diff), validation center, run comparison.
-- **CI** — GitHub Actions: backend tests, frontend tests, type-check, build. Local: `make validate-all`.
+- **CI** — GitHub Actions: backend ruff, mypy, pytest; frontend type-check, tests, build; Playwright E2E. Local: `make validate-all`. See [docs/ci-cd.md](docs/ci-cd.md).
 - **API** — `POST /api/runs/generate`, `GET /api/runs`, `GET /api/runs/compare`, `POST /api/benchmark`, `GET /api/scenarios`, `GET /api/artifacts`, `POST /api/preflight`.
 
 ---
@@ -209,7 +214,24 @@ make validate-all
 # or: scripts/validate_all.ps1 | scripts/validate_all.sh
 ```
 
-Steps: `backend-test`, `frontend-test`, `frontend-typecheck`, `frontend-build`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Steps: backend **ruff**, **mypy**, pytest; frontend typecheck, unit tests, build. E2E: `make e2e` or `cd frontend && npm run e2e`. See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/testing.md](docs/testing.md).
+
+---
+
+## 📖 Docs (canonical)
+
+| Doc | Description |
+|-----|-------------|
+| [Architecture](docs/architecture-current-state.md) | Repository structure, API surface, schema system, frontend routes, CI/E2E |
+| [API Reference](docs/api-reference.md) | REST endpoints, request/response shapes, errors (413/429), lineage & manifest |
+| [Testing](docs/testing.md) | Backend (ruff, mypy, pytest), frontend (Vitest), E2E (Playwright), validation checklist |
+| [CI/CD](docs/ci-cd.md) | GitHub Actions pipeline, strict gates, local parity, troubleshooting |
+| [Security](docs/security.md) | Schema limits, rate limiting, path safety, preview safety |
+| [Schema Studio](docs/schema-studio.md) | Custom schemas: form/JSON, validation, preview, version history, restore |
+| [Lineage & reproducibility](docs/lineage-and-reproducibility.md) | Run lineage, manifest, custom schema provenance |
+| [Demo walkthrough](docs/demo-walkthrough.md) | Step-by-step UI walkthrough |
+
+For the full docs index, versioning, and release checklist: [docs/INDEX.md](docs/INDEX.md), [docs/versioning.md](docs/versioning.md), [docs/release-checklist.md](docs/release-checklist.md). See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ---
 
@@ -221,7 +243,14 @@ UI screenshots and demo assets: [docs/screenshots/](docs/screenshots/). Target f
 
 ## 🤝 Contributing
 
-We welcome contributions. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, validation, adding scenarios/packs/frontend tests. [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md) for community and security.
+We welcome contributions. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, full validation (`make validate-all`, E2E), and adding scenarios/packs/tests. [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [SECURITY.md](SECURITY.md) for community and security.
+
+## ⚠️ Known limitations
+
+- **Local-first:** No cloud deployment; run API and frontend locally or in CI. Storage is file-based (or optional SQLite) for runs and scenarios.
+- **E2E:** Playwright requires the API and frontend to be running; start both before `make e2e`. See [docs/testing.md](docs/testing.md).
+- **Build:** On some environments (e.g. OneDrive-synced folders), `npm run build` may fail with EPERM; run from a non-synced path or close other tools. Type-check and unit tests still validate the codebase.
+- **Maturity:** Data Forge is open-source and actively developed; some integrations and adapters are evolving. Check [docs/architecture-current-state.md](docs/architecture-current-state.md) and [docs/INDEX.md](docs/INDEX.md) for current scope.
 
 ---
 

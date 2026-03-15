@@ -1,10 +1,14 @@
-# Full validation (same as CI): ruff, pytest, frontend tsc + test + build
+# Full validation (same as CI): ruff, mypy, pytest, frontend tsc + test + build
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $root
 
 Write-Host "=== Backend: ruff ===" -ForegroundColor Cyan
 python -m ruff check src tests
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+Write-Host "`n=== Backend: mypy ===" -ForegroundColor Cyan
+python -m mypy src
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "`n=== Backend: pytest ===" -ForegroundColor Cyan

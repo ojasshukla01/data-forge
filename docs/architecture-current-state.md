@@ -1,6 +1,6 @@
 # Data Forge — Architecture Current State
 
-This document summarizes the current repository structure, backend architecture, API surface, schema system, Custom Schema Studio, frontend routes, create flows, run lifecycle, testing, and CI workflow. Updated as of the implementation pass.
+This document summarizes the current repository structure, backend architecture, API surface, schema system, Custom Schema Studio, frontend routes, create flows, run lifecycle, testing, and CI workflow. Updated for release-prep.
 
 ---
 
@@ -11,7 +11,7 @@ data-forge/
 ├── src/data_forge/           # Python backend
 │   ├── api/                  # FastAPI app, routers, stores, middleware, security
 │   ├── models/               # Schema, config, generation, manifest, rules
-│   ├── engine/               # Core run_generation, export_result
+│   ├── engine.py             # Core run_generation, export_result (single module)
 │   ├── schema_ingest/        # SQL DDL, JSON Schema, OpenAPI parsers
 │   ├── rule_engine/          # YAML/JSON rule sets
 │   ├── domain_packs/         # Pre-built packs (saas_billing, ecommerce, etc.)
@@ -41,6 +41,40 @@ data-forge/
 └── .github/workflows/ci.yml
 ```
 
+### High-level flow
+
+```mermaid
+flowchart LR
+  subgraph Client["Client"]
+    UI[Next.js UI]
+    CLI[Typer CLI]
+  end
+
+  subgraph API["API layer"]
+    FastAPI[FastAPI routers]
+  end
+
+  subgraph Core["Core"]
+    Engine[run_generation / export]
+    Packs[domain_packs]
+    SchemaStore[custom_schema store]
+  end
+
+  subgraph Storage["Storage"]
+    Runs[runs / scenarios]
+    Files[output / custom_schemas]
+  end
+
+  UI --> FastAPI
+  CLI --> FastAPI
+  FastAPI --> Engine
+  FastAPI --> Packs
+  FastAPI --> SchemaStore
+  Engine --> Runs
+  Engine --> Files
+  SchemaStore --> Files
+```
+
 ---
 
 ## Backend Architecture
@@ -51,7 +85,7 @@ data-forge/
 |--------|---------|
 | **api/** | FastAPI app, routers (domain_packs, generate, preflight, validate, artifacts, schema_viz, runs, benchmark, scenarios, custom_schemas), task_runner, run_store, scenario_store, custom_schema_store, schemas, security, middleware |
 | **models/** | SchemaModel, config_schema (RunConfig), generation, run_manifest, rules, simulation, artifact_metadata |
-| **engine/** | `run_generation`, `export_result` — core synthetic data generation |
+| **engine.py** | `run_generation`, `export_result` — core synthetic data generation |
 | **schema_ingest/** | `load_schema()` — SQL DDL, JSON Schema, OpenAPI; path safety |
 | **rule_engine/** | YAML/JSON rule sets; `load_rule_set()` |
 | **domain_packs/** | `get_pack()`, `list_packs()` — saas_billing, ecommerce, fintech_transactions, etc. |
@@ -151,6 +185,7 @@ data-forge/
 | GET | `/{id}/versions` | List versions |
 | GET | `/{id}/versions/{v}` | Version detail |
 | GET | `/{id}/diff?left=&right=` | Diff versions |
+| POST | `/{id}/versions/{v}/restore` | Restore a version as a **new** revision (non-destructive) |
 
 ### CORS
 
@@ -174,6 +209,7 @@ data-forge/
 
 - **rule_type**: faker, uuid, sequence, range, static, weighted_choice
 - **params**: per-rule (e.g. faker provider, sequence start/step, weighted_choice choices/weights)
+- **Optional param (any rule)**: `null_probability` (0 ≤ p < 1) — probability of returning `null` instead of applying the rule
 - Validation via `validate_generation_rule()` in generators/generation_rules.py
 
 ### Schema Ingest
@@ -280,6 +316,14 @@ data-forge/
 - **Manifest API**: Reads manifest.json from output dir
 - **Run detail UI**: Config card, Lineage card, Reproducibility manifest card; custom schema provenance when used
 
+### Provenance durability (deleted/missing custom schemas)
+
+When a run uses a custom schema, the following are stored at run completion so lineage and manifest remain meaningful if the schema is later deleted:
+
+- **Stored at completion** (in run `result_summary`): `custom_schema_name`, `custom_schema_version`, `custom_schema_snapshot_hash` (first 16 chars of SHA-256 of schema body), `custom_schema_table_names` (table names at run time).
+- **Lineage/Manifest API**: When returning lineage or building manifest from record, the backend checks whether the custom schema still exists. If not, it sets `schema_missing: true` while still returning preserved id, name, version, snapshot hash, and table names.
+- **UI fallback**: Run detail page (Lineage and Reproducibility manifest cards) shows a notice when `schema_missing` is true (“Custom schema no longer available (deleted or missing). Name, ID, version and snapshot are preserved for provenance.”) and displays snapshot hash and table names when present.
+
 ---
 
 ## Security Controls
@@ -290,6 +334,7 @@ data-forge/
 - **Schema ID validation**: `schema_[a-zA-Z0-9_-]{1,52}`; no path traversal
 - **Path safety**: `ensure_custom_schema_path_safe`; path must stay in base_dir
 - **Metadata sanitization**: name 500 chars, description 2000, tags 50 each, max 50 tags
+- **Rate limiting**: In-memory per-IP limits (GET/HEAD 300/min; POST/PUT/PATCH/DELETE 60/min). Returns 429 when exceeded. Resets on restart.
 
 ---
 
@@ -312,9 +357,9 @@ data-forge/
 ### E2E (Playwright)
 
 - **Config**: `frontend/playwright.config.ts`; `testDir: ./e2e`
-- **Tests**: smoke.spec.ts — homepage load, create wizard load
+- **Tests**: `smoke.spec.ts` (basic loads) and `golden-path.spec.ts` (custom schema → validate → preview/save → wizard run → provenance)
 - **Run**: `cd frontend && npm run e2e`
-- **CI**: E2E job starts API + frontend; Playwright runs (continue-on-error: true)
+- **CI**: E2E job starts API + frontend; Playwright runs as a **strict gate** (no continue-on-error)
 
 ---
 
@@ -327,7 +372,7 @@ data-forge/
 - Python 3.12
 - `pip install -e ".[dev]"`
 - `ruff check src tests` (strict)
-- `mypy src` (continue-on-error: true)
+- `mypy src` (strict gate)
 - `pytest tests -v --tb=short` (strict)
 - `pip-audit` (continue-on-error: true)
 
@@ -346,7 +391,7 @@ data-forge/
 - Builds frontend
 - Starts API (uvicorn) and frontend (`npm run start`)
 - Waits, then `npm run e2e`
-- continue-on-error: true
+- Strict gate (fails the workflow on E2E failure)
 
 ---
 

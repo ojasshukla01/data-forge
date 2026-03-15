@@ -1,18 +1,24 @@
 # Repository Cleanup Summary
 
-## Pass: Implementation Phases 1–13
+This document records what was removed, what was left in place, and why, during release-prep cleanup.
 
-- ** ruff F401 (unused imports)**: No unused imports found.
+## Release-prep pass (current)
 
-### Areas Reviewed
+### Removed
 
-- Backend: `src/data_forge/` — all modules in use; no duplicate utilities
-- Frontend: `frontend/src/` — components and pages referenced; no orphaned files
-- Tests: `tests/` — all test files exercised
-- Docs: `docs/` — all markdown files current
+- Implementation/audit duplicate docs: moved to archive or deleted in prior passes (see git history).
+- No code removed in this pass.
 
-### Notes
+### Left in place
 
-- Schema Studio, wizard, and advanced config flows are in active use
-- Custom schema provenance is integrated; no legacy paths removed
-- Generation rules (faker, uuid, sequence, range, static, weighted_choice) are documented and tested
+- All source code, tests, frontend, scripts, and canonical docs.
+- `scripts/extract_changelog.sh` — used by release workflow to extract CHANGELOG section for GitHub release notes.
+- `docs/versioning.md`, `docs/release-prep-plan.md`, `docs/gap-analysis-next-phase.md` — release-prep planning.
+- `.github/ISSUE_TEMPLATE/documentation_issue.md` — for reporting doc issues.
+- `LICENSE` (MIT) — required for open-source.
+
+### Conservative approach
+
+- No dead-code removal in this pass.
+- No unused-import cleanup unless verified safe.
+- Focus on additive release-prep (CHANGELOG, versioning, release workflow, docs) rather than removal.

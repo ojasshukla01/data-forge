@@ -1,5 +1,6 @@
 """Background task runner for async generation."""
 
+import hashlib
 import json
 import time
 from datetime import datetime
@@ -279,6 +280,8 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
         output_run_id = result.get("run_id")
         custom_schema_version = None
         custom_schema_name = None
+        custom_schema_snapshot_hash = None
+        custom_schema_table_names: list[str] | None = None
         if config.get("custom_schema_id"):
             try:
                 rec = custom_schema_store.get_custom_schema(config["custom_schema_id"])
@@ -286,6 +289,15 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
                     if rec.get("versions"):
                         custom_schema_version = rec.get("version") or len(rec["versions"])
                     custom_schema_name = rec.get("name") or config.get("custom_schema_id")
+                    # Lightweight snapshot for provenance when schema is later deleted
+                    schema_body = rec["versions"][-1].get("schema", {}) if rec.get("versions") else {}
+                    try:
+                        canonical = json.dumps(schema_body, sort_keys=True)
+                        custom_schema_snapshot_hash = hashlib.sha256(canonical.encode()).hexdigest()[:16]
+                    except Exception:
+                        pass
+                    tables = schema_body.get("tables") or []
+                    custom_schema_table_names = [t.get("name") for t in tables if t.get("name")]
             except Exception:
                 pass
         summary = {
@@ -293,6 +305,8 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
             "custom_schema_id": config.get("custom_schema_id"),
             "custom_schema_version": custom_schema_version,
             "custom_schema_name": custom_schema_name,
+            "custom_schema_snapshot_hash": custom_schema_snapshot_hash,
+            "custom_schema_table_names": custom_schema_table_names,
             "total_tables": len(tables),
             "total_rows": total_rows,
             "duration_seconds": result.get("duration_seconds"),
@@ -346,6 +360,8 @@ def execute_generation_async(run_id: str, config: dict[str, Any]) -> None:
                 storage_backend=getattr(settings, "storage_backend", "file"),
                 project_root=settings.project_root,
                 custom_schema_name=custom_schema_name,
+                custom_schema_snapshot_hash=custom_schema_snapshot_hash,
+                custom_schema_table_names=custom_schema_table_names,
             )
             if output_dir_path and output_dir_path.exists():
                 write_manifest_json(manifest, output_dir_path)

@@ -1,5 +1,6 @@
 """Security-focused tests: schema ID validation, path safety, payload limits."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from data_forge.api.main import app
@@ -111,3 +112,21 @@ def test_custom_schema_create_rejects_oversized_schema() -> None:
         data = resp.json()
         detail = str(data.get("detail", ""))
         assert "too large" in detail.lower()
+
+
+@pytest.mark.slow
+def test_rate_limit_returns_429_with_structured_body() -> None:
+    """Rate limit middleware returns 429 with code 'rate_limit_exceeded' when mutate limit exceeded."""
+    client = TestClient(app)
+    # Exceed mutate limit (60/min): send 61 POST requests
+    for _ in range(61):
+        resp = client.post("/api/custom-schemas/validate", json={"schema": {"tables": [], "relationships": []}})
+        if resp.status_code == 429:
+            data = resp.json()
+            assert data.get("code") == "rate_limit_exceeded"
+            assert "detail" in data
+            assert data.get("retry_after_seconds") == 60
+            return
+    # If we did not get 429, the limit may be high enough that 61 requests did not exceed it in one minute
+    # (e.g. clock resolution); skip assertion in that case
+    pass

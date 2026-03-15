@@ -1,158 +1,150 @@
 # Testing
 
-This document describes the test architecture, commands, and coverage for Data Forge.
+This document describes how to run and extend tests for Data Forge (backend, frontend, and E2E). It is the **canonical reference** for test layout, commands, and CI order. See [ci-cd.md](ci-cd.md) for the CI workflow and [api-reference.md](api-reference.md) for API behavior.
 
----
+## Test layers
 
-## Overview
+```mermaid
+flowchart TB
+  subgraph Backend["Backend (Python)"]
+    R[ruff]
+    M[mypy]
+    P[pytest]
+    R --> M --> P
+  end
 
-| Layer | Framework | Location | Command |
-|-------|-----------|----------|---------|
-| Backend | pytest | `tests/` | `uv run pytest tests -v` |
-| Frontend | Vitest | `frontend/src/**/*.test.tsx` | `cd frontend && npm test` |
-| E2E | Playwright | `frontend/e2e/` | `cd frontend && npm run e2e` |
+  subgraph Frontend["Frontend (Next.js)"]
+    T[tsc --noEmit]
+    V[npm test / Vitest]
+    B[npm run build]
+    T --> V --> B
+  end
 
----
+  subgraph E2E["E2E (Playwright)"]
+    API[API running]
+    FE[Frontend running]
+    PW[playwright test]
+    API --> PW
+    FE --> PW
+  end
 
-## Backend Tests (pytest)
-
-### Structure
-
-```
-tests/
-├── test_api.py                    # API endpoints
-├── test_custom_schemas.py         # Custom schema CRUD, validate, diff
-├── test_run_manifest_lineage.py   # Manifest, lineage, provenance
-├── test_custom_schema_generation_rules.py  # Column generation rules
-├── test_generation_rule_execution.py
-├── test_security.py               # Schema ID, path, body size
-├── test_path_security.py
-├── test_engine.py
-├── test_schema_ingest.py
-├── test_rule_engine.py
-├── test_exporters.py
-├── test_adapters.py
-├── test_validators.py
-├── test_anomaly_injector.py
-├── test_cli.py
-└── test_*_milestone.py            # Feature milestones
+  Backend --> E2E
+  Frontend --> E2E
 ```
 
-### Running
+Local full check: run Backend + Frontend (e.g. `make validate-all`), then E2E separately (`make e2e`) with API and frontend started.
+
+## Backend (Python)
+
+### Lint and type-check
+
+- **Ruff:** `uv run ruff check src tests` (or `python -m ruff check src tests`)
+- **Mypy:** `uv run mypy src` (or `python -m mypy src`)
+
+Mypy is a **strict CI gate**: CI runs `mypy src` with no continue-on-error. Fix all type errors before pushing. Configuration is in `pyproject.toml` under `[tool.mypy]` (strict mode, Python 3.10 target, with overrides for some third-party and legacy modules).
+
+### Unit / integration tests
 
 ```bash
-# Quick
-uv run pytest -q
-
-# Verbose
-uv run pytest -v
-
-# With coverage
-uv run pytest --cov=src/data_forge --cov-report=term-missing
+uv run pytest tests -v --tb=short
+# or: uv run pytest -q
 ```
 
-### Patterns
+**Layout:** All backend tests live under `tests/`. Examples: `test_api.py`, `test_engine.py`, `test_custom_schemas.py`, `test_run_manifest_lineage.py`, `test_provenance_durability.py`, `test_security.py`, plus milestone and integration tests. Use FastAPI `TestClient` against `data_forge.api.main:app` for API tests. CI runs the same command.
 
-- **TestClient**: FastAPI TestClient against `data_forge.api.main:app`
-- **Fixtures**: Temp dirs, mock data
-- **Async**: `pytest-asyncio` with `asyncio_mode = "auto"`
+**Slow tests:** Some tests are marked `@pytest.mark.slow` (e.g. rate-limit 429 test that sends many requests). To skip them: `pytest tests -m "not slow" -v`. CI runs the full suite.
 
----
+## Frontend (Next.js)
 
-## Frontend Tests (Vitest)
-
-### Structure
-
-- **Page tests**: `page.test.tsx` for routes (home, wizard, advanced, templates, schema/studio, docs, about, artifacts)
-- **Component tests**: e.g. `PipelineFlowGraph.test.tsx`
-
-### Running
+### Type-check
 
 ```bash
-cd frontend
-npm test           # Run once
-npm run test:watch # Watch mode
+cd frontend && npx tsc --noEmit
 ```
 
-### Stack
+### Unit tests (Vitest)
 
-- Vitest
-- React Testing Library
-- jsdom
-- Mocking: `fetch`, `next/navigation`
-
----
-
-## E2E Tests (Playwright)
-
-### Structure
-
-```
-frontend/e2e/
-└── smoke.spec.ts  # Homepage load, Create wizard load
+```bash
+cd frontend && npm test
 ```
 
-### Running
+**Layout:** Test files sit next to components or pages (e.g. `src/app/page.test.tsx`, `src/app/schema/studio/page.test.tsx`, `src/components/PipelineFlowGraph.test.tsx`, `src/lib/utils.test.ts`). Vitest + React Testing Library; mock `fetch` and `next/navigation` where needed. See [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-frontend-test) for adding tests.
+
+### Build
+
+```bash
+cd frontend && npm run build
+```
+
+## E2E (Playwright)
+
+Playwright runs against a live API and frontend. CI starts both servers, **waits until they respond** (polling API health and frontend root), then runs E2E. E2E is a **strict CI gate**: any failure fails the workflow.
+
+### One-time setup
 
 ```bash
 cd frontend
-npx playwright install --with-deps    # First time: install browsers
-npm run e2e
+npx playwright install --with-deps chromium   # or without --with-deps for browsers only
 ```
 
-### Config
+### Run E2E
 
-- **File**: `frontend/playwright.config.ts`
-- **Test dir**: `./e2e`
-- **Browser**: Chromium
-- **baseURL**: `http://127.0.0.1:3000`
-- **CI**: No webServer (API and frontend started separately); retries: 2
+```bash
+cd frontend && npm run e2e
+```
 
-### Golden Path
+Or from repo root: `make e2e`.
 
-`frontend/e2e/golden-path.spec.ts` covers the full custom-schema flow:
+Start API and frontend first if not using CI (e.g. `uv run uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000` and `cd frontend && npm run start`). See `frontend/playwright.config.ts` and `frontend/e2e/` for specs.
 
-- Open Schema Studio → New schema
-- Add table, Validate, Save
-- Create Wizard → Custom Schema → select schema
-- Navigate to Review → Run
-- Run detail: verify custom schema provenance
+**Layout:** E2E specs live in `frontend/e2e/`. **smoke.spec.ts** — homepage and create wizard load. **golden-path.spec.ts** — main happy path (serial): custom schema in Schema Studio → validate → save → wizard run with pack path → advanced pack path → runs index → run detail (lineage/manifest/provenance). **validation-recovery.spec.ts** — Schema Studio: validate (see feedback), fix schema (e.g. add column), re-validate, save.
 
----
+**What the golden path covers:** Schema Studio create/validate/save, wizard with custom schema or pack, advanced config, run creation, runs list, run detail with lineage and manifest (including custom schema provenance). E2E is a **strict CI gate**; failures fail the workflow.
 
-## Full Validation
+## Full validation (same as CI)
+
+From repo root:
 
 ```bash
 make validate-all
 ```
 
-Or:
+This runs, in order:
 
-```bash
-ruff check src tests
-uv run pytest tests -v
-cd frontend && npx tsc --noEmit && npm test && npm run build
-```
+1. **Backend:** ruff, **mypy**, pytest  
+2. **Frontend** (if present): tsc, npm test, npm run build  
 
-E2E is separate (requires running servers):
+E2E is not included in `validate-all`; run `make e2e` (or `cd frontend && npm run e2e`) separately.
 
-```bash
-# Terminal 1
-uv run uvicorn data_forge.api.main:app --reload --port 8000
+### Final validation checklist (exact commands)
 
-# Terminal 2
-cd frontend && npm run dev
+Run from repo root before release or after large changes. Same order as CI.
 
-# Terminal 3
-cd frontend && npm run e2e
-```
+| Step | Command |
+|------|---------|
+| 1. Ruff | `uv run ruff check src tests` |
+| 2. Mypy | `uv run mypy src` |
+| 3. Pytest | `uv run pytest tests -v --tb=short` |
+| 4. Frontend types | `cd frontend && npx tsc --noEmit` |
+| 5. Frontend tests | `cd frontend && npm test -- --run` |
+| 6. Frontend build | `cd frontend && npm run build` |
+| 7. E2E | Start API + frontend, then `cd frontend && npm run e2e` |
 
----
+Or use `make validate-all` (steps 1–6) and `make e2e` (step 7) when Make is available.
 
-## Test Counts (Approximate)
+See [ci-cd.md](ci-cd.md) for CI job details and strict gates.
 
-| Layer | Count |
-|-------|-------|
-| Backend (pytest) | ~222 |
-| Frontend (Vitest) | ~25 |
-| E2E (Playwright) | 2 smoke + 2 golden path (custom schema, pack) |
+## Debugging failures
+
+- **Backend:** Run a single test file: `uv run pytest tests/test_security.py -v`. Use `-x` to stop on first failure. Increase verbosity with `-vv` or `--tb=long`.
+- **Frontend:** Run one test file: `cd frontend && npm test -- src/app/page.test.tsx --run`. Use Vitest UI or `--reporter=verbose` if needed.
+- **E2E:** Run one spec: `cd frontend && npm run e2e -- e2e/smoke.spec.ts`. Ensure API and frontend are running. Check `frontend/playwright-report/` and `frontend/test-results/` after a run. Use `--debug` for Playwright inspector.
+- **CI:** Check the failing job (backend / frontend / e2e) in GitHub Actions; logs show the exact command and first failure. Local parity: run `make validate-all` then `make e2e` (with servers up).
+
+## See also
+
+- [ci-cd.md](ci-cd.md) — CI workflow, strict gates, local parity
+- [api-reference.md](api-reference.md) — API endpoints and error shapes
+- [security.md](security.md) — Security tests and limits
+- [README](../README.md) — Setup and validation commands
+- [CONTRIBUTING](../CONTRIBUTING.md) — Full validation and contribution flow

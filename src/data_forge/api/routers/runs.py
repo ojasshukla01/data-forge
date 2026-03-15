@@ -283,18 +283,32 @@ def get_run_manifest_api(run_id: str) -> dict[str, Any]:
     if not manifest:
         from data_forge.models.run_manifest import build_run_manifest
         from data_forge.config import Settings
+        from data_forge.api import custom_schema_store
         config = record.get("config") or record.get("config_summary") or {}
+        summary = record.get("result_summary") or {}
         settings = Settings()
+        custom_schema_id = config.get("custom_schema_id")
+        schema_missing = False
+        if custom_schema_id:
+            try:
+                if custom_schema_store.get_custom_schema(custom_schema_id) is None:
+                    schema_missing = True
+            except Exception:
+                schema_missing = True
         manifest = build_run_manifest(
             run_id,
             record.get("run_type", "generate"),
             config,
             scenario_id=record.get("source_scenario_id"),
-            output_run_id=(record.get("result_summary") or {}).get("artifact_run_id") or run_id,
-            total_rows=(record.get("result_summary") or {}).get("total_rows"),
+            output_run_id=summary.get("artifact_run_id") or run_id,
+            total_rows=summary.get("total_rows"),
             duration_seconds=record.get("duration_seconds"),
             storage_backend=getattr(settings, "storage_backend", "file"),
             project_root=settings.project_root,
+            custom_schema_name=summary.get("custom_schema_name"),
+            custom_schema_snapshot_hash=summary.get("custom_schema_snapshot_hash"),
+            custom_schema_table_names=summary.get("custom_schema_table_names"),
+            schema_missing=schema_missing,
         )
     return manifest
 
