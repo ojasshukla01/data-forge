@@ -83,6 +83,22 @@ def test_compute_quality_report_includes_rule_violations():
     assert "a_lt_b" in rv["by_rule"]
 
 
+def test_compute_quality_report_includes_privacy_summary():
+    schema = SchemaModel(
+        tables=[TableDef(name="users", columns=[ColumnDef(name="id"), ColumnDef(name="email")])],
+    )
+    table_data = {"users": [{"id": 1, "email": "a@b.com"}]}
+    pii_detection = {"users": {"id": "unclassified", "email": "email"}}
+    report = compute_quality_report(schema, table_data, pii_detection=pii_detection)
+    assert "privacy_summary" in report
+    ps = report["privacy_summary"]
+    assert "total_sensitive_columns" in ps
+    assert "by_category" in ps
+    assert "high_risk_categories_detected" in ps
+    assert ps["total_sensitive_columns"] >= 1
+    assert "email" in ps.get("by_category", {})
+
+
 def test_load_dataset_from_dir_empty(tmp_path):
     data = load_dataset_from_dir(tmp_path)
     assert data == {}

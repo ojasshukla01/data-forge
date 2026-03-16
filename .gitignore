@@ -48,6 +48,7 @@ frontend/test-results/
 output/
 runs/
 scenarios/
+demo_output/
 *.parquet
 *.csv
 *.json

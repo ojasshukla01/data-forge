@@ -21,6 +21,7 @@ from data_forge.models.rules import RuleSet
 from data_forge.schema_ingest import load_schema
 from data_forge.rule_engine import load_rule_set
 from data_forge.generators.primitives import PrimitiveGenerator
+from data_forge.generators.row_planner import default_plan_row_counts
 from data_forge.generators.table import generate_table
 from data_forge.generators.generation_rules import validate_generation_rule
 from data_forge.generators.relationship_builder import RelationshipBuilder
@@ -33,6 +34,15 @@ from data_forge.validators.quality import compute_quality_report
 from data_forge.exporters import export_tables
 from data_forge.pii.classifier import classify_schema
 from data_forge.pii.redaction import RedactionConfig
+from data_forge.pipeline import (
+    timed_stage,
+    STAGE_GENERATE,
+    STAGE_RESOLVE_FK,
+    STAGE_DRIFT,
+    STAGE_CDC,
+    STAGE_MESSINESS,
+    STAGE_QUALITY,
+)
 
 
 def run_generation(
@@ -93,68 +103,66 @@ def run_generation(
     tables_order = schema.dependency_order()
     if request.tables_filter:
         tables_order = [t for t in tables_order if t.name in request.tables_filter]
+    row_counts = default_plan_row_counts(schema, request.scale, request.tables_filter)
     primitive_gen = PrimitiveGenerator(seed=request.seed, locale=request.locale)
     rel_builder = RelationshipBuilder(schema)
     table_data: dict[str, list[dict[str, Any]]] = {}
     scale = request.scale
     chunk_size = getattr(request, "chunk_size", None)
     start = time.perf_counter()
-    for table in tables_order:
-        if table.name in ("users", "customers", "organizations", "products"):
-            row_count = scale
-        elif table.name in ("orders", "invoices", "subscriptions"):
-            row_count = max(scale // 2, scale * 2)
-        elif "line" in table.name or "item" in table.name or "detail" in table.name:
-            row_count = scale * 3
-        else:
-            row_count = scale
-        if chunk_size and row_count > chunk_size:
-            all_rows: list[dict[str, Any]] = []
-            for off in range(0, row_count, chunk_size):
-                chunk = generate_table(
+    with timed_stage(STAGE_GENERATE, timings):
+        for table in tables_order:
+            row_count = row_counts.get(table.name, scale)
+            if chunk_size and row_count > chunk_size:
+                all_rows: list[dict[str, Any]] = []
+                for off in range(0, row_count, chunk_size):
+                    chunk = generate_table(
+                        table,
+                        row_count,
+                        primitive_gen,
+                        rule_set,
+                        parent_key_supplier=None,
+                        seed=request.seed + hash(table.name),
+                        offset=off,
+                        limit=chunk_size,
+                        locale=request.locale,
+                    )
+                    all_rows.extend(chunk)
+                    _log("chunk_generated", table=table.name, offset=off, count=len(chunk))
+                table_data[table.name] = all_rows
+            else:
+                rows = generate_table(
                     table,
                     row_count,
                     primitive_gen,
                     rule_set,
                     parent_key_supplier=None,
                     seed=request.seed + hash(table.name),
-                    offset=off,
-                    limit=chunk_size,
                     locale=request.locale,
                 )
-                all_rows.extend(chunk)
-                _log("chunk_generated", table=table.name, offset=off, count=len(chunk))
-            table_data[table.name] = all_rows
-        else:
-            rows = generate_table(
-                table,
-                row_count,
-                primitive_gen,
-                rule_set,
-                parent_key_supplier=None,
-                seed=request.seed + hash(table.name),
-                locale=request.locale,
-            )
-            table_data[table.name] = rows
-    timings["generation_seconds"] = round(time.perf_counter() - start, 4)
+                table_data[table.name] = rows
 
-    rel_builder.assign_foreign_keys(table_data)
+    with timed_stage(STAGE_RESOLVE_FK, timings):
+        rel_builder.assign_foreign_keys(table_data)
 
     drift_events: list[dict[str, Any]] = []
-    if request.drift_profile != DriftProfile.NONE:
-        schema, table_data, drift_events = apply_drift(
-            schema, table_data, request.drift_profile, request.seed
+    with timed_stage(STAGE_DRIFT, timings):
+        if request.drift_profile != DriftProfile.NONE:
+            schema, table_data, drift_events = apply_drift(
+                schema, table_data, request.drift_profile, request.seed
+            )
+
+    with timed_stage(STAGE_CDC, timings):
+        apply_cdc_mode(
+            table_data,
+            request.mode,
+            request.change_ratio,
+            request.seed,
+            request.batch_id,
         )
 
-    apply_cdc_mode(
-        table_data,
-        request.mode,
-        request.change_ratio,
-        request.seed,
-        request.batch_id,
-    )
-
-    apply_messiness(table_data, request.messiness, request.seed)
+    with timed_stage(STAGE_MESSINESS, timings):
+        apply_messiness(table_data, request.messiness, request.seed)
 
     anomaly_ratio = request.anomaly_ratio
     if request.messiness == MessinessProfile.CLEAN:
@@ -186,18 +194,19 @@ def run_generation(
     redaction_config = RedactionConfig(enabled=redaction_enabled)
     privacy_warnings = pii_result.warnings if privacy_mode != "off" else []
 
-    quality_report = compute_quality_report(
-        schema,
-        table_data,
-        rule_set=rule_set,
-        mode=request.mode,
-        layer=request.layer,
-        drift_events=drift_events,
-        pii_detection=pii_detection,
-        privacy_mode=privacy_mode,
-        redaction_config=redaction_config,
-        privacy_warnings=privacy_warnings,
-    )
+    with timed_stage(STAGE_QUALITY, timings):
+        quality_report = compute_quality_report(
+            schema,
+            table_data,
+            rule_set=rule_set,
+            mode=request.mode,
+            layer=request.layer,
+            drift_events=drift_events,
+            pii_detection=pii_detection,
+            privacy_mode=privacy_mode,
+            redaction_config=redaction_config,
+            privacy_warnings=privacy_warnings,
+        )
 
     duration = time.perf_counter() - start
     timings["total_seconds"] = round(duration, 4)

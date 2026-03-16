@@ -19,14 +19,11 @@ dependencies = [
     "typer>=0.12.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
-    "streamlit>=1.40.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
     "sqlmodel>=0.0.16",
     "duckdb>=1.1.0",
     "psycopg[binary]>=3.0.0",
-    "snowflake-connector-python>=3.0.0",
-    "google-cloud-bigquery>=3.0.0",
     "polars>=1.0.0",
     "pyarrow>=18.0.0",
     "faker>=33.0.0",
@@ -34,7 +31,6 @@ dependencies = [
     "pyyaml>=6.0.2",
     "jsonschema>=4.0.0",
     "jinja2>=3.1.4",
-    "great-expectations>=0.18.0",
     "python-multipart>=0.0.12",
     "httpx>=0.28.0",
     "rich>=13.9.0",
@@ -52,7 +48,20 @@ dev = [
     "types-PyYAML",
     "types-jsonschema",
 ]
+warehouse = [
+    "snowflake-connector-python>=3.0.0",
+    "google-cloud-bigquery>=3.0.0",
+]
+ge = ["great-expectations>=0.18.0"]
+streamlit = ["streamlit>=1.40.0"]
 sdv = ["sdv>=1.11.0"]
+all = [
+    "snowflake-connector-python>=3.0.0",
+    "google-cloud-bigquery>=3.0.0",
+    "great-expectations>=0.18.0",
+    "streamlit>=1.40.0",
+    "sdv>=1.11.0",
+]
 
 [project.scripts]
 data-forge = "data_forge.cli:app"
@@ -84,6 +93,17 @@ warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 module = ["pyarrow", "pyarrow.parquet", "pyarrow.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = [
+    "snowflake",
+    "snowflake.connector",
+    "google.cloud",
+    "google.cloud.*",
+    "streamlit",
+]
 ignore_missing_imports = true
 follow_imports = "skip"
 

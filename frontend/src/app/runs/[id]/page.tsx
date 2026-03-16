@@ -166,6 +166,22 @@ export default function RunDetailPage() {
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
+      {run.status === "succeeded" && summary && (() => {
+        const rows = typeof summary.total_rows === "number"
+          ? (summary.total_rows as number).toLocaleString()
+          : (summary?.total_rows_generated ?? summary?.rows_generated) != null
+            ? String((summary?.total_rows_generated ?? summary?.rows_generated) as number).replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+            : null;
+        const artifacts = Array.isArray(summary?.export_paths) && summary.export_paths.length > 0
+          ? `${summary.export_paths.length} artifact${summary.export_paths.length === 1 ? "" : "s"}`
+          : summary?.output_dir
+            ? "Artifacts in output directory"
+            : null;
+        const duration = run.duration_seconds != null ? `${run.duration_seconds}s` : null;
+        const parts = [rows && `Produced ${rows} rows`, artifacts, duration].filter(Boolean);
+        return parts.length > 0 ? <p className="text-slate-600 text-sm">{parts.join(" · ")}</p> : null;
+      })()}
+
       <Card>
         <CardHeader>
           <CardTitle>Pipeline Flow</CardTitle>

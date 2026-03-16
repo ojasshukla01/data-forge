@@ -71,6 +71,8 @@ cd data-forge
 uv sync
 ```
 
+Optional extras: `uv sync --extra warehouse` (Snowflake/BigQuery load), `uv sync --extra streamlit` (Streamlit UI), `uv sync --extra all` (all optional integrations).
+
 ### Generate from a domain pack
 
 ```bash

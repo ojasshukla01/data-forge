@@ -42,12 +42,17 @@ def collect_performance_warnings(
     chunk_size: int | None,
     fmt: str,
 ) -> list[str]:
-    """Collect advisory performance warnings."""
+    """Collect advisory performance warnings. Chunking reduces per-chunk peak but full table is still held in memory until export."""
     warnings: list[str] = []
     if scale >= SCALE_WARN and chunk_size is None:
         warnings.append(
             f"Scale {scale} requested without chunk_size; memory usage may increase. "
             "Consider --chunk-size 10000 for large runs."
+        )
+    if scale >= SCALE_WARN and chunk_size and scale > chunk_size:
+        warnings.append(
+            "Chunking is enabled; rows are still accumulated in memory per table before export. "
+            "For very large runs, monitor memory usage."
         )
     if fmt.lower() in ("json",):
         warnings.append("JSON export may use more memory than CSV/JSONL for large datasets.")

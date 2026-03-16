@@ -124,15 +124,12 @@ def _export_jsonl(rows: list[dict[str, Any]], path: Path) -> Path:
     return path
 
 
-def _export_parquet(rows: list[dict[str, Any]], path: Path) -> Path:
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+_PARQUET_ROW_GROUP_SIZE = 5000
 
-    if not rows:
-        pq.write_table(pa.table({}), path)
-        return path
-    # Convert to PyArrow; handle mixed types by string conversion for simplicity
-    cols = list(rows[0].keys())
+
+def _rows_to_arrow_table(rows: list[dict[str, Any]], cols: list[str]) -> Any:
+    import pyarrow as pa
+
     arrays = []
     for c in cols:
         vals = [r.get(c) for r in rows]
@@ -141,9 +138,32 @@ def _export_parquet(rows: list[dict[str, Any]], path: Path) -> Path:
         except (pa.ArrowInvalid, TypeError):
             arr = pa.array([str(v) if v is not None else None for v in vals])
         arrays.append(arr)
-    table = pa.table(dict(zip(cols, arrays, strict=True)))
-    pq.write_table(table, path)
+    return pa.table(dict(zip(cols, arrays, strict=True)))
+
+
+def _export_parquet(rows: list[dict[str, Any]], path: Path) -> Path:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    if not rows:
+        pq.write_table(pa.table({}), path)
+        return path
+    cols = list(rows[0].keys())
+    if len(rows) <= _PARQUET_ROW_GROUP_SIZE:
+        table = _rows_to_arrow_table(rows, cols)
+        pq.write_table(table, path)
+        return path
+    # Write in row groups to avoid building one giant table in memory
+    first_batch = rows[: min(_PARQUET_ROW_GROUP_SIZE, len(rows))]
+    schema = _rows_to_arrow_table(first_batch, cols).schema
+    with pq.ParquetWriter(path, schema) as writer:
+        for i in range(0, len(rows), _PARQUET_ROW_GROUP_SIZE):
+            chunk = rows[i : i + _PARQUET_ROW_GROUP_SIZE]
+            writer.write_table(_rows_to_arrow_table(chunk, cols))
     return path
+
+
+_SQL_BATCH_SIZE = 2000
 
 
 def _export_sql(
@@ -162,10 +182,15 @@ def _export_sql(
         s = str(v).replace("\\", "\\\\").replace("'", "''")
         return f"'{s}'"
 
-    lines = []
-    for row in rows:
-        cols = ", ".join(row.keys())
-        vals = ", ".join(escape(row[k]) for k in row.keys())
-        lines.append(f"INSERT INTO {table_name} ({cols}) VALUES ({vals});")
-    path.write_text("\n".join(lines), encoding="utf-8")
+    with path.open("w", encoding="utf-8") as f:
+        for i in range(0, len(rows), _SQL_BATCH_SIZE):
+            batch = rows[i : i + _SQL_BATCH_SIZE]
+            lines = []
+            for row in batch:
+                cols = ", ".join(row.keys())
+                vals = ", ".join(escape(row[k]) for k in row.keys())
+                lines.append(f"INSERT INTO {table_name} ({cols}) VALUES ({vals});")
+            f.write("\n".join(lines))
+            if i + _SQL_BATCH_SIZE < len(rows):
+                f.write("\n")
     return path
