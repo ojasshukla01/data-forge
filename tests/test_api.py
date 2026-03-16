@@ -111,6 +111,28 @@ def test_generate_pack_privacy_policy_sensitive_columns_block():
     assert "privacy policy blocked run" in str(detail).lower()
 
 
+def test_generate_pack_reduced_memory_mode_samples_table_rows():
+    r = client.post(
+        "/api/generate",
+        json={
+            "pack": "saas_billing",
+            "scale": 30,
+            "export_format": "jsonl",
+            "reduced_memory_mode": True,
+            "snapshot_row_limit": 3,
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data.get("success") is True
+    tables = data.get("tables", [])
+    assert isinstance(tables, list)
+    assert len(tables) >= 1
+    for t in tables:
+        assert len(t.get("rows", [])) <= 3
+        assert t.get("row_count", 0) >= len(t.get("rows", []))
+
+
 def test_preflight():
     r = client.post(
         "/api/preflight",

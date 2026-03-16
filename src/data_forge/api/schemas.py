@@ -89,6 +89,8 @@ class GenerateRequest(BaseModel):
     chunk_size: int | None = None
     batch_size: int = 1000
     layer_materialization: str = "eager"  # eager | lazy
+    reduced_memory_mode: bool = False
+    snapshot_row_limit: int | None = None
     export_ge: bool = False
     ge_dir: str | None = None
     export_airflow: bool = False

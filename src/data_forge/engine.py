@@ -115,6 +115,10 @@ def run_generation(
     table_data: dict[str, list[dict[str, Any]]] = {}
     scale = request.scale
     chunk_size = getattr(request, "chunk_size", None)
+    reduced_memory_mode = bool(getattr(request, "reduced_memory_mode", False))
+    snapshot_row_limit = getattr(request, "snapshot_row_limit", None)
+    if reduced_memory_mode and (snapshot_row_limit is None or int(snapshot_row_limit) <= 0):
+        snapshot_row_limit = 100
     start = time.perf_counter()
     with timed_stage(STAGE_GENERATE, timings):
         for table in tables_order:
@@ -269,13 +273,22 @@ def run_generation(
     active_data = layers_data.get("bronze", layers_data.get(request.layer.value, table_data))
     for name, rows in active_data.items():
         cols = list(rows[0].keys()) if rows else []
+        sampled_rows = rows
+        rows_truncated = False
+        sampled_count: int | None = None
+        if reduced_memory_mode and snapshot_row_limit is not None:
+            sampled_rows = rows[: int(snapshot_row_limit)]
+            rows_truncated = len(sampled_rows) < len(rows)
+            sampled_count = len(sampled_rows)
         snapshots.append(
             TableSnapshot(
                 table_name=name,
                 columns=cols,
-                rows=rows,
+                rows=sampled_rows,
                 row_count=len(rows),
                 layer=request.layer.value,
+                rows_truncated=rows_truncated,
+                sampled_row_count=sampled_count,
             )
         )
 
@@ -312,6 +325,9 @@ def run_generation(
         warehouse_load=warehouse_load,
         timings=timings,
         performance_warnings=perf_warnings,
+        table_data_for_export=(
+            active_data if reduced_memory_mode and request.layer != DataLayer.ALL else None
+        ),
     )
 
 
@@ -353,9 +369,20 @@ def export_result(
             for layer_name, table_data in result.layers_data.items():
                 layer_dir = output_dir / layer_name
                 paths.extend(export_tables(table_data, layer_dir, fmt=fmt, sql_dialect=sql_dialect))
+    elif result.table_data_for_export:
+        paths = export_tables(
+            result.table_data_for_export,
+            output_dir,
+            fmt=fmt,
+            sql_dialect=sql_dialect,
+        )
     else:
         # Export snapshots directly to avoid rebuilding a duplicate full table_data mapping.
         paths = export_snapshots(result.tables, output_dir, fmt=fmt, sql_dialect=sql_dialect)
+    if getattr(result.request, "reduced_memory_mode", False):
+        result.table_data_for_export = None
+        if result.layers_data:
+            result.layers_data = None
     if timings_out is not None:
         timings_out["export_seconds"] = round(time.perf_counter() - t0, 4)
     return paths

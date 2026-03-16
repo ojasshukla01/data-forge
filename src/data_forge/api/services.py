@@ -269,6 +269,8 @@ def run_generate(req: Any) -> dict[str, Any]:
         batch_size=req.batch_size,
         export_format=req.export_format,
         layer_materialization=req.layer_materialization or "eager",
+        reduced_memory_mode=bool(req.reduced_memory_mode),
+        snapshot_row_limit=req.snapshot_row_limit,
     )
 
     result = run_generation(
