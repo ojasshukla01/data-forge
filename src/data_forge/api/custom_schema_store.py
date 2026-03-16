@@ -254,6 +254,66 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
                 "columns_modified": cols_modified,
             })
 
+    compatibility_breaking: list[dict[str, Any]] = []
+    compatibility_non_breaking: list[dict[str, Any]] = []
+    for table in tables_removed:
+        compatibility_breaking.append(
+            {"type": "table_removed", "table": table, "reason": "Table no longer exists in newer schema"}
+        )
+    for table in tables_added:
+        compatibility_non_breaking.append(
+            {"type": "table_added", "table": table, "reason": "New table is additive for producers"}
+        )
+    for mod in tables_modified:
+        table = mod["table"]
+        for col in mod.get("columns_removed", []):
+            compatibility_breaking.append(
+                {
+                    "type": "column_removed",
+                    "table": table,
+                    "column": col,
+                    "reason": "Column removed in newer schema",
+                }
+            )
+        for col in mod.get("columns_added", []):
+            compatibility_non_breaking.append(
+                {
+                    "type": "column_added",
+                    "table": table,
+                    "column": col,
+                    "reason": "Column added in newer schema",
+                }
+            )
+        left_cols = {
+            c.get("name", ""): c for c in left_tables.get(table, {}).get("columns", []) if c.get("name")
+        }
+        right_cols = {
+            c.get("name", ""): c for c in right_tables.get(table, {}).get("columns", []) if c.get("name")
+        }
+        for col in mod.get("columns_modified", []):
+            left_type = left_cols.get(col, {}).get("data_type")
+            right_type = right_cols.get(col, {}).get("data_type")
+            if left_type != right_type:
+                compatibility_breaking.append(
+                    {
+                        "type": "column_type_changed",
+                        "table": table,
+                        "column": col,
+                        "from": left_type,
+                        "to": right_type,
+                        "reason": "Column type changed between versions",
+                    }
+                )
+            else:
+                compatibility_non_breaking.append(
+                    {
+                        "type": "column_modified",
+                        "table": table,
+                        "column": col,
+                        "reason": "Column metadata changed without type change",
+                    }
+                )
+
     changed: list[dict[str, Any]] = []
     all_keys = set(left_schema.keys()) | set(right_schema.keys())
     for key in sorted(all_keys):
@@ -276,6 +336,13 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
             "tables_added": len(tables_added),
             "tables_removed": len(tables_removed),
             "tables_modified": len(tables_modified),
+        },
+        "compatibility": {
+            "status": "breaking" if compatibility_breaking else "compatible",
+            "breaking_changes": compatibility_breaking,
+            "non_breaking_changes": compatibility_non_breaking,
+            "breaking_count": len(compatibility_breaking),
+            "non_breaking_count": len(compatibility_non_breaking),
         },
     }
 

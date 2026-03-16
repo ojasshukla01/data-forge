@@ -146,6 +146,12 @@ def test_privacy_audit_in_report():
     assert pa["sensitive_columns_detected"] >= 1
     assert "warnings" in pa
     assert pa["blocked"] is False
+    ps = report.get("privacy_scorecard", {})
+    assert "risk_score" in ps
+    assert ps.get("risk_level") in {"low", "medium", "high"}
+    pol = report.get("privacy_policy", {})
+    assert pol.get("enforced") is False
+    assert "would_block" in pol
 
 
 def test_sensitive_not_raw_when_redaction_enabled():
@@ -179,6 +185,23 @@ def test_sensitive_not_raw_when_redaction_enabled():
     for v in rv.get("samples", []) + list(rv.get("by_rule", {}).keys()):
         if isinstance(v, dict) and "row" in v:
             assert v["row"].get("email") != "sensitive@real.com"
+
+
+def test_privacy_policy_would_block_in_strict_for_high_risk():
+    schema = SchemaModel(
+        tables=[TableDef(name="auth", columns=[ColumnDef(name="api_token", data_type=DataType.STRING)])]
+    )
+    pii = {"auth": {"api_token": "credentials"}}
+    report = compute_quality_report(
+        schema,
+        {"auth": [{"api_token": "secret"}]},
+        pii_detection=pii,
+        privacy_mode="strict",
+        redaction_config=RedactionConfig(enabled=True),
+    )
+    policy = report.get("privacy_policy", {})
+    assert policy.get("would_block") is True
+    assert "high_risk_categories_present" in policy.get("violations", [])
 
 
 # --- Contracts ---

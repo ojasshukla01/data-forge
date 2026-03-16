@@ -183,6 +183,47 @@ def compute_quality_report(
         "by_category": by_category,
         "high_risk_categories_detected": high_risk_detected,
     }
+    # Privacy scorecard: lightweight and explicit. This is a heuristic risk indicator, not a formal guarantee.
+    category_weights = {
+        "credentials": 5,
+        "government_id": 5,
+        "financial": 4,
+        "health": 4,
+        "date_of_birth": 3,
+        "email": 2,
+        "phone": 2,
+        "address": 2,
+        "free_text_sensitive": 2,
+        "name": 1,
+        "unknown_sensitive": 1,
+    }
+    weighted_points = 0
+    for category, count in by_category.items():
+        weighted_points += category_weights.get(category, 1) * count
+    risk_score = min(100, weighted_points * 3)
+    if risk_score >= 70:
+        risk_level = "high"
+    elif risk_score >= 40:
+        risk_level = "medium"
+    else:
+        risk_level = "low"
+    report["privacy_scorecard"] = {
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+        "sensitive_category_count": len(by_category),
+        "high_risk_categories": high_risk_detected,
+        "sensitive_columns_detected": sensitive_cols,
+    }
+    strict_block_conditions = []
+    if high_risk_detected:
+        strict_block_conditions.append("high_risk_categories_present")
+    report["privacy_policy"] = {
+        "mode": privacy_mode,
+        "enforced": False,
+        "would_block": bool(privacy_mode == "strict" and strict_block_conditions),
+        "violations": strict_block_conditions,
+        "note": "Policy evaluation is advisory in this version; no automatic blocking is enforced.",
+    }
 
     if drift_events:
         report["schema_drift"] = {

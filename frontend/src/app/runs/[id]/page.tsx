@@ -125,6 +125,30 @@ export default function RunDetailPage() {
     succeeded: "text-green-600",
     failed: "text-red-600",
   };
+  const qualitySummary = (summary?.quality_summary ?? {}) as Record<string, unknown>;
+  const privacySummary = (qualitySummary?.privacy_summary ?? {}) as Record<string, unknown>;
+  const privacyAudit = (qualitySummary?.privacy_audit ?? {}) as Record<string, unknown>;
+  const ruleViolations = (qualitySummary?.rule_violations ?? {}) as Record<string, unknown>;
+  const referentialIntegrity = qualitySummary?.referential_integrity as boolean | undefined;
+  const referentialErrors = Array.isArray(qualitySummary?.referential_errors)
+    ? (qualitySummary.referential_errors as unknown[])
+    : [];
+  const highRiskCategories = Array.isArray(privacySummary?.high_risk_categories_detected)
+    ? (privacySummary.high_risk_categories_detected as string[])
+    : [];
+  const warningsCount = Array.isArray(summary?.warnings) ? summary.warnings.length : 0;
+  const privacyWarningCount = Array.isArray(privacyAudit?.warnings)
+    ? privacyAudit.warnings.length
+    : 0;
+  const ruleViolationCount =
+    typeof ruleViolations?.total === "number" ? (ruleViolations.total as number) : 0;
+  const riskSignals = [
+    ruleViolationCount > 0 ? `${ruleViolationCount} rule violations` : null,
+    referentialIntegrity === false ? `${referentialErrors.length} referential integrity issues` : null,
+    highRiskCategories.length > 0 ? `${highRiskCategories.length} high-risk privacy categories` : null,
+    warningsCount > 0 ? `${warningsCount} generation warnings` : null,
+    privacyWarningCount > 0 ? `${privacyWarningCount} privacy warnings` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -237,6 +261,33 @@ export default function RunDetailPage() {
             {timeline?.why_slow_hint ?? (run.duration_seconds != null ? `Total duration: ${run.duration_seconds}s. Check stage timeline for bottlenecks.` : "")}
           </p>
         </div>
+      )}
+
+      {run.status === "succeeded" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Run Risk & Impact</CardTitle>
+            <p className="text-sm text-slate-500 mt-1">What happened, what is risky, and what needs attention</p>
+          </CardHeader>
+          <CardContent>
+            {riskSignals.length > 0 ? (
+              <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+                {riskSignals.map((msg) => (
+                  <li key={msg}>{msg}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-green-700">No major risk signals detected for this run.</p>
+            )}
+            {highRiskCategories.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {highRiskCategories.map((c) => (
+                  <Badge key={c} variant="error">{c}</Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {run.stage_progress && run.stage_progress.length > 0 && (() => {

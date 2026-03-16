@@ -118,3 +118,52 @@ def write_event_stream_jsonl(events: list[dict[str, Any]], path: Path) -> Path:
         for evt in events:
             f.write(json.dumps(evt, default=str) + "\n")
     return path
+
+
+def generate_support_ticket_notes(
+    events: list[dict[str, Any]],
+    *,
+    seed: int = 42,
+    max_notes: int = 500,
+) -> list[dict[str, Any]]:
+    """
+    Generate lightweight unstructured support notes linked to structured event/entity IDs.
+    This provides a rehearsal foundation for mixed structured + text pipelines.
+    """
+    if not events:
+        return []
+    rng = random.Random(seed + 101)
+    templates = [
+        "Customer reported issue after {event_type}. Investigate entity {entity_id}.",
+        "Support note: follow-up required for {event_type} on {entity_id}.",
+        "Escalation candidate tied to {event_type}; observed anomaly around entity {entity_id}.",
+        "Operations comment: verify downstream impact from {event_type} for {entity_id}.",
+    ]
+    sample_size = min(max_notes, max(1, len(events) // 5))
+    selected = events if len(events) <= sample_size else rng.sample(events, sample_size)
+    notes: list[dict[str, Any]] = []
+    for i, evt in enumerate(selected):
+        event_type = str(evt.get("event_type", "event"))
+        entity_id = str(evt.get("entity_id", "entity_unknown"))
+        note = rng.choice(templates).format(event_type=event_type, entity_id=entity_id)
+        notes.append(
+            {
+                "ticket_id": f"ticket_{i:07d}",
+                "entity_id": entity_id,
+                "linked_event_id": str(evt.get("event_id", "")),
+                "event_type": event_type,
+                "ts": evt.get("ts"),
+                "note": note,
+                "severity": rng.choice(["low", "medium", "high"]),
+            }
+        )
+    return notes
+
+
+def write_unstructured_notes_jsonl(notes: list[dict[str, Any]], path: Path) -> Path:
+    """Write linked unstructured notes as JSONL."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for row in notes:
+            f.write(json.dumps(row, default=str) + "\n")
+    return path

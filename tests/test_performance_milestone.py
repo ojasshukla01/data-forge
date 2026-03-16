@@ -12,6 +12,7 @@ from data_forge.engine import run_generation
 from data_forge.exporters import export_table_chunked
 from data_forge.models.generation import GenerationRequest
 from data_forge.adapters.load import load_to_database
+from data_forge.performance import build_materialization_diagnostics
 
 
 def _run_cli(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -226,3 +227,29 @@ def test_fixed_seed_with_chunking_remains_stable():
     counts1 = [t.row_count for t in r1.tables]
     counts2 = [t.row_count for t in r2.tables]
     assert counts1 == counts2
+
+
+def test_build_materialization_diagnostics_emits_large_run_signals():
+    diagnostics = build_materialization_diagnostics(
+        row_counts={"users": 250_000, "events": 100_000},
+        approx_cols_by_table={"users": 10, "events": 15},
+        layer="all",
+    )
+    assert diagnostics["planned_rows"] == 350_000
+    assert diagnostics["planned_cells_estimate"] > 0
+    assert diagnostics["estimated_peak_memory_mb"] > 0
+    assert any("local runs" in w.lower() or "memory" in w.lower() for w in diagnostics["warnings"])
+    assert any("layer mode is 'all'" in w.lower() for w in diagnostics["warnings"])
+
+
+def test_run_generation_includes_materialization_diagnostics():
+    pack = get_pack("saas_billing")
+    if not pack:
+        pytest.skip("saas_billing pack not found")
+    req = GenerationRequest(schema_name="saas_billing", seed=7, scale=120, layer="all")
+    result = run_generation(req, schema=pack.schema, rule_set=pack.rule_set)
+    assert result.success
+    assert "materialization" in result.quality_report
+    m = result.quality_report["materialization"]
+    assert m.get("planned_rows", 0) > 0
+    assert m.get("tables", 0) > 0

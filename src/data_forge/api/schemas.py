@@ -119,6 +119,12 @@ class HealthResponse(BaseModel):
     version: str = "0.1.0"
 
 
+class HealthReadyResponse(BaseModel):
+    status: str
+    version: str
+    checks: dict[str, bool]
+
+
 class PackInfo(BaseModel):
     id: str
     name: str | None = None
