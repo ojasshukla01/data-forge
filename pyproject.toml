@@ -97,6 +97,17 @@ ignore_missing_imports = true
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]
+module = [
+    "snowflake",
+    "snowflake.connector",
+    "google.cloud",
+    "google.cloud.*",
+    "streamlit",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
 module = ["data_forge.exporters", "data_forge.golden", "data_forge.adapters.duckdb_adapter", "data_forge.reconciliation"]
 disable_error_code = ["import-untyped"]
 
