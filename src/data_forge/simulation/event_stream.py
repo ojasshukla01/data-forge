@@ -167,3 +167,41 @@ def write_unstructured_notes_jsonl(notes: list[dict[str, Any]], path: Path) -> P
         for row in notes:
             f.write(json.dumps(row, default=str) + "\n")
     return path
+
+
+def build_unstructured_link_report(
+    events: list[dict[str, Any]],
+    notes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """
+    Build a lightweight linkage report for structured+unstructured rehearsal.
+    Includes coverage, orphan detection, and severity distribution.
+    """
+    total_events = len(events)
+    total_notes = len(notes)
+    event_ids = {str(e.get("event_id", "")) for e in events if e.get("event_id") is not None}
+    linked_event_ids = {
+        str(n.get("linked_event_id", ""))
+        for n in notes
+        if n.get("linked_event_id") is not None
+    }
+    matched_links = sorted(eid for eid in linked_event_ids if eid in event_ids)
+    orphan_links = sorted(eid for eid in linked_event_ids if eid and eid not in event_ids)
+    by_severity: dict[str, int] = {}
+    by_event_type: dict[str, int] = {}
+    for note in notes:
+        severity = str(note.get("severity", "unknown"))
+        by_severity[severity] = by_severity.get(severity, 0) + 1
+        event_type = str(note.get("event_type", "event"))
+        by_event_type[event_type] = by_event_type.get(event_type, 0) + 1
+    coverage_ratio = round(len(matched_links) / max(1, total_events), 4)
+    return {
+        "total_events": total_events,
+        "total_unstructured_notes": total_notes,
+        "linked_event_count": len(matched_links),
+        "orphan_link_count": len(orphan_links),
+        "coverage_ratio": coverage_ratio,
+        "by_severity": by_severity,
+        "by_event_type": by_event_type,
+        "orphan_linked_event_ids": orphan_links[:100],
+    }

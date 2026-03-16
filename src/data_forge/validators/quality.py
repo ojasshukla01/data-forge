@@ -91,6 +91,11 @@ def compute_quality_report(
     privacy_mode: str = "off",
     redaction_config: RedactionConfig | None = None,
     privacy_warnings: list[str] | None = None,
+    privacy_policy_mode: str = "advisory",
+    privacy_policy_max_risk_score: int | None = None,
+    privacy_policy_max_sensitive_columns: int | None = None,
+    privacy_policy_fail_on_high_risk: bool = False,
+    privacy_policy_block_categories: list[str] | None = None,
 ) -> dict[str, Any]:
     """
     Produce a quality report: row counts, null counts, ref integrity, schema compliance.
@@ -214,16 +219,68 @@ def compute_quality_report(
         "high_risk_categories": high_risk_detected,
         "sensitive_columns_detected": sensitive_cols,
     }
-    strict_block_conditions = []
-    if high_risk_detected:
-        strict_block_conditions.append("high_risk_categories_present")
+    policy_violations: list[str] = []
+    violation_details: list[dict[str, Any]] = []
+
+    def _add_violation(code: str, detail: str) -> None:
+        policy_violations.append(f"{code}:{detail}" if detail else code)
+        violation_details.append({"code": code, "detail": detail, "severity": "high"})
+
+    if (
+        privacy_policy_max_risk_score is not None
+        and risk_score > int(privacy_policy_max_risk_score)
+    ):
+        _add_violation(
+            "risk_score_exceeds_threshold",
+            f"{risk_score}>{int(privacy_policy_max_risk_score)}",
+        )
+    if (
+        privacy_policy_max_sensitive_columns is not None
+        and sensitive_cols > int(privacy_policy_max_sensitive_columns)
+    ):
+        _add_violation(
+            "sensitive_columns_exceed_threshold",
+            f"{sensitive_cols}>{int(privacy_policy_max_sensitive_columns)}",
+        )
+    if privacy_policy_fail_on_high_risk and privacy_mode == "strict" and high_risk_detected:
+        _add_violation("high_risk_categories_present", ",".join(sorted(high_risk_detected)))
+    configured_block_categories = set(privacy_policy_block_categories or [])
+    detected_categories = set(by_category.keys())
+    blocked_cats_detected = sorted(configured_block_categories & detected_categories)
+    for cat in blocked_cats_detected:
+        _add_violation("blocked_category_detected", cat)
+
+    evaluated_mode = (
+        privacy_policy_mode
+        if privacy_policy_mode in ("advisory", "enforce")
+        else "advisory"
+    )
+    policy_decision = (
+        "block"
+        if policy_violations and evaluated_mode == "enforce"
+        else ("warn" if policy_violations else "allow")
+    )
+    policy_enforced = evaluated_mode == "enforce"
     report["privacy_policy"] = {
         "mode": privacy_mode,
-        "enforced": False,
-        "would_block": bool(privacy_mode == "strict" and strict_block_conditions),
-        "violations": strict_block_conditions,
-        "note": "Policy evaluation is advisory in this version; no automatic blocking is enforced.",
+        "policy_evaluated": True,
+        "policy_mode": evaluated_mode,
+        "policy_decision": policy_decision,
+        "enforced": policy_enforced,
+        "would_block": bool(policy_violations),
+        "violations": policy_violations,
+        "violation_details": violation_details,
+        "violation_count": len(policy_violations),
+        "max_risk_score_threshold": privacy_policy_max_risk_score,
+        "max_sensitive_columns_threshold": privacy_policy_max_sensitive_columns,
+        "fail_on_high_risk": privacy_policy_fail_on_high_risk,
+        "blocked_categories": sorted(configured_block_categories),
+        "blocked_categories_detected": blocked_cats_detected,
+        "note": "Policy uses measured risk indicators from this report; this is not a formal privacy guarantee.",
     }
+    report["privacy_audit"]["blocked"] = bool(
+        report["privacy_policy"]["policy_decision"] == "block" and report["privacy_policy"]["enforced"]
+    )
 
     if drift_events:
         report["schema_drift"] = {

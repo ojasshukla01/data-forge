@@ -253,3 +253,10 @@ async def test_pipeline_simulation_generates_linked_unstructured_artifact():
         summary = detail.get("result_summary") or {}
         sim = summary.get("pipeline_simulation_summary") or {}
         assert sim.get("linked_unstructured_count", 0) >= 1
+        assert "linked_unstructured_coverage_ratio" in sim
+        assert "linked_unstructured_orphan_links" in sim
+        artifacts = detail.get("artifacts", [])
+        assert any(
+            (a.get("type") == "unstructured" and "link_report.json" in str(a.get("path", "")))
+            for a in artifacts
+        )

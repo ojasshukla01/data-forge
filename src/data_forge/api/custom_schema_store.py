@@ -324,6 +324,36 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
         if l_val != r_val:
             changed.append({"key": key, "left": l_val, "right": r_val})
 
+    def _rel_signature(rel: dict[str, Any]) -> str:
+        from_table = rel.get("from_table", "")
+        to_table = rel.get("to_table", "")
+        from_cols = ",".join(rel.get("from_columns") or [])
+        to_cols = ",".join(rel.get("to_columns") or [])
+        return f"{from_table}:{from_cols}->{to_table}:{to_cols}"
+
+    left_rels = {_rel_signature(r): r for r in left_schema.get("relationships", []) if isinstance(r, dict)}
+    right_rels = {_rel_signature(r): r for r in right_schema.get("relationships", []) if isinstance(r, dict)}
+    rels_added = sorted(right_rels.keys() - left_rels.keys())
+    rels_removed = sorted(left_rels.keys() - right_rels.keys())
+    if rels_removed:
+        for rel in rels_removed:
+            compatibility_breaking.append(
+                {
+                    "type": "relationship_removed",
+                    "relationship": rel,
+                    "reason": "Relationship removed in newer schema",
+                }
+            )
+    if rels_added:
+        for rel in rels_added:
+            compatibility_non_breaking.append(
+                {
+                    "type": "relationship_added",
+                    "relationship": rel,
+                    "reason": "Relationship added in newer schema",
+                }
+            )
+
     return {
         "schema_id": schema_id,
         "left_version": left,
@@ -336,7 +366,11 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
             "tables_added": len(tables_added),
             "tables_removed": len(tables_removed),
             "tables_modified": len(tables_modified),
+            "relationships_added": len(rels_added),
+            "relationships_removed": len(rels_removed),
         },
+        "relationships_added": rels_added,
+        "relationships_removed": rels_removed,
         "compatibility": {
             "status": "breaking" if compatibility_breaking else "compatible",
             "breaking_changes": compatibility_breaking,

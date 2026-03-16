@@ -128,6 +128,8 @@ export default function RunDetailPage() {
   const qualitySummary = (summary?.quality_summary ?? {}) as Record<string, unknown>;
   const privacySummary = (qualitySummary?.privacy_summary ?? {}) as Record<string, unknown>;
   const privacyAudit = (qualitySummary?.privacy_audit ?? {}) as Record<string, unknown>;
+  const privacyPolicy = (qualitySummary?.privacy_policy ?? {}) as Record<string, unknown>;
+  const materialization = (qualitySummary?.materialization ?? {}) as Record<string, unknown>;
   const ruleViolations = (qualitySummary?.rule_violations ?? {}) as Record<string, unknown>;
   const referentialIntegrity = qualitySummary?.referential_integrity as boolean | undefined;
   const referentialErrors = Array.isArray(qualitySummary?.referential_errors)
@@ -137,17 +139,33 @@ export default function RunDetailPage() {
     ? (privacySummary.high_risk_categories_detected as string[])
     : [];
   const warningsCount = Array.isArray(summary?.warnings) ? summary.warnings.length : 0;
+  const materializationWarnings = Array.isArray(materialization?.warnings)
+    ? materialization.warnings.length
+    : 0;
   const privacyWarningCount = Array.isArray(privacyAudit?.warnings)
     ? privacyAudit.warnings.length
     : 0;
+  const policyDecision = typeof privacyPolicy?.policy_decision === "string"
+    ? (privacyPolicy.policy_decision as string)
+    : null;
   const ruleViolationCount =
     typeof ruleViolations?.total === "number" ? (ruleViolations.total as number) : 0;
+  const policyViolations = Array.isArray(privacyPolicy?.violations)
+    ? (privacyPolicy.violations as string[])
+    : [];
+  const policyViolationCount = policyViolations.length;
+  const layerMaterialization = typeof materialization?.layer_materialization === "string"
+    ? String(materialization.layer_materialization)
+    : null;
   const riskSignals = [
     ruleViolationCount > 0 ? `${ruleViolationCount} rule violations` : null,
     referentialIntegrity === false ? `${referentialErrors.length} referential integrity issues` : null,
     highRiskCategories.length > 0 ? `${highRiskCategories.length} high-risk privacy categories` : null,
     warningsCount > 0 ? `${warningsCount} generation warnings` : null,
+    materializationWarnings > 0 ? `${materializationWarnings} memory/materialization warnings` : null,
     privacyWarningCount > 0 ? `${privacyWarningCount} privacy warnings` : null,
+    policyViolationCount > 0 ? `${policyViolationCount} policy violations` : null,
+    policyDecision && policyDecision !== "allow" ? `privacy policy decision: ${policyDecision}` : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -284,6 +302,26 @@ export default function RunDetailPage() {
                 {highRiskCategories.map((c) => (
                   <Badge key={c} variant="error">{c}</Badge>
                 ))}
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {policyDecision && policyDecision !== "allow" && (
+                <Badge variant={policyDecision === "block" ? "error" : "warning"}>
+                  Policy: {policyDecision}
+                </Badge>
+              )}
+              {layerMaterialization && (
+                <Badge variant="category">Layer materialization: {layerMaterialization}</Badge>
+              )}
+            </div>
+            {policyViolations.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-slate-700">Policy violations</p>
+                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-0.5 mt-1">
+                  {policyViolations.slice(0, 5).map((v) => (
+                    <li key={v}>{v}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </CardContent>

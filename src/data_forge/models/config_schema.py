@@ -31,6 +31,7 @@ class GenerationConfig(BaseModel):
     locale: str = "en_US"
     chunk_size: int | None = None
     batch_size: int = 1000
+    layer_materialization: str = "eager"  # eager | lazy
 
 
 class SimulationConfig(BaseModel):
@@ -65,6 +66,11 @@ class PrivacyConfig(BaseModel):
 
     mode: str = "warn"  # off | warn | strict
     redaction_enabled: bool = True
+    policy_mode: str = "advisory"  # advisory | enforce
+    policy_max_risk_score: int | None = None
+    policy_max_sensitive_columns: int | None = None
+    policy_fail_on_high_risk: bool = False
+    policy_block_categories: list[str] | None = None
 
 
 class ExportConfig(BaseModel):
@@ -133,7 +139,13 @@ class RunConfig(BaseModel):
         d["locale"] = g.locale
         d["chunk_size"] = g.chunk_size
         d["batch_size"] = g.batch_size
+        d["layer_materialization"] = g.layer_materialization
         d["privacy_mode"] = self.privacy.mode
+        d["privacy_policy_mode"] = self.privacy.policy_mode
+        d["privacy_policy_max_risk_score"] = self.privacy.policy_max_risk_score
+        d["privacy_policy_max_sensitive_columns"] = self.privacy.policy_max_sensitive_columns
+        d["privacy_policy_fail_on_high_risk"] = self.privacy.policy_fail_on_high_risk
+        d["privacy_policy_block_categories"] = self.privacy.policy_block_categories
         d["export_format"] = self.export.format
         d["export_dbt"] = self.export.export_dbt
         d["dbt_dir"] = self.export.dbt_dir
@@ -209,13 +221,21 @@ def normalize_legacy_config(raw: dict[str, Any]) -> RunConfig:
         locale=str(r.get("locale", "en_US")),
         chunk_size=r.get("chunk_size"),
         batch_size=int(r.get("batch_size", 1000)),
+        layer_materialization=str(r.get("layer_materialization", "eager")),
     )
     return RunConfig(
         config_schema_version=int(r.get("config_schema_version", CONFIG_SCHEMA_VERSION)),
         generation=gen,
         simulation=sim,
         benchmark=bm,
-        privacy=PrivacyConfig(mode=str(r.get("privacy_mode", "warn"))),
+        privacy=PrivacyConfig(
+            mode=str(r.get("privacy_mode", "warn")),
+            policy_mode=str(r.get("privacy_policy_mode", "advisory")),
+            policy_max_risk_score=r.get("privacy_policy_max_risk_score"),
+            policy_max_sensitive_columns=r.get("privacy_policy_max_sensitive_columns"),
+            policy_fail_on_high_risk=bool(r.get("privacy_policy_fail_on_high_risk", False)),
+            policy_block_categories=r.get("privacy_policy_block_categories"),
+        ),
         export=ExportConfig(
             format=str(r.get("export_format", "parquet")),
             export_dbt=bool(r.get("export_dbt", False)),

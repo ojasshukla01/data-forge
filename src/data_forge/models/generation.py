@@ -90,12 +90,18 @@ class GenerationRequest(BaseModel):
     drift_profile: DriftProfile = DriftProfile.NONE
     messiness: MessinessProfile = MessinessProfile.CLEAN
     privacy_mode: str = "warn"  # off | warn | strict
+    privacy_policy_mode: str = "advisory"  # advisory | enforce
+    privacy_policy_max_risk_score: int | None = None
+    privacy_policy_max_sensitive_columns: int | None = None
+    privacy_policy_fail_on_high_risk: bool = False
+    privacy_policy_block_categories: list[str] | None = None
     load_target: str | None = None  # sqlite | duckdb | postgres | snowflake | bigquery
     db_uri: str | None = None  # connection string or path
     load_params: dict[str, Any] | None = None  # cloud-specific (sf-*, bq-*)
     chunk_size: int | None = None  # generate large tables in chunks
     batch_size: int = 1000  # batch size for DB inserts
     export_format: str | None = None  # for performance warnings (parquet, csv, json, etc.)
+    layer_materialization: str = "eager"  # eager | lazy (lazy reduces layer=all memory pressure)
 
 
 class GenerationResult(BaseModel):

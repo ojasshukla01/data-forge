@@ -31,7 +31,7 @@ from data_forge.generators.schema_drift import apply_drift
 from data_forge.generators.layers import transform_to_layer
 from data_forge.anomaly_injector import inject_anomalies
 from data_forge.validators.quality import compute_quality_report
-from data_forge.exporters import export_tables
+from data_forge.exporters import export_tables, export_snapshots, export_table_iter
 from data_forge.pii.classifier import classify_schema
 from data_forge.pii.redaction import RedactionConfig
 from data_forge.pipeline import (
@@ -184,11 +184,17 @@ def run_generation(
             )
 
     layers_data: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    layer_materialization = getattr(request, "layer_materialization", "eager") or "eager"
+    if layer_materialization not in ("eager", "lazy"):
+        layer_materialization = "eager"
     if request.layer == DataLayer.ALL:
         # Keep bronze as the already-generated table_data to avoid one extra full-table copy.
         layers_data["bronze"] = table_data
-        layers_data["silver"] = transform_to_layer(layers_data["bronze"], "silver")
-        layers_data["gold"] = transform_to_layer(layers_data["bronze"], "gold")
+        if layer_materialization == "eager":
+            layers_data["silver"] = transform_to_layer(layers_data["bronze"], "silver")
+            layers_data["gold"] = transform_to_layer(layers_data["bronze"], "gold")
+        else:
+            _log("layer_materialization", strategy=layer_materialization)
     else:
         layer_name = request.layer.value
         layers_data[layer_name] = table_data
@@ -213,6 +219,17 @@ def run_generation(
             privacy_mode=privacy_mode,
             redaction_config=redaction_config,
             privacy_warnings=privacy_warnings,
+            privacy_policy_mode=getattr(request, "privacy_policy_mode", "advisory") or "advisory",
+            privacy_policy_max_risk_score=getattr(request, "privacy_policy_max_risk_score", None),
+            privacy_policy_max_sensitive_columns=getattr(
+                request, "privacy_policy_max_sensitive_columns", None
+            ),
+            privacy_policy_fail_on_high_risk=bool(
+                getattr(request, "privacy_policy_fail_on_high_risk", False)
+            ),
+            privacy_policy_block_categories=getattr(
+                request, "privacy_policy_block_categories", None
+            ),
         )
 
     duration = time.perf_counter() - start
@@ -221,11 +238,32 @@ def run_generation(
     perf_warnings = collect_performance_warnings(
         scale, chunk_size, (request.export_format or "parquet")
     )
+    if request.layer == DataLayer.ALL and layer_materialization == "lazy":
+        perf_warnings.append(
+            "Layer materialization strategy is lazy; silver/gold are derived at export-time."
+        )
     perf_warnings.extend(materialization.get("warnings", []))
     perf_warnings = list(dict.fromkeys(perf_warnings))
     quality_report["performance_warnings"] = perf_warnings
     quality_report["materialization"] = materialization
+    quality_report["materialization"]["layer_materialization"] = layer_materialization
     quality_report["timings"] = timings
+    policy = quality_report.get("privacy_policy", {})
+    if policy.get("policy_decision") == "block" and policy.get("enforced"):
+        errors.append(
+            "Privacy policy blocked run: "
+            + "; ".join(policy.get("violations", []) or ["policy violation"])
+        )
+        return GenerationResult(
+            request=request,
+            quality_report=quality_report,
+            duration_seconds=round(duration, 2),
+            success=False,
+            errors=errors,
+            drift_events=drift_events,
+            timings=timings,
+            performance_warnings=perf_warnings,
+        )
 
     snapshots: list[TableSnapshot] = []
     active_data = layers_data.get("bronze", layers_data.get(request.layer.value, table_data))
@@ -292,12 +330,32 @@ def export_result(
     paths: list[Path] = []
     t0 = time.perf_counter()
     if result.layers_data:
-        for layer_name, table_data in result.layers_data.items():
-            layer_dir = output_dir / layer_name
-            paths.extend(export_tables(table_data, layer_dir, fmt=fmt, sql_dialect=sql_dialect))
+        # Lazy strategy stores only bronze and derives silver/gold at export-time.
+        if result.request.layer == DataLayer.ALL and "silver" not in result.layers_data:
+            bronze = result.layers_data.get("bronze", {})
+            bronze_dir = output_dir / "bronze"
+            paths.extend(export_tables(bronze, bronze_dir, fmt=fmt, sql_dialect=sql_dialect))
+            for target_layer in ("silver", "gold"):
+                layer_dir = output_dir / target_layer
+                layer_dir.mkdir(parents=True, exist_ok=True)
+                for table_name, rows in bronze.items():
+                    transformed_rows = transform_to_layer({table_name: rows}, target_layer)[table_name]
+                    path = export_table_iter(
+                        iter(transformed_rows),
+                        layer_dir / table_name,
+                        fmt=fmt,
+                        table_name=table_name,
+                        sql_dialect=sql_dialect,
+                    )
+                    if path:
+                        paths.append(path)
+        else:
+            for layer_name, table_data in result.layers_data.items():
+                layer_dir = output_dir / layer_name
+                paths.extend(export_tables(table_data, layer_dir, fmt=fmt, sql_dialect=sql_dialect))
     else:
-        table_data = {t.table_name: t.rows for t in result.tables}
-        paths = export_tables(table_data, output_dir, fmt=fmt, sql_dialect=sql_dialect)
+        # Export snapshots directly to avoid rebuilding a duplicate full table_data mapping.
+        paths = export_snapshots(result.tables, output_dir, fmt=fmt, sql_dialect=sql_dialect)
     if timings_out is not None:
         timings_out["export_seconds"] = round(time.perf_counter() - t0, 4)
     return paths

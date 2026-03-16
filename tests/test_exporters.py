@@ -3,7 +3,8 @@
 import json
 
 from data_forge.config import OutputFormat
-from data_forge.exporters import export_table
+from data_forge.exporters import export_table, export_table_iter, export_snapshots
+from data_forge.models.generation import TableSnapshot
 
 
 def test_export_csv(tmp_path):
@@ -52,3 +53,32 @@ def test_export_parquet(tmp_path):
     path = export_table(rows, tmp_path / "out", fmt=OutputFormat.PARQUET)
     assert path is not None
     assert path.suffix == ".parquet"
+
+
+def test_export_table_iter_jsonl(tmp_path):
+    rows = ({"id": i, "name": f"u{i}"} for i in range(5))
+    path = export_table_iter(rows, tmp_path / "iter_out", fmt=OutputFormat.JSONL)
+    assert path is not None
+    lines = [json.loads(line) for line in path.read_text(encoding="utf-8").strip().split("\n")]
+    assert len(lines) == 5
+    assert lines[0]["id"] == 0
+    assert lines[-1]["name"] == "u4"
+
+
+def test_export_table_iter_parquet(tmp_path):
+    rows = ({"id": i, "value": f"v{i}"} for i in range(120))
+    path = export_table_iter(rows, tmp_path / "iter_parquet", fmt=OutputFormat.PARQUET, batch_size=25)
+    assert path is not None
+    assert path.exists()
+    assert path.suffix == ".parquet"
+
+
+def test_export_snapshots_without_table_dict_copy(tmp_path):
+    snapshots = [
+        TableSnapshot(table_name="users", columns=["id"], rows=[{"id": 1}, {"id": 2}], row_count=2),
+        TableSnapshot(table_name="orders", columns=["id"], rows=[{"id": 10}], row_count=1),
+    ]
+    paths = export_snapshots(snapshots, tmp_path, fmt=OutputFormat.CSV)
+    assert len(paths) == 2
+    names = {p.stem for p in paths}
+    assert names == {"users", "orders"}
