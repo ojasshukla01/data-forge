@@ -1,12 +1,20 @@
 """Export generated data to CSV, JSON, Parquet, SQL."""
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
+from itertools import islice
 from pathlib import Path
 from typing import Any
 
 from data_forge.config import OutputFormat
+from data_forge.models.generation import TableSnapshot
 
-__all__ = ["export_tables", "export_table", "export_table_chunked"]
+__all__ = [
+    "export_tables",
+    "export_table",
+    "export_table_chunked",
+    "export_table_iter",
+    "export_snapshots",
+]
 
 
 def export_tables(
@@ -52,6 +60,65 @@ def export_table(
     if fmt == OutputFormat.SQL:
         return _export_sql(rows, path, table_name, sql_dialect)
     return None
+
+
+def export_table_iter(
+    rows_iter: Iterable[dict[str, Any]],
+    path_base: Path | str,
+    fmt: OutputFormat | str = "parquet",
+    table_name: str = "table",
+    sql_dialect: str = "postgresql",
+    batch_size: int = 5000,
+) -> Path | None:
+    """
+    Export rows from an iterator without requiring full-table materialization for
+    streaming-friendly formats.
+    """
+    path_base = Path(path_base)
+    if isinstance(fmt, str):
+        fmt = OutputFormat(fmt) if fmt in [e.value for e in OutputFormat] else OutputFormat.PARQUET
+    path = path_base.with_suffix("." + fmt.value)
+
+    if fmt == OutputFormat.CSV:
+        return _export_csv_iter(rows_iter, path)
+    if fmt == OutputFormat.JSONL or fmt == OutputFormat.NDJSON:
+        return _export_jsonl_iter(rows_iter, path)
+    if fmt == OutputFormat.PARQUET:
+        return _export_parquet_iter(rows_iter, path, batch_size=batch_size)
+    if fmt == OutputFormat.SQL:
+        return _export_sql_iter(rows_iter, path, table_name, sql_dialect, batch_size=batch_size)
+    if fmt == OutputFormat.JSON:
+        # JSON array requires full materialization by format definition.
+        return _export_json(list(rows_iter), path)
+    return None
+
+
+def export_snapshots(
+    snapshots: list[TableSnapshot],
+    output_dir: Path | str,
+    fmt: OutputFormat | str = "parquet",
+    sql_dialect: str = "postgresql",
+    batch_size: int = 5000,
+) -> list[Path]:
+    """
+    Export table snapshots directly. Uses iterator path to avoid rebuilding an
+    intermediate table_data dict from GenerationResult snapshots.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for snapshot in snapshots:
+        path = export_table_iter(
+            iter(snapshot.rows),
+            output_dir / snapshot.table_name,
+            fmt=fmt,
+            table_name=snapshot.table_name,
+            sql_dialect=sql_dialect,
+            batch_size=batch_size,
+        )
+        if path:
+            paths.append(path)
+    return paths
 
 
 def export_table_chunked(
@@ -108,6 +175,25 @@ def _export_csv(rows: list[dict[str, Any]], path: Path) -> Path:
     return path
 
 
+def _export_csv_iter(rows_iter: Iterable[dict[str, Any]], path: Path) -> Path:
+    import csv
+
+    iterator = iter(rows_iter)
+    try:
+        first = next(iterator)
+    except StopIteration:
+        path.write_text("", encoding="utf-8")
+        return path
+    fieldnames = list(first.keys())
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        w.writeheader()
+        w.writerow(first)
+        for row in iterator:
+            w.writerow(row)
+    return path
+
+
 def _export_json(rows: list[dict[str, Any]], path: Path) -> Path:
     import json
 
@@ -120,6 +206,15 @@ def _export_jsonl(rows: list[dict[str, Any]], path: Path) -> Path:
 
     with path.open("w", encoding="utf-8") as f:
         for row in rows:
+            f.write(json.dumps(row, default=str) + "\n")
+    return path
+
+
+def _export_jsonl_iter(rows_iter: Iterable[dict[str, Any]], path: Path) -> Path:
+    import json
+
+    with path.open("w", encoding="utf-8") as f:
+        for row in rows_iter:
             f.write(json.dumps(row, default=str) + "\n")
     return path
 
@@ -163,6 +258,33 @@ def _export_parquet(rows: list[dict[str, Any]], path: Path) -> Path:
     return path
 
 
+def _iter_row_batches(rows_iter: Iterable[dict[str, Any]], batch_size: int) -> Iterator[list[dict[str, Any]]]:
+    iterator = iter(rows_iter)
+    while True:
+        batch = list(islice(iterator, batch_size))
+        if not batch:
+            return
+        yield batch
+
+
+def _export_parquet_iter(rows_iter: Iterable[dict[str, Any]], path: Path, batch_size: int) -> Path:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    batches = _iter_row_batches(rows_iter, max(1, batch_size))
+    first_batch = next(batches, None)
+    if not first_batch:
+        pq.write_table(pa.table({}), path)
+        return path
+    cols = list(first_batch[0].keys())
+    first_table = _rows_to_arrow_table(first_batch, cols)
+    with pq.ParquetWriter(path, first_table.schema) as writer:
+        writer.write_table(first_table)
+        for batch in batches:
+            writer.write_table(_rows_to_arrow_table(batch, cols))
+    return path
+
+
 _SQL_BATCH_SIZE = 2000
 
 
@@ -193,4 +315,36 @@ def _export_sql(
             f.write("\n".join(lines))
             if i + _SQL_BATCH_SIZE < len(rows):
                 f.write("\n")
+    return path
+
+
+def _export_sql_iter(
+    rows_iter: Iterable[dict[str, Any]],
+    path: Path,
+    table_name: str,
+    dialect: str,
+    batch_size: int,
+) -> Path:
+    def escape(v: Any) -> str:
+        if v is None:
+            return "NULL"
+        if isinstance(v, bool):
+            return "TRUE" if v else "FALSE"
+        if isinstance(v, (int, float)):
+            return str(v)
+        s = str(v).replace("\\", "\\\\").replace("'", "''")
+        return f"'{s}'"
+
+    with path.open("w", encoding="utf-8") as f:
+        first_batch = True
+        for batch in _iter_row_batches(rows_iter, max(1, batch_size)):
+            if not first_batch:
+                f.write("\n")
+            first_batch = False
+            lines = []
+            for row in batch:
+                cols = ", ".join(row.keys())
+                vals = ", ".join(escape(row[k]) for k in row.keys())
+                lines.append(f"INSERT INTO {table_name} ({cols}) VALUES ({vals});")
+            f.write("\n".join(lines))
     return path

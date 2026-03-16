@@ -118,3 +118,90 @@ def write_event_stream_jsonl(events: list[dict[str, Any]], path: Path) -> Path:
         for evt in events:
             f.write(json.dumps(evt, default=str) + "\n")
     return path
+
+
+def generate_support_ticket_notes(
+    events: list[dict[str, Any]],
+    *,
+    seed: int = 42,
+    max_notes: int = 500,
+) -> list[dict[str, Any]]:
+    """
+    Generate lightweight unstructured support notes linked to structured event/entity IDs.
+    This provides a rehearsal foundation for mixed structured + text pipelines.
+    """
+    if not events:
+        return []
+    rng = random.Random(seed + 101)
+    templates = [
+        "Customer reported issue after {event_type}. Investigate entity {entity_id}.",
+        "Support note: follow-up required for {event_type} on {entity_id}.",
+        "Escalation candidate tied to {event_type}; observed anomaly around entity {entity_id}.",
+        "Operations comment: verify downstream impact from {event_type} for {entity_id}.",
+    ]
+    sample_size = min(max_notes, max(1, len(events) // 5))
+    selected = events if len(events) <= sample_size else rng.sample(events, sample_size)
+    notes: list[dict[str, Any]] = []
+    for i, evt in enumerate(selected):
+        event_type = str(evt.get("event_type", "event"))
+        entity_id = str(evt.get("entity_id", "entity_unknown"))
+        note = rng.choice(templates).format(event_type=event_type, entity_id=entity_id)
+        notes.append(
+            {
+                "ticket_id": f"ticket_{i:07d}",
+                "entity_id": entity_id,
+                "linked_event_id": str(evt.get("event_id", "")),
+                "event_type": event_type,
+                "ts": evt.get("ts"),
+                "note": note,
+                "severity": rng.choice(["low", "medium", "high"]),
+            }
+        )
+    return notes
+
+
+def write_unstructured_notes_jsonl(notes: list[dict[str, Any]], path: Path) -> Path:
+    """Write linked unstructured notes as JSONL."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for row in notes:
+            f.write(json.dumps(row, default=str) + "\n")
+    return path
+
+
+def build_unstructured_link_report(
+    events: list[dict[str, Any]],
+    notes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """
+    Build a lightweight linkage report for structured+unstructured rehearsal.
+    Includes coverage, orphan detection, and severity distribution.
+    """
+    total_events = len(events)
+    total_notes = len(notes)
+    event_ids = {str(e.get("event_id", "")) for e in events if e.get("event_id") is not None}
+    linked_event_ids = {
+        str(n.get("linked_event_id", ""))
+        for n in notes
+        if n.get("linked_event_id") is not None
+    }
+    matched_links = sorted(eid for eid in linked_event_ids if eid in event_ids)
+    orphan_links = sorted(eid for eid in linked_event_ids if eid and eid not in event_ids)
+    by_severity: dict[str, int] = {}
+    by_event_type: dict[str, int] = {}
+    for note in notes:
+        severity = str(note.get("severity", "unknown"))
+        by_severity[severity] = by_severity.get(severity, 0) + 1
+        event_type = str(note.get("event_type", "event"))
+        by_event_type[event_type] = by_event_type.get(event_type, 0) + 1
+    coverage_ratio = round(len(matched_links) / max(1, total_events), 4)
+    return {
+        "total_events": total_events,
+        "total_unstructured_notes": total_notes,
+        "linked_event_count": len(matched_links),
+        "orphan_link_count": len(orphan_links),
+        "coverage_ratio": coverage_ratio,
+        "by_severity": by_severity,
+        "by_event_type": by_event_type,
+        "orphan_linked_event_ids": orphan_links[:100],
+    }

@@ -16,6 +16,15 @@ def test_health():
     assert "version" in data
 
 
+def test_health_ready():
+    r = client.get("/health/ready")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] in ("ok", "degraded")
+    assert "checks" in data
+    assert "output_dir_writable" in data["checks"]
+
+
 def test_domain_packs():
     r = client.get("/api/domain-packs")
     assert r.status_code == 200
@@ -65,6 +74,41 @@ def test_generate_pack():
     assert "tables" in data
     assert "output_dir" in data
     assert "run_id" in data
+
+
+def test_generate_pack_privacy_policy_enforced_block():
+    r = client.post(
+        "/api/generate",
+        json={
+            "pack": "saas_billing",
+            "scale": 20,
+            "privacy_mode": "strict",
+            "privacy_policy_mode": "enforce",
+            "privacy_policy_max_risk_score": 1,
+        },
+    )
+    assert r.status_code == 400
+    detail = r.json().get("detail")
+    if isinstance(detail, list):
+        assert any("privacy policy blocked run" in str(x).lower() for x in detail)
+    else:
+        assert "privacy policy blocked run" in str(detail).lower()
+
+
+def test_generate_pack_privacy_policy_sensitive_columns_block():
+    r = client.post(
+        "/api/generate",
+        json={
+            "pack": "saas_billing",
+            "scale": 20,
+            "privacy_mode": "warn",
+            "privacy_policy_mode": "enforce",
+            "privacy_policy_max_sensitive_columns": 1,
+        },
+    )
+    assert r.status_code == 400
+    detail = r.json().get("detail")
+    assert "privacy policy blocked run" in str(detail).lower()
 
 
 def test_preflight():
@@ -243,6 +287,8 @@ def test_custom_schema_versions_and_diff():
     diff = r_diff.json()
     assert "tables_added" in diff
     assert "b" in diff["tables_added"]
+    assert "compatibility" in diff
+    assert diff["compatibility"]["status"] == "compatible"
 
     # Restore v1 as new version
     r_restore = client.post(f"/api/custom-schemas/{schema_id}/versions/1/restore")
@@ -251,6 +297,122 @@ def test_custom_schema_versions_and_diff():
     assert restored["version"] == 3
     assert restored["schema"]["name"] == "v1"
     assert len(restored["schema"]["tables"]) == 1
+
+
+def test_custom_schema_diff_marks_breaking_changes():
+    r_create = client.post(
+        "/api/custom-schemas",
+        json={
+            "name": "Breaking Test",
+            "schema": {
+                "name": "v1",
+                "tables": [
+                    {
+                        "name": "orders",
+                        "columns": [
+                            {"name": "id", "data_type": "integer"},
+                            {"name": "status", "data_type": "string"},
+                        ],
+                        "primary_key": [],
+                    }
+                ],
+                "relationships": [],
+            },
+        },
+    )
+    assert r_create.status_code == 200
+    schema_id = r_create.json()["id"]
+    r_update = client.put(
+        f"/api/custom-schemas/{schema_id}",
+        json={
+            "schema": {
+                "name": "v2",
+                "tables": [
+                    {
+                        "name": "orders",
+                        "columns": [
+                            {"name": "id", "data_type": "integer"},
+                        ],
+                        "primary_key": [],
+                    }
+                ],
+                "relationships": [],
+            },
+        },
+    )
+    assert r_update.status_code == 200
+    r_diff = client.get(f"/api/custom-schemas/{schema_id}/diff?left=1&right=2")
+    assert r_diff.status_code == 200
+    diff = r_diff.json()
+    assert diff["compatibility"]["status"] == "breaking"
+    assert diff["compatibility"]["breaking_count"] >= 1
+    assert any(
+        c.get("type") == "column_removed"
+        for c in diff["compatibility"]["breaking_changes"]
+    )
+
+
+def test_custom_schema_diff_tracks_relationship_changes():
+    r_create = client.post(
+        "/api/custom-schemas",
+        json={
+            "name": "Relationship Diff Test",
+            "schema": {
+                "name": "v1",
+                "tables": [
+                    {"name": "users", "columns": [{"name": "id", "data_type": "integer"}]},
+                    {
+                        "name": "orders",
+                        "columns": [
+                            {"name": "id", "data_type": "integer"},
+                            {"name": "user_id", "data_type": "integer"},
+                        ],
+                    },
+                ],
+                "relationships": [
+                    {
+                        "name": "orders_to_users",
+                        "from_table": "orders",
+                        "from_columns": ["user_id"],
+                        "to_table": "users",
+                        "to_columns": ["id"],
+                    }
+                ],
+            },
+        },
+    )
+    assert r_create.status_code == 200
+    schema_id = r_create.json()["id"]
+
+    r_update = client.put(
+        f"/api/custom-schemas/{schema_id}",
+        json={
+            "schema": {
+                "name": "v2",
+                "tables": [
+                    {"name": "users", "columns": [{"name": "id", "data_type": "integer"}]},
+                    {
+                        "name": "orders",
+                        "columns": [
+                            {"name": "id", "data_type": "integer"},
+                            {"name": "customer_id", "data_type": "integer"},
+                        ],
+                    },
+                ],
+                "relationships": [],
+            }
+        },
+    )
+    assert r_update.status_code == 200
+    r_diff = client.get(f"/api/custom-schemas/{schema_id}/diff?left=1&right=2")
+    assert r_diff.status_code == 200
+    diff = r_diff.json()
+    assert len(diff.get("relationships_removed", [])) >= 1
+    assert diff["summary"]["relationships_removed"] >= 1
+    assert any(
+        c.get("type") == "relationship_removed"
+        for c in diff["compatibility"]["breaking_changes"]
+    )
 
 
 def test_artifacts_list():

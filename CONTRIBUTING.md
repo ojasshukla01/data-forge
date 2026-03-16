@@ -29,6 +29,15 @@ uv sync
 uv run uvicorn data_forge.api.main:app --reload --port 8000
 ```
 
+If `uv` is unavailable, use pip + virtualenv:
+
+```bash
+python -m venv .venv
+.venv\Scripts\python -m pip install --upgrade pip
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m uvicorn data_forge.api.main:app --reload --port 8000
+```
+
 ### Frontend
 
 ```bash
@@ -117,7 +126,7 @@ make validate-all
 
 **Manual sequence:**
 
-1. Backend: `uv run ruff check src tests` then `uv run mypy src` then `uv run pytest -q` (or `python -m pytest -q`)
+1. Backend: `uv run ruff check src tests` then `uv run mypy src` then `uv run pytest -q` (or `.venv\Scripts\python -m ruff check src tests`, `.venv\Scripts\python -m mypy src`, `.venv\Scripts\python -m pytest -q`)
 2. Frontend: `cd frontend && npm test`
 3. Frontend types: `cd frontend && npx tsc --noEmit`
 4. Frontend build: `cd frontend && npm run build` (see note above if it fails with EPERM)

@@ -146,6 +146,12 @@ def test_privacy_audit_in_report():
     assert pa["sensitive_columns_detected"] >= 1
     assert "warnings" in pa
     assert pa["blocked"] is False
+    ps = report.get("privacy_scorecard", {})
+    assert "risk_score" in ps
+    assert ps.get("risk_level") in {"low", "medium", "high"}
+    pol = report.get("privacy_policy", {})
+    assert pol.get("enforced") is False
+    assert "would_block" in pol
 
 
 def test_sensitive_not_raw_when_redaction_enabled():
@@ -179,6 +185,97 @@ def test_sensitive_not_raw_when_redaction_enabled():
     for v in rv.get("samples", []) + list(rv.get("by_rule", {}).keys()):
         if isinstance(v, dict) and "row" in v:
             assert v["row"].get("email") != "sensitive@real.com"
+
+
+def test_privacy_policy_would_block_in_strict_for_high_risk():
+    schema = SchemaModel(
+        tables=[TableDef(name="auth", columns=[ColumnDef(name="api_token", data_type=DataType.STRING)])]
+    )
+    pii = {"auth": {"api_token": "credentials"}}
+    report = compute_quality_report(
+        schema,
+        {"auth": [{"api_token": "secret"}]},
+        pii_detection=pii,
+        privacy_mode="strict",
+        redaction_config=RedactionConfig(enabled=True),
+    )
+    policy = report.get("privacy_policy", {})
+    assert policy.get("would_block") is False
+    assert policy.get("policy_decision") == "allow"
+
+
+def test_privacy_policy_blocks_when_enforced_and_high_risk_enabled():
+    schema = SchemaModel(
+        tables=[TableDef(name="auth", columns=[ColumnDef(name="api_token", data_type=DataType.STRING)])]
+    )
+    pii = {"auth": {"api_token": "credentials"}}
+    report = compute_quality_report(
+        schema,
+        {"auth": [{"api_token": "secret"}]},
+        pii_detection=pii,
+        privacy_mode="strict",
+        redaction_config=RedactionConfig(enabled=True),
+        privacy_policy_mode="enforce",
+        privacy_policy_fail_on_high_risk=True,
+    )
+    policy = report.get("privacy_policy", {})
+    assert policy.get("would_block") is True
+    assert policy.get("policy_decision") == "block"
+    assert any(
+        str(v).startswith("high_risk_categories_present")
+        for v in policy.get("violations", [])
+    )
+
+
+def test_privacy_policy_threshold_warning_in_advisory_mode():
+    schema = SchemaModel(
+        tables=[TableDef(name="users", columns=[ColumnDef(name="email", data_type=DataType.STRING)])]
+    )
+    pii = {"users": {"email": "email"}}
+    report = compute_quality_report(
+        schema,
+        {"users": [{"email": "x@y.com"}]},
+        pii_detection=pii,
+        privacy_mode="warn",
+        redaction_config=RedactionConfig(enabled=True),
+        privacy_policy_mode="advisory",
+        privacy_policy_max_risk_score=1,
+    )
+    policy = report.get("privacy_policy", {})
+    assert policy.get("would_block") is True
+    assert policy.get("policy_decision") == "warn"
+    assert any("risk_score_exceeds_threshold" in v for v in policy.get("violations", []))
+
+
+def test_privacy_policy_sensitive_column_threshold_enforced():
+    schema = SchemaModel(
+        tables=[
+            TableDef(
+                name="users",
+                columns=[
+                    ColumnDef(name="email", data_type=DataType.STRING),
+                    ColumnDef(name="phone", data_type=DataType.STRING),
+                ],
+            )
+        ]
+    )
+    pii = {"users": {"email": "email", "phone": "phone"}}
+    report = compute_quality_report(
+        schema,
+        {"users": [{"email": "x@y.com", "phone": "123"}]},
+        pii_detection=pii,
+        privacy_mode="warn",
+        redaction_config=RedactionConfig(enabled=True),
+        privacy_policy_mode="enforce",
+        privacy_policy_max_sensitive_columns=1,
+    )
+    policy = report.get("privacy_policy", {})
+    assert policy.get("policy_decision") == "block"
+    assert policy.get("violation_count", 0) >= 1
+    assert any(
+        "sensitive_columns_exceed_threshold" in v
+        for v in policy.get("violations", [])
+    )
 
 
 # --- Contracts ---

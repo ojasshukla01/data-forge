@@ -257,12 +257,18 @@ def run_generate(req: Any) -> dict[str, Any]:
         drift_profile=drift,
         messiness=mess,
         privacy_mode=req.privacy_mode or "warn",
+        privacy_policy_mode=req.privacy_policy_mode or "advisory",
+        privacy_policy_max_risk_score=req.privacy_policy_max_risk_score,
+        privacy_policy_max_sensitive_columns=req.privacy_policy_max_sensitive_columns,
+        privacy_policy_fail_on_high_risk=bool(req.privacy_policy_fail_on_high_risk),
+        privacy_policy_block_categories=req.privacy_policy_block_categories,
         load_target=req.load_target,
         db_uri=req.db_uri or (str(output_dir / "data.db") if req.load_target == "sqlite" else None),
         load_params=req.load_params,
         chunk_size=req.chunk_size,
         batch_size=req.batch_size,
         export_format=req.export_format,
+        layer_materialization=req.layer_materialization or "eager",
     )
 
     result = run_generation(

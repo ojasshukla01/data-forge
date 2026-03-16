@@ -254,6 +254,66 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
                 "columns_modified": cols_modified,
             })
 
+    compatibility_breaking: list[dict[str, Any]] = []
+    compatibility_non_breaking: list[dict[str, Any]] = []
+    for table in tables_removed:
+        compatibility_breaking.append(
+            {"type": "table_removed", "table": table, "reason": "Table no longer exists in newer schema"}
+        )
+    for table in tables_added:
+        compatibility_non_breaking.append(
+            {"type": "table_added", "table": table, "reason": "New table is additive for producers"}
+        )
+    for mod in tables_modified:
+        table = mod["table"]
+        for col in mod.get("columns_removed", []):
+            compatibility_breaking.append(
+                {
+                    "type": "column_removed",
+                    "table": table,
+                    "column": col,
+                    "reason": "Column removed in newer schema",
+                }
+            )
+        for col in mod.get("columns_added", []):
+            compatibility_non_breaking.append(
+                {
+                    "type": "column_added",
+                    "table": table,
+                    "column": col,
+                    "reason": "Column added in newer schema",
+                }
+            )
+        left_cols = {
+            c.get("name", ""): c for c in left_tables.get(table, {}).get("columns", []) if c.get("name")
+        }
+        right_cols = {
+            c.get("name", ""): c for c in right_tables.get(table, {}).get("columns", []) if c.get("name")
+        }
+        for col in mod.get("columns_modified", []):
+            left_type = left_cols.get(col, {}).get("data_type")
+            right_type = right_cols.get(col, {}).get("data_type")
+            if left_type != right_type:
+                compatibility_breaking.append(
+                    {
+                        "type": "column_type_changed",
+                        "table": table,
+                        "column": col,
+                        "from": left_type,
+                        "to": right_type,
+                        "reason": "Column type changed between versions",
+                    }
+                )
+            else:
+                compatibility_non_breaking.append(
+                    {
+                        "type": "column_modified",
+                        "table": table,
+                        "column": col,
+                        "reason": "Column metadata changed without type change",
+                    }
+                )
+
     changed: list[dict[str, Any]] = []
     all_keys = set(left_schema.keys()) | set(right_schema.keys())
     for key in sorted(all_keys):
@@ -263,6 +323,36 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
         r_val = right_schema.get(key)
         if l_val != r_val:
             changed.append({"key": key, "left": l_val, "right": r_val})
+
+    def _rel_signature(rel: dict[str, Any]) -> str:
+        from_table = rel.get("from_table", "")
+        to_table = rel.get("to_table", "")
+        from_cols = ",".join(rel.get("from_columns") or [])
+        to_cols = ",".join(rel.get("to_columns") or [])
+        return f"{from_table}:{from_cols}->{to_table}:{to_cols}"
+
+    left_rels = {_rel_signature(r): r for r in left_schema.get("relationships", []) if isinstance(r, dict)}
+    right_rels = {_rel_signature(r): r for r in right_schema.get("relationships", []) if isinstance(r, dict)}
+    rels_added = sorted(right_rels.keys() - left_rels.keys())
+    rels_removed = sorted(left_rels.keys() - right_rels.keys())
+    if rels_removed:
+        for rel in rels_removed:
+            compatibility_breaking.append(
+                {
+                    "type": "relationship_removed",
+                    "relationship": rel,
+                    "reason": "Relationship removed in newer schema",
+                }
+            )
+    if rels_added:
+        for rel in rels_added:
+            compatibility_non_breaking.append(
+                {
+                    "type": "relationship_added",
+                    "relationship": rel,
+                    "reason": "Relationship added in newer schema",
+                }
+            )
 
     return {
         "schema_id": schema_id,
@@ -276,6 +366,17 @@ def diff_custom_schema_versions(schema_id: str, left: int, right: int) -> dict[s
             "tables_added": len(tables_added),
             "tables_removed": len(tables_removed),
             "tables_modified": len(tables_modified),
+            "relationships_added": len(rels_added),
+            "relationships_removed": len(rels_removed),
+        },
+        "relationships_added": rels_added,
+        "relationships_removed": rels_removed,
+        "compatibility": {
+            "status": "breaking" if compatibility_breaking else "compatible",
+            "breaking_changes": compatibility_breaking,
+            "non_breaking_changes": compatibility_non_breaking,
+            "breaking_count": len(compatibility_breaking),
+            "non_breaking_count": len(compatibility_non_breaking),
         },
     }
 

@@ -78,11 +78,33 @@ def generate(
     messiness: str = typer.Option("clean", "--messiness", help="Source messiness: clean, realistic, chaotic"),
     write_manifest: Path | None = typer.Option(None, "--write-manifest", help="Write golden manifest after generation"),
     privacy_mode: str = typer.Option(None, "--privacy-mode", help="Privacy: off, warn, strict"),
+    privacy_policy_mode: str = typer.Option(
+        "advisory", "--privacy-policy-mode", help="Policy mode: advisory or enforce"
+    ),
+    privacy_policy_max_risk_score: int | None = typer.Option(
+        None, "--privacy-policy-max-risk-score", help="Block/warn when score exceeds threshold"
+    ),
+    privacy_policy_max_sensitive_columns: int | None = typer.Option(
+        None,
+        "--privacy-policy-max-sensitive-columns",
+        help="Block/warn when sensitive column count exceeds threshold",
+    ),
+    privacy_policy_fail_on_high_risk: bool = typer.Option(
+        False, "--privacy-policy-fail-on-high-risk", help="Treat high-risk categories as policy violation"
+    ),
+    privacy_policy_block_categories: list[str] | None = typer.Option(
+        None, "--privacy-policy-block-category", help="Category to block; can be repeated"
+    ),
     contracts: bool = typer.Option(False, "--contracts", help="Also generate OpenAPI contract fixtures when schema is OpenAPI"),
     load: str | None = typer.Option(None, "--load", help="Load into database: sqlite, duckdb, postgres, snowflake, bigquery"),
     db_uri: str | None = typer.Option(None, "--db-uri", help="Database connection string or path"),
     chunk_size: int | None = typer.Option(None, "--chunk-size", help="Generate large tables in chunks (memory-safe)"),
     batch_size: int = typer.Option(1000, "--batch-size", help="Batch size for DB inserts"),
+    layer_materialization: str = typer.Option(
+        "eager",
+        "--layer-materialization",
+        help="Layer materialization strategy for --layer all: eager or lazy",
+    ),
     sf_account: str | None = typer.Option(None, "--sf-account", help="Snowflake account"),
     sf_user: str | None = typer.Option(None, "--sf-user", help="Snowflake user"),
     sf_password: str | None = typer.Option(None, "--sf-password", help="Snowflake password"),
@@ -193,12 +215,18 @@ def generate(
         drift_profile=drift,
         messiness=mess,
         privacy_mode=_privacy,
+        privacy_policy_mode=privacy_policy_mode,
+        privacy_policy_max_risk_score=privacy_policy_max_risk_score,
+        privacy_policy_max_sensitive_columns=privacy_policy_max_sensitive_columns,
+        privacy_policy_fail_on_high_risk=privacy_policy_fail_on_high_risk,
+        privacy_policy_block_categories=privacy_policy_block_categories,
         load_target=load,
         db_uri=_db_uri,
         load_params=_load_params if _load_params else None,
         chunk_size=chunk_size,
         batch_size=batch_size,
         export_format=format,
+        layer_materialization=layer_materialization,
     )
     result = run_generation(
         request=req,

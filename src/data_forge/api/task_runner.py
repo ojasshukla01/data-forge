@@ -14,7 +14,13 @@ from data_forge.api.schemas import GenerateRequest
 from data_forge.models.config_schema import RunConfig
 from data_forge.models.run_manifest import build_run_manifest, write_manifest_json, write_manifest_markdown
 from data_forge.config import Settings
-from data_forge.simulation.event_stream import generate_event_stream, write_event_stream_jsonl
+from data_forge.simulation.event_stream import (
+    build_unstructured_link_report,
+    generate_event_stream,
+    generate_support_ticket_notes,
+    write_event_stream_jsonl,
+    write_unstructured_notes_jsonl,
+)
 from data_forge.simulation.time_patterns import EventPattern
 
 STAGES = [
@@ -63,6 +69,8 @@ def _artifact_type_from_path(path: str, rel: str) -> str:
         return "event_stream"
     if "pipeline_snapshot" in rel_lower or "snapshot" in rel_lower:
         return "pipeline_snapshot"
+    if "unstructured" in rel_lower or "support_tickets" in rel_lower:
+        return "unstructured"
     if "benchmark_profile" in rel_lower:
         return "benchmark_profile"
     return "dataset"
@@ -121,6 +129,17 @@ def _run_pipeline_simulation(
     write_event_stream_jsonl(events, events_path)
     paths.append(events_path)
 
+    notes_dir = output_dir / "unstructured"
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    notes_path = notes_dir / "support_tickets.jsonl"
+    notes = generate_support_ticket_notes(events, seed=seed, max_notes=max(50, event_count // 20))
+    write_unstructured_notes_jsonl(notes, notes_path)
+    paths.append(notes_path)
+    link_report = build_unstructured_link_report(events, notes)
+    link_report_path = notes_dir / "link_report.json"
+    link_report_path.write_text(json.dumps(link_report, indent=2), encoding="utf-8")
+    paths.append(link_report_path)
+
     # Pipeline snapshot metadata
     snapshot = {
         "stages": ["source", "transform", "validate", "export", "load"],
@@ -135,6 +154,9 @@ def _run_pipeline_simulation(
 
     summary = {
         "event_stream_count": len(events),
+        "linked_unstructured_count": len(notes),
+        "linked_unstructured_coverage_ratio": link_report.get("coverage_ratio", 0.0),
+        "linked_unstructured_orphan_links": link_report.get("orphan_link_count", 0),
         "time_window": {"start": start_date, "end": end_date},
         "event_pattern": pattern_str,
         "replay_mode": replay_mode,

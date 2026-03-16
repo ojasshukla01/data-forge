@@ -217,3 +217,46 @@ async def test_clone_preserves_pipeline_simulation_config():
         assert ps.get("event_density") == "high"
         assert ps.get("event_pattern") == "burst"
         assert ps.get("replay_mode") == "shuffled"
+
+
+@pytest.mark.asyncio
+async def test_pipeline_simulation_generates_linked_unstructured_artifact():
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        r = await client.post(
+            "/api/runs/generate",
+            json={
+                "pack": "saas_billing",
+                "scale": 120,
+                "pipeline_simulation": {
+                    "enabled": True,
+                    "event_density": "medium",
+                    "event_pattern": "steady",
+                    "replay_mode": "ordered",
+                },
+            },
+        )
+        assert r.status_code == 200
+        run_id = r.json()["run_id"]
+        for _ in range(40):
+            det = await client.get(f"/api/runs/{run_id}")
+            if det.status_code != 200:
+                break
+            status = det.json().get("status")
+            if status in ("succeeded", "failed"):
+                break
+            import asyncio
+            await asyncio.sleep(0.3)
+        detail = (await client.get(f"/api/runs/{run_id}")).json()
+        summary = detail.get("result_summary") or {}
+        sim = summary.get("pipeline_simulation_summary") or {}
+        assert sim.get("linked_unstructured_count", 0) >= 1
+        assert "linked_unstructured_coverage_ratio" in sim
+        assert "linked_unstructured_orphan_links" in sim
+        artifacts = detail.get("artifacts", [])
+        assert any(
+            (a.get("type") == "unstructured" and "link_report.json" in str(a.get("path", "")))
+            for a in artifacts
+        )

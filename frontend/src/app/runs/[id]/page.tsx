@@ -125,6 +125,48 @@ export default function RunDetailPage() {
     succeeded: "text-green-600",
     failed: "text-red-600",
   };
+  const qualitySummary = (summary?.quality_summary ?? {}) as Record<string, unknown>;
+  const privacySummary = (qualitySummary?.privacy_summary ?? {}) as Record<string, unknown>;
+  const privacyAudit = (qualitySummary?.privacy_audit ?? {}) as Record<string, unknown>;
+  const privacyPolicy = (qualitySummary?.privacy_policy ?? {}) as Record<string, unknown>;
+  const materialization = (qualitySummary?.materialization ?? {}) as Record<string, unknown>;
+  const ruleViolations = (qualitySummary?.rule_violations ?? {}) as Record<string, unknown>;
+  const referentialIntegrity = qualitySummary?.referential_integrity as boolean | undefined;
+  const referentialErrors = Array.isArray(qualitySummary?.referential_errors)
+    ? (qualitySummary.referential_errors as unknown[])
+    : [];
+  const highRiskCategories = Array.isArray(privacySummary?.high_risk_categories_detected)
+    ? (privacySummary.high_risk_categories_detected as string[])
+    : [];
+  const warningsCount = Array.isArray(summary?.warnings) ? summary.warnings.length : 0;
+  const materializationWarnings = Array.isArray(materialization?.warnings)
+    ? materialization.warnings.length
+    : 0;
+  const privacyWarningCount = Array.isArray(privacyAudit?.warnings)
+    ? privacyAudit.warnings.length
+    : 0;
+  const policyDecision = typeof privacyPolicy?.policy_decision === "string"
+    ? (privacyPolicy.policy_decision as string)
+    : null;
+  const ruleViolationCount =
+    typeof ruleViolations?.total === "number" ? (ruleViolations.total as number) : 0;
+  const policyViolations = Array.isArray(privacyPolicy?.violations)
+    ? (privacyPolicy.violations as string[])
+    : [];
+  const policyViolationCount = policyViolations.length;
+  const layerMaterialization = typeof materialization?.layer_materialization === "string"
+    ? String(materialization.layer_materialization)
+    : null;
+  const riskSignals = [
+    ruleViolationCount > 0 ? `${ruleViolationCount} rule violations` : null,
+    referentialIntegrity === false ? `${referentialErrors.length} referential integrity issues` : null,
+    highRiskCategories.length > 0 ? `${highRiskCategories.length} high-risk privacy categories` : null,
+    warningsCount > 0 ? `${warningsCount} generation warnings` : null,
+    materializationWarnings > 0 ? `${materializationWarnings} memory/materialization warnings` : null,
+    privacyWarningCount > 0 ? `${privacyWarningCount} privacy warnings` : null,
+    policyViolationCount > 0 ? `${policyViolationCount} policy violations` : null,
+    policyDecision && policyDecision !== "allow" ? `privacy policy decision: ${policyDecision}` : null,
+  ].filter(Boolean) as string[];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -237,6 +279,53 @@ export default function RunDetailPage() {
             {timeline?.why_slow_hint ?? (run.duration_seconds != null ? `Total duration: ${run.duration_seconds}s. Check stage timeline for bottlenecks.` : "")}
           </p>
         </div>
+      )}
+
+      {run.status === "succeeded" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Run Risk & Impact</CardTitle>
+            <p className="text-sm text-slate-500 mt-1">What happened, what is risky, and what needs attention</p>
+          </CardHeader>
+          <CardContent>
+            {riskSignals.length > 0 ? (
+              <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
+                {riskSignals.map((msg) => (
+                  <li key={msg}>{msg}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-green-700">No major risk signals detected for this run.</p>
+            )}
+            {highRiskCategories.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {highRiskCategories.map((c) => (
+                  <Badge key={c} variant="error">{c}</Badge>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {policyDecision && policyDecision !== "allow" && (
+                <Badge variant={policyDecision === "block" ? "error" : "warning"}>
+                  Policy: {policyDecision}
+                </Badge>
+              )}
+              {layerMaterialization && (
+                <Badge variant="category">Layer materialization: {layerMaterialization}</Badge>
+              )}
+            </div>
+            {policyViolations.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-slate-700">Policy violations</p>
+                <ul className="list-disc pl-5 text-xs text-slate-600 space-y-0.5 mt-1">
+                  {policyViolations.slice(0, 5).map((v) => (
+                    <li key={v}>{v}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {run.stage_progress && run.stage_progress.length > 0 && (() => {
