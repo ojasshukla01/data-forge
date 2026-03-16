@@ -49,7 +49,7 @@ test.describe.serial("validation recovery", () => {
     // Save
     await page.getByRole("button", { name: /Save schema/i }).first().click();
     await expect(
-      page.getByText(/Schema saved successfully|saved/i),
+      page.getByText(/^Schema saved successfully/i).first(),
     ).toBeVisible({ timeout: 10000 });
   });
 });

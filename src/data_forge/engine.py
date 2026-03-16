@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from data_forge.config import OutputFormat
-from data_forge.performance import collect_performance_warnings
+from data_forge.performance import collect_performance_warnings, build_materialization_diagnostics
 from data_forge.models.generation import (
     DataLayer,
     DriftProfile,
@@ -104,6 +104,12 @@ def run_generation(
     if request.tables_filter:
         tables_order = [t for t in tables_order if t.name in request.tables_filter]
     row_counts = default_plan_row_counts(schema, request.scale, request.tables_filter)
+    approx_cols_by_table = {t.name: len(t.columns) for t in tables_order}
+    materialization = build_materialization_diagnostics(
+        row_counts=row_counts,
+        approx_cols_by_table=approx_cols_by_table,
+        layer=request.layer.value,
+    )
     primitive_gen = PrimitiveGenerator(seed=request.seed, locale=request.locale)
     rel_builder = RelationshipBuilder(schema)
     table_data: dict[str, list[dict[str, Any]]] = {}
@@ -179,12 +185,13 @@ def run_generation(
 
     layers_data: dict[str, dict[str, list[dict[str, Any]]]] = {}
     if request.layer == DataLayer.ALL:
-        layers_data["bronze"] = {k: [dict(r) for r in v] for k, v in table_data.items()}
+        # Keep bronze as the already-generated table_data to avoid one extra full-table copy.
+        layers_data["bronze"] = table_data
         layers_data["silver"] = transform_to_layer(layers_data["bronze"], "silver")
         layers_data["gold"] = transform_to_layer(layers_data["bronze"], "gold")
     else:
         layer_name = request.layer.value
-        layers_data[layer_name] = {k: [dict(r) for r in v] for k, v in table_data.items()}
+        layers_data[layer_name] = table_data
 
     # PII classification and privacy
     pii_result = classify_schema(schema)
@@ -214,7 +221,10 @@ def run_generation(
     perf_warnings = collect_performance_warnings(
         scale, chunk_size, (request.export_format or "parquet")
     )
+    perf_warnings.extend(materialization.get("warnings", []))
+    perf_warnings = list(dict.fromkeys(perf_warnings))
     quality_report["performance_warnings"] = perf_warnings
+    quality_report["materialization"] = materialization
     quality_report["timings"] = timings
 
     snapshots: list[TableSnapshot] = []
