@@ -42,6 +42,24 @@ The `POST /api/schema/preview` endpoint (sample data for a schema) is non-persis
 - **CI**: GitHub Actions should not receive production credentials. Use repository secrets only for non-sensitive CI config.
 - **Dependencies**: Run `uv pip compile` and `uv pip-audit` periodically to check for vulnerable packages.
 
+## Privacy reporting
+
+Generation runs produce a **privacy summary** and **privacy_audit** in the quality report (and in run lineage when applicable).
+
+**What is measured:**
+
+- **PII detection**: Column-level classification by name and generator hints (email, name, phone, address, credentials, financial, government_id, health, etc.). Categories and certainty (detected vs suspected) are in `quality_report.pii_detection`.
+- **privacy_summary**: `total_sensitive_columns`, `by_category` (count per PII category), `high_risk_categories_detected` (credentials, government_id, financial).
+- **privacy_audit**: `sensitive_columns_detected`, `redactions_applied` (when redaction is enabled), `warnings` (e.g. suspected/credentials/financial fields). No automatic blocking; `blocked` is reserved for future policy gating.
+
+**What is not provided:**
+
+- No formal privacy or anonymity guarantees. Synthetic data can still resemble real data; use redaction and access controls as appropriate.
+- No automatic masking of values in exports; redaction applies to in-report samples only when `privacy_mode` is `warn` or `strict`.
+- Detection is heuristic (column names and hints), not content-based.
+
+See `pii/classifier.py` and `validators/quality.py` for implementation details.
+
 ## Storage
 
 - Custom schemas are stored as JSON files in `custom_schemas/`. Ensure this directory has appropriate file permissions.

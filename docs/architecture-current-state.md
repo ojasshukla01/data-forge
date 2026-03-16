@@ -85,7 +85,8 @@ flowchart LR
 |--------|---------|
 | **api/** | FastAPI app, routers (domain_packs, generate, preflight, validate, artifacts, schema_viz, runs, benchmark, scenarios, custom_schemas), task_runner, run_store, scenario_store, custom_schema_store, schemas, security, middleware |
 | **models/** | SchemaModel, config_schema (RunConfig), generation, run_manifest, rules, simulation, artifact_metadata |
-| **engine.py** | `run_generation`, `export_result` — core synthetic data generation |
+| **engine.py** | `run_generation`, `export_result` — core synthetic data generation; uses row planner for cardinality |
+| **generators/row_planner.py** | Row/cardinality planning; default table-name heuristics; pluggable for custom planners |
 | **schema_ingest/** | `load_schema()` — SQL DDL, JSON Schema, OpenAPI; path safety |
 | **rule_engine/** | YAML/JSON rule sets; `load_rule_set()` |
 | **domain_packs/** | `get_pack()`, `list_packs()` — saas_billing, ecommerce, fintech_transactions, etc. |

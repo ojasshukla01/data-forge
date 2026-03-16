@@ -1,7 +1,13 @@
-"""Streamlit UI for Data Forge."""
+"""Streamlit UI for Data Forge. Requires streamlit extra: pip install data-forge[streamlit]."""
 
-import streamlit as st
+import sys
 from pathlib import Path
+
+try:
+    import streamlit as st
+except ImportError:
+    print("Streamlit UI requires the streamlit extra. Install with: pip install data-forge[streamlit]", file=sys.stderr)
+    sys.exit(1)
 
 from data_forge.models.generation import GenerationRequest
 from data_forge.engine import run_generation, export_result

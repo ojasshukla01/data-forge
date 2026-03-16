@@ -3,9 +3,8 @@
 import pytest
 from pathlib import Path
 
-from data_forge.adapters import get_adapter, DATABASE_ADAPTERS
-from data_forge.adapters.snowflake_adapter import SnowflakeAdapter
-from data_forge.adapters.bigquery_adapter import BigQueryAdapter
+from data_forge.adapters import get_adapter, DATABASE_ADAPTERS, AdapterNotSupportedError
+from data_forge.adapters.registry import SUPPORTED_ADAPTER_NAMES
 from data_forge.dbt_export import export_dbt
 from data_forge.warehouse_validation import run_warehouse_validation
 from data_forge.models.schema import SchemaModel, TableDef, ColumnDef, DataType
@@ -24,38 +23,55 @@ def _run_cli(args: list[str]):
 
 
 # --- Registry ---
-def test_snowflake_and_bigquery_registered():
-    assert "snowflake" in DATABASE_ADAPTERS
-    assert "bigquery" in DATABASE_ADAPTERS
-    assert DATABASE_ADAPTERS["snowflake"] is SnowflakeAdapter
-    assert DATABASE_ADAPTERS["bigquery"] is BigQueryAdapter
+def test_snowflake_and_bigquery_supported():
+    """Snowflake and BigQuery are supported names (lazy-loaded when [warehouse] extra installed)."""
+    assert "snowflake" in SUPPORTED_ADAPTER_NAMES
+    assert "bigquery" in SUPPORTED_ADAPTER_NAMES
+    # Core adapters are in DATABASE_ADAPTERS; cloud are lazy-loaded via get_adapter
+    assert "sqlite" in DATABASE_ADAPTERS
+    assert "duckdb" in DATABASE_ADAPTERS
 
 
 def test_get_adapter_snowflake():
-    adapter = get_adapter(
-        "snowflake",
-        "",
-        snowflake_account="xy",
-        snowflake_user="u",
-        snowflake_password="p",
-        snowflake_database="db",
-        snowflake_schema="sc",
-    )
-    assert isinstance(adapter, SnowflakeAdapter)
-    assert adapter.account == "xy"
-    assert adapter.database == "db"
+    """get_adapter('snowflake') returns adapter when [warehouse] installed, else AdapterNotSupportedError."""
+    try:
+        from data_forge.adapters.snowflake_adapter import SnowflakeAdapter
+        adapter = get_adapter(
+            "snowflake",
+            "",
+            snowflake_account="xy",
+            snowflake_user="u",
+            snowflake_password="p",
+            snowflake_database="db",
+            snowflake_schema="sc",
+        )
+        assert isinstance(adapter, SnowflakeAdapter)
+        assert adapter.account == "xy"
+        assert adapter.database == "db"
+    except AdapterNotSupportedError as e:
+        assert "warehouse" in str(e).lower()
+        pytest.skip("Snowflake adapter requires [warehouse] extra")
 
 
 def test_get_adapter_bigquery():
-    adapter = get_adapter(
-        "bigquery",
-        "",
-        bigquery_project="proj",
-        bigquery_dataset="ds",
-    )
-    assert isinstance(adapter, BigQueryAdapter)
-    assert adapter.project == "proj"
-    assert adapter.dataset_id == "ds"
+    """get_adapter('bigquery') returns adapter when [warehouse] installed, else AdapterNotSupportedError."""
+    try:
+        from data_forge.adapters.bigquery_adapter import BigQueryAdapter
+    except ImportError:
+        pytest.skip("BigQuery adapter requires [warehouse] extra")
+    try:
+        adapter = get_adapter(
+            "bigquery",
+            "",
+            bigquery_project="proj",
+            bigquery_dataset="ds",
+        )
+        assert isinstance(adapter, BigQueryAdapter)
+        assert adapter.project == "proj"
+        assert adapter.dataset_id == "ds"
+    except AdapterNotSupportedError as e:
+        assert "warehouse" in str(e).lower()
+        pytest.skip("BigQuery adapter requires [warehouse] extra")
 
 
 # --- dbt export ---
@@ -135,17 +151,31 @@ def test_warehouse_validation_row_count_mismatch():
 
 # --- Cloud adapter mocks ---
 def test_snowflake_adapter_raises_on_missing_creds():
+    try:
+        from data_forge.adapters.snowflake_adapter import SnowflakeAdapter
+    except ImportError:
+        pytest.skip("Snowflake adapter requires [warehouse] extra")
     adapter = SnowflakeAdapter(uri="", account="", user="", password="")
-    with pytest.raises(ValueError) as exc:
-        adapter.connect()
-    assert "credentials" in str(exc.value).lower()
+    try:
+        with pytest.raises(ValueError) as exc:
+            adapter.connect()
+        assert "credentials" in str(exc.value).lower()
+    except ImportError:
+        pytest.skip("Snowflake connector not installed ([warehouse] extra)")
 
 
 def test_bigquery_adapter_raises_on_missing_config():
+    try:
+        from data_forge.adapters.bigquery_adapter import BigQueryAdapter
+    except ImportError:
+        pytest.skip("BigQuery adapter requires [warehouse] extra")
     adapter = BigQueryAdapter(uri="", project="", dataset="")
-    with pytest.raises(ValueError) as exc:
-        adapter.connect()
-    assert "config" in str(exc.value).lower()
+    try:
+        with pytest.raises(ValueError) as exc:
+            adapter.connect()
+        assert "config" in str(exc.value).lower()
+    except ImportError:
+        pytest.skip("google.cloud.bigquery not installed ([warehouse] extra)")
 
 
 # --- CLI ---

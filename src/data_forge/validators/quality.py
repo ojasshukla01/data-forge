@@ -160,17 +160,28 @@ def compute_quality_report(
             if sens and s.get("row"):
                 redactions_count += sens
     sensitive_cols = 0
+    by_category: dict[str, int] = {}
+    high_risk = {"credentials", "government_id", "financial"}
+    high_risk_detected: list[str] = []
     if pii_detection:
         for tcols in pii_detection.values():
             for cat in tcols.values():
                 if cat != "unclassified":
                     sensitive_cols += 1
+                    by_category[cat] = by_category.get(cat, 0) + 1
+                    if cat in high_risk and cat not in high_risk_detected:
+                        high_risk_detected.append(cat)
     report["privacy_audit"] = {
         "mode": privacy_mode,
         "sensitive_columns_detected": sensitive_cols,
         "redactions_applied": redactions_count,
         "warnings": privacy_warnings or [],
         "blocked": False,
+    }
+    report["privacy_summary"] = {
+        "total_sensitive_columns": sensitive_cols,
+        "by_category": by_category,
+        "high_risk_categories_detected": high_risk_detected,
     }
 
     if drift_events:

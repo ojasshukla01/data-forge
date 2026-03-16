@@ -102,3 +102,20 @@ Validation: `rule_type` must be one of `faker`, `uuid`, `sequence`, `range`. Par
 ## Distributions
 
 `distribution_rules` are applied after value generation (e.g. categorical, skewed). They modify the generated value. `generation_rules` produce the base value.
+
+## Row planning and cardinality
+
+Row counts per table are determined by a **row planner** (`generators/row_planner.py`). The default planner uses table-name heuristics for backward compatibility:
+
+- Tables named `users`, `customers`, `organizations`, `products` → `scale`
+- Tables named `orders`, `invoices`, `subscriptions` → `max(scale//2, scale*2)`
+- Table names containing `line`, `item`, or `detail` → `scale * 3`
+- All other tables → `scale`
+
+This keeps existing pack behavior consistent. For domain-agnostic or relationship-aware cardinality, a custom planner can be plugged in later (extension point).
+
+## Memory and chunking
+
+- **Chunking:** When `chunk_size` is set on the request, tables with row count &gt; chunk_size are generated in chunks. This reduces per-chunk peak memory during generation, but **all rows are still accumulated in memory** for that table before FK resolution, drift, CDC, messiness, and export. Export is currently full in-memory (no streaming from the pipeline).
+- **Large runs:** For scale ≥ 50k without `chunk_size`, the engine adds a performance warning suggesting `chunk_size` (e.g. 10000). JSON export also triggers a warning for large datasets.
+- **Future:** A streaming export path (e.g. CSV/JSONL written incrementally from a generator iterator) is planned to avoid holding full tables in memory when chunking is used.
