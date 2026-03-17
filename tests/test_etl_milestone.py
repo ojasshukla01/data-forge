@@ -15,12 +15,14 @@ from data_forge.models.generation import (
     GenerationRequest,
     MessinessProfile,
 )
+from data_forge.models.schema import SchemaModel, TableDef, ColumnDef
 from data_forge.generators.cdc_simulator import apply_mode
 from data_forge.generators.layers import bronze_to_silver, silver_to_gold
 from data_forge.generators.messiness import apply_messiness
-from data_forge.generators.schema_drift import apply_drift
+from data_forge.generators.schema_drift import apply_drift, apply_drift_store
 from data_forge.golden import create_manifest, load_manifest, validate_against_manifest, write_manifest
 from data_forge.config import OutputFormat
+from data_forge.table_store import InMemoryTableStore
 
 
 def _run_cli(args: list[str]) -> subprocess.CompletedProcess:
@@ -127,6 +129,17 @@ def test_mild_vs_aggressive_drift_levels():
     _, _, mild = apply_drift(schema, data, DriftProfile.MILD, 100)
     _, _, aggressive = apply_drift(schema, data, DriftProfile.AGGRESSIVE, 100)
     assert len(aggressive) >= len(mild) or (len(mild) == 0 and len(aggressive) >= 0)
+
+
+def test_store_native_drift_mutates_table_store():
+    schema = SchemaModel(tables=[TableDef(name="t", columns=[ColumnDef(name="x"), ColumnDef(name="y")])])
+    store = InMemoryTableStore()
+    store.set_table_rows("t", [{"x": "1", "y": 2}])
+
+    new_schema, events = apply_drift_store(schema, store, DriftProfile.MODERATE, 42)
+    assert isinstance(events, list)
+    assert len(new_schema.tables) == 1
+    assert store.get_row_count("t") == 1
 
 
 # Golden datasets

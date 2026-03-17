@@ -34,6 +34,7 @@ class GenerationConfig(BaseModel):
     layer_materialization: str = "eager"  # eager | lazy
     reduced_memory_mode: bool = False
     snapshot_row_limit: int | None = None
+    table_store_backend: str = "auto"
 
 
 class SimulationConfig(BaseModel):
@@ -144,6 +145,7 @@ class RunConfig(BaseModel):
         d["layer_materialization"] = g.layer_materialization
         d["reduced_memory_mode"] = g.reduced_memory_mode
         d["snapshot_row_limit"] = g.snapshot_row_limit
+        d["table_store_backend"] = g.table_store_backend
         d["privacy_mode"] = self.privacy.mode
         d["privacy_policy_mode"] = self.privacy.policy_mode
         d["privacy_policy_max_risk_score"] = self.privacy.policy_max_risk_score
@@ -228,6 +230,7 @@ def normalize_legacy_config(raw: dict[str, Any]) -> RunConfig:
         layer_materialization=str(r.get("layer_materialization", "eager")),
         reduced_memory_mode=bool(r.get("reduced_memory_mode", False)),
         snapshot_row_limit=r.get("snapshot_row_limit"),
+        table_store_backend=str(r.get("table_store_backend", "auto")),
     )
     return RunConfig(
         config_schema_version=int(r.get("config_schema_version", CONFIG_SCHEMA_VERSION)),

@@ -7,6 +7,7 @@ from data_forge.validators.quality import (
     load_dataset_from_dir,
 )
 from data_forge.models.rules import BusinessRule, RuleSet, RuleType
+from data_forge.table_store import InMemoryTableStore
 
 
 def test_validate_referential_integrity_pass():
@@ -97,6 +98,32 @@ def test_compute_quality_report_includes_privacy_summary():
     assert "high_risk_categories_detected" in ps
     assert ps["total_sensitive_columns"] >= 1
     assert "email" in ps.get("by_category", {})
+
+
+def test_compute_quality_report_from_table_store():
+    schema = SchemaModel(
+        tables=[
+            TableDef(name="parents", columns=[ColumnDef(name="id")], primary_key=["id"]),
+            TableDef(name="children", columns=[ColumnDef(name="id"), ColumnDef(name="parent_id")]),
+        ],
+        relationships=[
+            RelationshipDef(
+                name="fk",
+                from_table="children",
+                from_columns=["parent_id"],
+                to_table="parents",
+                to_columns=["id"],
+            ),
+        ],
+    )
+    store = InMemoryTableStore()
+    store.set_table_rows("parents", [{"id": 1}])
+    store.set_table_rows("children", [{"id": 10, "parent_id": 1}, {"id": 11, "parent_id": 2}])
+
+    report = compute_quality_report(schema, table_store=store)
+    assert report["summary"]["total_rows"] == 3
+    assert report["referential_integrity"] is False
+    assert len(report.get("referential_errors", [])) == 1
 
 
 def test_load_dataset_from_dir_empty(tmp_path):

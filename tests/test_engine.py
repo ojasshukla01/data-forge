@@ -108,7 +108,8 @@ def test_reduced_memory_mode_samples_snapshots_but_exports_full(tmp_path):
     )
     result = run_generation(req, schema=pack.schema, rule_set=pack.rule_set)
     assert result.success
-    assert result.table_data_for_export is not None
+    assert result.table_store_for_export is not None
+    assert result.table_store_backend_used in {"spill", "memory"}
     assert len(result.tables) > 0
     for t in result.tables:
         assert len(t.rows) <= 5
@@ -117,5 +118,52 @@ def test_reduced_memory_mode_samples_snapshots_but_exports_full(tmp_path):
 
     paths = export_result(result, tmp_path, fmt=OutputFormat.JSONL)
     assert len(paths) == len(result.tables)
-    # Internal export cache should be released after export in reduced memory mode.
-    assert result.table_data_for_export is None
+    # Spill-backed table store should be cleaned up after export.
+    if result.table_store_backend_used == "spill":
+        assert result.table_store_for_export is None
+
+
+def test_layer_all_reduced_memory_uses_store_native_export(tmp_path):
+    pack = get_pack("saas_billing")
+    if not pack:
+        pytest.skip("saas_billing pack not found")
+    req = GenerationRequest(
+        schema_name="saas_billing",
+        seed=17,
+        scale=40,
+        layer=DataLayer.ALL,
+        layer_materialization="eager",
+        reduced_memory_mode=True,
+        snapshot_row_limit=5,
+    )
+    result = run_generation(req, schema=pack.schema, rule_set=pack.rule_set)
+    assert result.success
+    assert result.layers_data is not None
+    assert "bronze" in result.layers_data
+    assert result.layers_data["bronze"] == {}
+    assert result.table_store_for_export is not None
+
+    paths = export_result(result, tmp_path, fmt=OutputFormat.CSV)
+    path_strs = {str(p).replace("\\", "/") for p in paths}
+    assert any("/bronze/" in p for p in path_strs)
+    assert any("/silver/" in p for p in path_strs)
+    assert any("/gold/" in p for p in path_strs)
+
+
+def test_explicit_spill_backend_exports_via_table_store(tmp_path):
+    pack = get_pack("saas_billing")
+    if not pack:
+        pytest.skip("saas_billing pack not found")
+    req = GenerationRequest(
+        schema_name="saas_billing",
+        seed=13,
+        scale=50,
+        table_store_backend="spill",
+    )
+    result = run_generation(req, schema=pack.schema, rule_set=pack.rule_set)
+    assert result.success
+    assert result.table_store_backend_used == "spill"
+    assert result.table_store_for_export is not None
+    paths = export_result(result, tmp_path, fmt=OutputFormat.CSV)
+    assert paths
+    assert result.table_store_for_export is None

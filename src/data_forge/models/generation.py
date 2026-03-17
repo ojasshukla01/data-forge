@@ -106,6 +106,7 @@ class GenerationRequest(BaseModel):
     layer_materialization: str = "eager"  # eager | lazy (lazy reduces layer=all memory pressure)
     reduced_memory_mode: bool = False
     snapshot_row_limit: int | None = None
+    table_store_backend: str = "auto"  # auto | memory | spill
 
 
 class GenerationResult(BaseModel):
@@ -128,3 +129,6 @@ class GenerationResult(BaseModel):
         exclude=True,
         repr=False,
     )
+    table_store_for_export: Any | None = Field(default=None, exclude=True, repr=False)
+    table_store_backend_used: str | None = None
+    table_store_spill_path: str | None = None

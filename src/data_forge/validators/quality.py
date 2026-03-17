@@ -1,72 +1,35 @@
 """Data quality report: schema validity, referential integrity, rule violations, basic stats."""
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from data_forge.models.schema import SchemaModel
 from data_forge.models.rules import RuleSet
 from data_forge.pii.redaction import RedactionConfig, redact_samples
 
 
-def _collect_rule_violations(
-    schema: SchemaModel,
-    table_data: dict[str, list[dict[str, Any]]],
-    rule_set: RuleSet,
-    pii_detection: dict[str, dict[str, str]] | None = None,
-    redaction_config: RedactionConfig | None = None,
-) -> dict[str, Any]:
-    """Evaluate business rules on all rows; return violations structure."""
-    violations: list[dict[str, Any]] = []
-    by_rule: dict[str, int] = {}
-    samples_per_rule: dict[str, list[dict[str, Any]]] = {}
-    max_samples_per_rule = 10
+def _iter_rows_for_table(
+    table_name: str,
+    table_data: dict[str, list[dict[str, Any]]] | None = None,
+    table_store: Any | None = None,
+) -> Iterable[dict[str, Any]]:
+    if table_data is not None:
+        return table_data.get(table_name, [])
+    if table_store is None:
+        return []
+    return cast(Iterable[dict[str, Any]], table_store.iter_rows(table_name))
 
-    for table_name, rows in table_data.items():
-        applicable = [r for r in rule_set.business_rules if r.table == table_name]
-        for row_idx, row in enumerate(rows):
-            context: dict[str, Any] = {}
-            for rule in applicable:
-                passed, err_msg = _evaluate_rule_impl(rule, table_name, row, context)
-                if not passed and err_msg:
-                    row_snippet = dict(list(row.items())[:5])
-                    if pii_detection and redaction_config and redaction_config.enabled:
-                        row_snippet = redact_samples(
-                            [row_snippet], table_name, pii_detection, redaction_config
-                        )[0]
-                    violations.append({
-                        "table": table_name,
-                        "rule": rule.name,
-                        "row_index": row_idx,
-                        "message": err_msg,
-                        "row": row_snippet,
-                    })
-                    by_rule[rule.name] = by_rule.get(rule.name, 0) + 1
-                    if rule.name not in samples_per_rule:
-                        samples_per_rule[rule.name] = []
-                    if len(samples_per_rule[rule.name]) < max_samples_per_rule:
-                        row_sample = dict(row)
-                        if pii_detection and redaction_config and redaction_config.enabled:
-                            row_sample = redact_samples(
-                                [row_sample], table_name, pii_detection, redaction_config
-                            )[0]
-                        samples_per_rule[rule.name].append({
-                            "table": table_name,
-                            "rule": rule.name,
-                            "row_index": row_idx,
-                            "row": row_sample,
-                        })
 
-    samples = []
-    for _name, lst in samples_per_rule.items():
-        samples.extend(lst[:max_samples_per_rule])
-
-    if not violations:
-        return {"total": 0}
-    return {
-        "total": len(violations),
-        "by_rule": by_rule,
-        "samples": samples[:50],
-    }
+def _table_names(
+    table_data: dict[str, list[dict[str, Any]]] | None = None,
+    table_store: Any | None = None,
+) -> list[str]:
+    if table_data is not None:
+        return list(table_data.keys())
+    if table_store is not None:
+        return cast(list[str], table_store.table_names())
+    return []
 
 
 def _evaluate_rule_impl(
@@ -82,7 +45,7 @@ def _evaluate_rule_impl(
 
 def compute_quality_report(
     schema: SchemaModel,
-    table_data: dict[str, list[dict[str, Any]]],
+    table_data: dict[str, list[dict[str, Any]]] | None = None,
     rule_set: RuleSet | None = None,
     mode: "Any" = None,
     layer: "Any" = None,
@@ -96,6 +59,7 @@ def compute_quality_report(
     privacy_policy_max_sensitive_columns: int | None = None,
     privacy_policy_fail_on_high_risk: bool = False,
     privacy_policy_block_categories: list[str] | None = None,
+    table_store: Any | None = None,
 ) -> dict[str, Any]:
     """
     Produce a quality report: row counts, null counts, ref integrity, schema compliance.
@@ -110,14 +74,74 @@ def compute_quality_report(
     total_rows = 0
     total_nulls = 0
     total_cells = 0
+    duplicate_pk_errors: list[dict[str, Any]] = []
+    cdc_valid = True
+    by_rule: dict[str, int] = {}
+    rule_samples: list[dict[str, Any]] = []
+    max_samples_per_rule = 10
+    samples_by_rule_count: dict[str, int] = {}
+    total_rule_violations = 0
 
-    for table_name, rows in table_data.items():
+    available_tables = _table_names(table_data=table_data, table_store=table_store)
+
+    for table_name in available_tables:
+        rows = _iter_rows_for_table(table_name, table_data=table_data, table_store=table_store)
         table = schema.get_table(table_name)
-        cols = list(rows[0].keys()) if rows else []
+        cols: list[str] = []
         if table:
             cols = [c.name for c in table.columns]
-        n_rows = len(rows)
-        null_count = sum(1 for r in rows for v in r.values() if v is None)
+        pk_cols = table.primary_key if table else []
+        pk_col = pk_cols[0] if pk_cols else None
+        seen_pk_values: set[Any] = set()
+
+        n_rows = 0
+        null_count = 0
+        context: dict[str, Any] = {}
+        applicable_rules = (
+            [r for r in rule_set.business_rules if r.table == table_name]
+            if rule_set and rule_set.business_rules
+            else []
+        )
+        for row_idx, row in enumerate(rows):
+            n_rows += 1
+            if not cols:
+                cols = list(row.keys())
+            null_count += sum(1 for v in row.values() if v is None)
+
+            if pk_col:
+                pk = row.get(pk_col)
+                if pk is not None:
+                    if pk in seen_pk_values:
+                        duplicate_pk_errors.append(
+                            {"table": table_name, "row_index": row_idx, "pk_value": pk}
+                        )
+                    seen_pk_values.add(pk)
+
+            if mode and str(getattr(mode, "value", mode)) == "cdc":
+                op = row.get("op_type")
+                if op is not None and op not in {"INSERT", "UPDATE", "DELETE"}:
+                    cdc_valid = False
+
+            for rule in applicable_rules:
+                passed, err_msg = _evaluate_rule_impl(rule, table_name, row, context)
+                if passed or not err_msg:
+                    continue
+                total_rule_violations += 1
+                by_rule[rule.name] = by_rule.get(rule.name, 0) + 1
+                existing_samples = samples_by_rule_count.get(rule.name, 0)
+                if existing_samples >= max_samples_per_rule or len(rule_samples) >= 50:
+                    continue
+                row_sample = dict(row)
+                if pii_detection and redaction_config and redaction_config.enabled:
+                    row_sample = redact_samples([row_sample], table_name, pii_detection, redaction_config)[0]
+                rule_samples.append({
+                    "table": table_name,
+                    "rule": rule.name,
+                    "row_index": row_idx,
+                    "row": row_sample,
+                })
+                samples_by_rule_count[rule.name] = existing_samples + 1
+
         cell_count = n_rows * len(cols) if cols else 0
         total_rows += n_rows
         total_nulls += null_count
@@ -129,12 +153,12 @@ def compute_quality_report(
             "null_ratio": round(null_count / cell_count, 4) if cell_count else 0,
         }
 
-    ok, ref_errors = _ref_integrity(schema, table_data)
+    ok, ref_errors = _ref_integrity(schema, table_data=table_data, table_store=table_store)
     report["referential_integrity"] = ok
     report["referential_errors"] = ref_errors
     report["summary"] = {
         "total_rows": total_rows,
-        "total_tables": len(table_data),
+        "total_tables": len(available_tables),
         "total_nulls": total_nulls,
         "total_cells": total_cells,
         "overall_null_ratio": round(total_nulls / total_cells, 4) if total_cells else 0,
@@ -142,12 +166,14 @@ def compute_quality_report(
     if ref_errors:
         report["schema_validity_score"] = max(0, 1.0 - len(ref_errors) / max(total_rows, 1) * 0.1)
 
-    if rule_set and rule_set.business_rules:
-        report["rule_violations"] = _collect_rule_violations(
-            schema, table_data, rule_set,
-            pii_detection=pii_detection,
-            redaction_config=redaction_config,
-        )
+    if total_rule_violations:
+        report["rule_violations"] = {
+            "total": total_rule_violations,
+            "by_rule": by_rule,
+            "samples": rule_samples,
+        }
+    elif not rule_set or not rule_set.business_rules:
+        report["rule_violations"] = {"total": 0}
     else:
         report["rule_violations"] = {"total": 0}
 
@@ -288,15 +314,13 @@ def compute_quality_report(
             "events": drift_events,
         }
 
-    dup_pks = _check_duplicate_pks(schema, table_data)
-    if dup_pks:
-        report["duplicate_primary_keys"] = dup_pks
+    if duplicate_pk_errors:
+        report["duplicate_primary_keys"] = duplicate_pk_errors
 
     from data_forge.models.generation import GenerationMode
 
     if mode == GenerationMode.CDC:
-        op_valid = _check_cdc_op_types(table_data)
-        report["cdc_op_type_valid"] = op_valid
+        report["cdc_op_type_valid"] = cdc_valid
 
     return report
 
@@ -336,18 +360,24 @@ def _check_cdc_op_types(table_data: dict[str, list[dict[str, Any]]]) -> bool:
 
 def _ref_integrity(
     schema: SchemaModel,
-    table_data: dict[str, list[dict[str, Any]]],
+    table_data: dict[str, list[dict[str, Any]]] | None = None,
+    table_store: Any | None = None,
 ) -> tuple[bool, list[str]]:
     errors: list[str] = []
     for rel in schema.relationships:
         if not rel.to_columns or not rel.from_columns:
             continue
-        parent_rows = table_data.get(rel.to_table, [])
-        child_rows = table_data.get(rel.from_table, [])
         parent_pk_col = rel.to_columns[0]
         child_fk_col = rel.from_columns[0]
-        parent_pks = {r.get(parent_pk_col) for r in parent_rows if r.get(parent_pk_col) is not None}
-        for i, row in enumerate(child_rows):
+
+        parent_pks = {
+            r.get(parent_pk_col)
+            for r in _iter_rows_for_table(rel.to_table, table_data=table_data, table_store=table_store)
+            if r.get(parent_pk_col) is not None
+        }
+        for i, row in enumerate(
+            _iter_rows_for_table(rel.from_table, table_data=table_data, table_store=table_store)
+        ):
             fk_val = row.get(child_fk_col)
             if fk_val is not None and fk_val not in parent_pks:
                 errors.append(f"{rel.from_table}[{i}].{child_fk_col}={fk_val} missing in {rel.to_table}")
@@ -359,7 +389,7 @@ def validate_referential_integrity(
     table_data: dict[str, list[dict[str, Any]]],
 ) -> tuple[bool, list[str]]:
     """Public alias."""
-    return _ref_integrity(schema, table_data)
+    return _ref_integrity(schema, table_data=table_data)
 
 
 def load_dataset_from_dir(path: Path) -> dict[str, list[dict[str, Any]]]:
