@@ -13,14 +13,16 @@ _RUNS_DIR: Path | None = None
 def _runs_dir() -> Path:
     global _RUNS_DIR
     if _RUNS_DIR is None:
-        root = Path(__file__).resolve().parent.parent.parent.parent
+        root = Settings().project_root.resolve()
         _RUNS_DIR = root / "runs"
         _RUNS_DIR.mkdir(parents=True, exist_ok=True)
     return _RUNS_DIR
 
 
 def _run_path(run_id: str) -> Path:
-    return _runs_dir() / f"{run_id}.json"
+    path = _runs_dir() / f"{run_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _redact_config(config: dict[str, Any]) -> dict[str, Any]:

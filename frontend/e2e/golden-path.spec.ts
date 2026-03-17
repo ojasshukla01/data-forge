@@ -57,12 +57,10 @@ test.describe.serial("golden paths & runs", () => {
     // 7. Wait for redirect to run detail
     await expect(page).toHaveURL(/\/runs\/[a-z0-9-]+/, { timeout: 60000 });
 
-    // 8. Verify run detail shows custom schema provenance
+    // 8. Verify lineage and custom schema provenance details.
+    await expect(page.getByRole("heading", { name: /Lineage/i })).toBeVisible({ timeout: 30000 });
     await expect(page.locator("dt", { hasText: /^Schema source$/i }).first()).toBeVisible({ timeout: 15000 });
     await expect(page.locator("dd", { hasText: /^Custom schema$/i }).first()).toBeVisible({ timeout: 15000 });
-
-    // 9. Verify lineage card visible (provenance durability)
-    await expect(page.getByRole("heading", { name: /Lineage/i })).toBeVisible({ timeout: 30000 });
     await expect(page.getByRole("heading", { name: /Reproducibility manifest/i })).toBeVisible({ timeout: 10000 });
   });
 
@@ -71,7 +69,7 @@ test.describe.serial("golden paths & runs", () => {
     await expect(page.getByRole("heading", { name: /Create Dataset/i })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("heading", { name: /Choose Input/i })).toBeVisible({ timeout: 10000 });
     await page.getByRole("button", { name: /Domain Pack/i }).first().click();
-    await expect(page.getByText(/Saas Billing|Ecommerce|Choose a domain pack/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Choose a domain pack to get started quickly/i)).toBeVisible({ timeout: 5000 });
     await page
       .getByRole("button", { name: /Saas Billing/i })
       .first()

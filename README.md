@@ -103,6 +103,22 @@ cd frontend && npm run dev
 
 Open **http://localhost:3000**. See [docs/demo-walkthrough.md](docs/demo-walkthrough.md) for a step-by-step walkthrough.
 
+### Run with Docker Compose (reproducible local baseline)
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- API on `http://localhost:8000`
+- Frontend on `http://localhost:3001`
+
+Optional local Postgres stack for adapter workflows:
+
+```bash
+docker compose --profile db up --build
+```
+
 ---
 
 ## 🎬 Demo
@@ -261,7 +277,7 @@ We welcome contributions. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, full 
 ## ⚠️ Known limitations
 
 - **Local-first:** No cloud deployment; run API and frontend locally or in CI. Storage is file-based (or optional SQLite) for runs and scenarios.
-- **E2E:** Playwright requires the API and frontend to be running; start both before `make e2e`. See [docs/testing.md](docs/testing.md).
+- **E2E:** Local Playwright runs auto-start API + frontend through `frontend/playwright.config.ts`; CI starts both explicitly. See [docs/testing.md](docs/testing.md).
 - **Build:** On some environments (e.g. OneDrive-synced folders), `npm run build` may fail with EPERM; run from a non-synced path or close other tools. Type-check and unit tests still validate the codebase.
 - **Maturity:** Data Forge is open-source and actively developed; some integrations and adapters are evolving. Check [docs/architecture-current-state.md](docs/architecture-current-state.md) and [docs/INDEX.md](docs/INDEX.md) for current scope.
 

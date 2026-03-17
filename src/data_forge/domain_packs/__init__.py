@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any, NamedTuple
 
+from data_forge.config import Settings
 from data_forge.schema_ingest import load_schema
 from data_forge.rule_engine import load_rule_set
 from data_forge.models.schema import SchemaModel
@@ -10,8 +11,9 @@ from data_forge.models.rules import RuleSet
 
 __all__ = ["list_packs", "get_pack", "get_pack_metadata", "DomainPack"]
 
-# Resolve paths relative to package: src/data_forge/domain_packs/ -> project root
-_PACKS_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+# Resolve pack files from configured project root so containerized runs
+# and local runs use the same schemas/rules lookup.
+_PACKS_ROOT = Settings().project_root.resolve()
 
 # Extended metadata for API/UI display
 PACK_METADATA: dict[str, dict[str, Any]] = {
