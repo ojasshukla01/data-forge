@@ -32,6 +32,8 @@ class GenerationConfig(BaseModel):
     chunk_size: int | None = None
     batch_size: int = 1000
     layer_materialization: str = "eager"  # eager | lazy
+    reduced_memory_mode: bool = False
+    snapshot_row_limit: int | None = None
 
 
 class SimulationConfig(BaseModel):
@@ -140,6 +142,8 @@ class RunConfig(BaseModel):
         d["chunk_size"] = g.chunk_size
         d["batch_size"] = g.batch_size
         d["layer_materialization"] = g.layer_materialization
+        d["reduced_memory_mode"] = g.reduced_memory_mode
+        d["snapshot_row_limit"] = g.snapshot_row_limit
         d["privacy_mode"] = self.privacy.mode
         d["privacy_policy_mode"] = self.privacy.policy_mode
         d["privacy_policy_max_risk_score"] = self.privacy.policy_max_risk_score
@@ -222,6 +226,8 @@ def normalize_legacy_config(raw: dict[str, Any]) -> RunConfig:
         chunk_size=r.get("chunk_size"),
         batch_size=int(r.get("batch_size", 1000)),
         layer_materialization=str(r.get("layer_materialization", "eager")),
+        reduced_memory_mode=bool(r.get("reduced_memory_mode", False)),
+        snapshot_row_limit=r.get("snapshot_row_limit"),
     )
     return RunConfig(
         config_schema_version=int(r.get("config_schema_version", CONFIG_SCHEMA_VERSION)),

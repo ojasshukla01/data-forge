@@ -60,6 +60,8 @@ class TableSnapshot(BaseModel):
     row_count: int = 0
     layer: str | None = None  # bronze, silver, gold
     cdc_events: list[dict[str, Any]] | None = None  # For CDC mode
+    rows_truncated: bool = False
+    sampled_row_count: int | None = None
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
@@ -102,6 +104,8 @@ class GenerationRequest(BaseModel):
     batch_size: int = 1000  # batch size for DB inserts
     export_format: str | None = None  # for performance warnings (parquet, csv, json, etc.)
     layer_materialization: str = "eager"  # eager | lazy (lazy reduces layer=all memory pressure)
+    reduced_memory_mode: bool = False
+    snapshot_row_limit: int | None = None
 
 
 class GenerationResult(BaseModel):
@@ -119,3 +123,8 @@ class GenerationResult(BaseModel):
     timings: dict[str, float] = Field(default_factory=dict)
     performance_warnings: list[str] = Field(default_factory=list)
     benchmark_results: dict[str, Any] | None = None
+    table_data_for_export: dict[str, list[dict[str, Any]]] | None = Field(
+        default=None,
+        exclude=True,
+        repr=False,
+    )

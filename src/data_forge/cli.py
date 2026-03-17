@@ -105,6 +105,16 @@ def generate(
         "--layer-materialization",
         help="Layer materialization strategy for --layer all: eager or lazy",
     ),
+    reduced_memory_mode: bool = typer.Option(
+        False,
+        "--reduced-memory-mode",
+        help="Enable reduced-memory result payload path (samples rows in result, keeps export correctness).",
+    ),
+    snapshot_row_limit: int | None = typer.Option(
+        None,
+        "--snapshot-row-limit",
+        help="Max rows per table to keep in in-memory result snapshot when reduced memory mode is enabled.",
+    ),
     sf_account: str | None = typer.Option(None, "--sf-account", help="Snowflake account"),
     sf_user: str | None = typer.Option(None, "--sf-user", help="Snowflake user"),
     sf_password: str | None = typer.Option(None, "--sf-password", help="Snowflake password"),
@@ -227,6 +237,8 @@ def generate(
         batch_size=batch_size,
         export_format=format,
         layer_materialization=layer_materialization,
+        reduced_memory_mode=reduced_memory_mode,
+        snapshot_row_limit=snapshot_row_limit,
     )
     result = run_generation(
         request=req,

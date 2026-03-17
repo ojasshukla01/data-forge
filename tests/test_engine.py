@@ -93,3 +93,29 @@ def test_layer_all_lazy_materialization_exports_all_layers(tmp_path):
     assert any("/bronze/" in p for p in path_strs)
     assert any("/silver/" in p for p in path_strs)
     assert any("/gold/" in p for p in path_strs)
+
+
+def test_reduced_memory_mode_samples_snapshots_but_exports_full(tmp_path):
+    pack = get_pack("saas_billing")
+    if not pack:
+        pytest.skip("saas_billing pack not found")
+    req = GenerationRequest(
+        schema_name="saas_billing",
+        seed=11,
+        scale=80,
+        reduced_memory_mode=True,
+        snapshot_row_limit=5,
+    )
+    result = run_generation(req, schema=pack.schema, rule_set=pack.rule_set)
+    assert result.success
+    assert result.table_data_for_export is not None
+    assert len(result.tables) > 0
+    for t in result.tables:
+        assert len(t.rows) <= 5
+        assert t.sampled_row_count is not None
+        assert t.row_count >= len(t.rows)
+
+    paths = export_result(result, tmp_path, fmt=OutputFormat.JSONL)
+    assert len(paths) == len(result.tables)
+    # Internal export cache should be released after export in reduced memory mode.
+    assert result.table_data_for_export is None
