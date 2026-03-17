@@ -91,6 +91,7 @@ class GenerateRequest(BaseModel):
     layer_materialization: str = "eager"  # eager | lazy
     reduced_memory_mode: bool = False
     snapshot_row_limit: int | None = None
+    table_store_backend: str = "auto"  # auto | memory | spill
     export_ge: bool = False
     ge_dir: str | None = None
     export_airflow: bool = False

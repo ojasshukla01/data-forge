@@ -7,7 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   timeout: process.env.CI ? 90000 : 60000,
-  reporter: process.env.CI ? "list" : "html",
+  reporter: process.env.CI ? "list" : "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
     trace: "on-first-retry",
@@ -15,10 +15,21 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: process.env.CI
     ? undefined
-    : {
-        // Match CI: run against production build.
-        command: "npm run build && npm run start -- -p 3000",
-        url: "http://127.0.0.1:3000",
-        reuseExistingServer: true,
-      },
+    : [
+        {
+          command: "python -m uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000",
+          url: "http://127.0.0.1:8000/health",
+          reuseExistingServer: true,
+          cwd: "..",
+        },
+        {
+          // Match CI: run against production build.
+          command: "npm run build && npm run start -- -p 3000",
+          url: "http://127.0.0.1:3000",
+          reuseExistingServer: true,
+          env: {
+            NEXT_PUBLIC_API_URL: "http://127.0.0.1:8000",
+          },
+        },
+      ],
 });

@@ -1,10 +1,66 @@
-# Local stack for integration testing and demos
-# Usage: docker compose up -d postgres
-#        data-forge generate --pack saas_billing -o output -f sql
-#        psql -h localhost -U postgres -d test -f output/*.sql (example)
+name: data-forge-local
 
 services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DATA_FORGE_PROJECT_ROOT: /app
+      DATA_FORGE_OUTPUT_DIR: output
+      DATA_FORGE_STORAGE_BACKEND: file
+      DATA_FORGE_CORS_ALLOW_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./output:/app/output
+      - ./runs:/app/runs
+      - ./scenarios:/app/scenarios
+      - ./custom_schemas:/app/custom_schemas
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=5)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+        DATA_FORGE_API_INTERNAL_URL: http://backend:8000
+    environment:
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+      DATA_FORGE_API_INTERNAL_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then((r)=>{if(!r.ok)process.exit(1);}).catch(()=>process.exit(1));",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  # Optional local database for adapter/integration workflows.
   postgres:
+    profiles: ["db"]
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
@@ -17,10 +73,3 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # Optional: Redpanda for event streaming (uncomment when adding stream_simulator)
-  # redpanda:
-  #   image: redpandadata/redpanda:latest
-  #   command: redpanda start --smp 1 --memory 1G --overprovisioned
-  #   ports:
-  #     - "9092:9092"

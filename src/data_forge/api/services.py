@@ -38,6 +38,8 @@ def _run_integrations(
     summaries: dict[str, Any] = {}
 
     table_data = {t.table_name: t.rows for t in result.tables} if hasattr(result, "tables") else {}
+    if getattr(result, "table_store_for_export", None) is not None:
+        table_data = result.table_store_for_export.materialize_all()
     data_layer = getattr(result.request, "layer", None)
     layer_val: str = (
         data_layer.value if (data_layer is not None and hasattr(data_layer, "value"))
@@ -271,6 +273,7 @@ def run_generate(req: Any) -> dict[str, Any]:
         layer_materialization=req.layer_materialization or "eager",
         reduced_memory_mode=bool(req.reduced_memory_mode),
         snapshot_row_limit=req.snapshot_row_limit,
+        table_store_backend=getattr(req, "table_store_backend", "auto") or "auto",
     )
 
     result = run_generation(

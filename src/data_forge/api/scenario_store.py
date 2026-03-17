@@ -6,20 +6,24 @@ import uuid
 from pathlib import Path
 from typing import Any, cast
 
+from data_forge.config import Settings
+
 _SCENARIOS_DIR: Path | None = None
 
 
 def _scenarios_dir() -> Path:
     global _SCENARIOS_DIR
     if _SCENARIOS_DIR is None:
-        root = Path(__file__).resolve().parent.parent.parent.parent
+        root = Settings().project_root.resolve()
         _SCENARIOS_DIR = root / "scenarios"
         _SCENARIOS_DIR.mkdir(parents=True, exist_ok=True)
     return _SCENARIOS_DIR
 
 
 def _scenario_path(scenario_id: str) -> Path:
-    return _scenarios_dir() / f"{scenario_id}.json"
+    path = _scenarios_dir() / f"{scenario_id}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 MASKED_PLACEHOLDER = "***"

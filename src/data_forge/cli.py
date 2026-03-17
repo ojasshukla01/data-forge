@@ -115,6 +115,11 @@ def generate(
         "--snapshot-row-limit",
         help="Max rows per table to keep in in-memory result snapshot when reduced memory mode is enabled.",
     ),
+    table_store_backend: str = typer.Option(
+        "auto",
+        "--table-store-backend",
+        help="Table storage backend: auto, memory, spill.",
+    ),
     sf_account: str | None = typer.Option(None, "--sf-account", help="Snowflake account"),
     sf_user: str | None = typer.Option(None, "--sf-user", help="Snowflake user"),
     sf_password: str | None = typer.Option(None, "--sf-password", help="Snowflake password"),
@@ -239,6 +244,7 @@ def generate(
         layer_materialization=layer_materialization,
         reduced_memory_mode=reduced_memory_mode,
         snapshot_row_limit=snapshot_row_limit,
+        table_store_backend=table_store_backend or "auto",
     )
     result = run_generation(
         request=req,

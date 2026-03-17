@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from data_forge.api.security import ensure_custom_schema_path_safe, sanitize_schema_metadata, validate_schema_id
+from data_forge.config import Settings
 from data_forge.models.schema import SchemaModel
 
 _SCHEMAS_DIR: Path | None = None
@@ -20,7 +21,8 @@ _SCHEMAS_DIR: Path | None = None
 def _schemas_dir() -> Path:
     global _SCHEMAS_DIR
     if _SCHEMAS_DIR is None:
-        root = Path(__file__).resolve().parent.parent.parent.parent
+        # Resolve against configured project root so API/CLI and containers use the same durable location.
+        root = Settings().project_root.resolve()
         _SCHEMAS_DIR = root / "custom_schemas"
         _SCHEMAS_DIR.mkdir(parents=True, exist_ok=True)
     return _SCHEMAS_DIR
@@ -49,6 +51,7 @@ def _load_record(path: Path) -> dict[str, Any] | None:
 
 
 def _save_record(path: Path, record: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(record, indent=2), encoding="utf-8")
 
 

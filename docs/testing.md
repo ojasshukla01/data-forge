@@ -78,7 +78,7 @@ cd frontend && npm run build
 
 ## E2E (Playwright)
 
-Playwright runs against a live API and frontend. CI starts both servers, **waits until they respond** (polling API health and frontend root), then runs E2E. E2E is a **strict CI gate**: any failure fails the workflow.
+Playwright runs against a live API and frontend. Local runs auto-start both via `frontend/playwright.config.ts`. CI also starts both servers, **waits until they respond** (polling API health and frontend root), then runs E2E. E2E is a **strict CI gate**: any failure fails the workflow.
 
 ### One-time setup
 
@@ -95,7 +95,7 @@ cd frontend && npm run e2e
 
 Or from repo root: `make e2e`.
 
-Start API and frontend first if not using CI (e.g. `uv run uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000` and `cd frontend && npm run start`). See `frontend/playwright.config.ts` and `frontend/e2e/` for specs.
+By default, local Playwright runs start API + frontend automatically. If you already have servers running, Playwright reuses them. See `frontend/playwright.config.ts` and `frontend/e2e/` for specs.
 
 **Layout:** E2E specs live in `frontend/e2e/`. **smoke.spec.ts** — homepage and create wizard load. **golden-path.spec.ts** — main happy path (serial): custom schema in Schema Studio → validate → save → wizard run with pack path → advanced pack path → runs index → run detail (lineage/manifest/provenance). **validation-recovery.spec.ts** — Schema Studio: validate (see feedback), fix schema (e.g. add column), re-validate, save.
 
@@ -128,7 +128,7 @@ Run from repo root before release or after large changes. Same order as CI.
 | 4. Frontend types | `cd frontend && npx tsc --noEmit` |
 | 5. Frontend tests | `cd frontend && npm test -- --run` |
 | 6. Frontend build | `cd frontend && npm run build` |
-| 7. E2E | Start API + frontend, then `cd frontend && npm run e2e` |
+| 7. E2E | `cd frontend && npm run e2e` |
 
 Or use `make validate-all` (steps 1–6) and `make e2e` (step 7) when Make is available.
 
@@ -138,8 +138,8 @@ See [ci-cd.md](ci-cd.md) for CI job details and strict gates.
 
 - **Backend:** Run a single test file: `uv run pytest tests/test_security.py -v`. Use `-x` to stop on first failure. Increase verbosity with `-vv` or `--tb=long`.
 - **Frontend:** Run one test file: `cd frontend && npm test -- src/app/page.test.tsx --run`. Use Vitest UI or `--reporter=verbose` if needed.
-- **E2E:** Run one spec: `cd frontend && npm run e2e -- e2e/smoke.spec.ts`. Ensure API and frontend are running. Check `frontend/playwright-report/` and `frontend/test-results/` after a run. Use `--debug` for Playwright inspector.
-- **CI:** Check the failing job (backend / frontend / e2e) in GitHub Actions; logs show the exact command and first failure. Local parity: run `make validate-all` then `make e2e` (with servers up).
+- **E2E:** Run one spec: `cd frontend && npm run e2e -- e2e/smoke.spec.ts`. Check `frontend/playwright-report/` and `frontend/test-results/` after a run. Use `--debug` for Playwright inspector.
+- **CI:** Check the failing job (backend / frontend / e2e) in GitHub Actions; logs show the exact command and first failure. Local parity: run `make validate-all` then `make e2e`.
 
 ## See also
 

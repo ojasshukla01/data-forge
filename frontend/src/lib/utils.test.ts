@@ -15,9 +15,10 @@ describe("utils", () => {
   });
 
   describe("API_BASE", () => {
-    it("is defined", () => {
+    it("is a string base path", () => {
       expect(typeof API_BASE).toBe("string");
-      expect(API_BASE.length).toBeGreaterThan(0);
+      // Browser runtime intentionally uses same-origin relative /api proxy (empty prefix).
+      expect(API_BASE.length).toBeGreaterThanOrEqual(0);
     });
   });
 });

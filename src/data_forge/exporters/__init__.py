@@ -7,9 +7,11 @@ from typing import Any
 
 from data_forge.config import OutputFormat
 from data_forge.models.generation import TableSnapshot
+from data_forge.table_store import TableStore
 
 __all__ = [
     "export_tables",
+    "export_table_store",
     "export_table",
     "export_table_chunked",
     "export_table_iter",
@@ -33,6 +35,32 @@ def export_tables(
             paths.append(path)
     return paths
 
+
+
+
+def export_table_store(
+    table_store: TableStore,
+    output_dir: Path | str,
+    fmt: OutputFormat | str = "parquet",
+    sql_dialect: str = "postgresql",
+    batch_size: int = 5000,
+) -> list[Path]:
+    """Export all tables from a TableStore using iterator-based write path."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    for name in table_store.table_names():
+        path = export_table_iter(
+            table_store.iter_rows(name),
+            output_dir / name,
+            fmt=fmt,
+            table_name=name,
+            sql_dialect=sql_dialect,
+            batch_size=batch_size,
+        )
+        if path:
+            paths.append(path)
+    return paths
 
 def export_table(
     rows: list[dict[str, Any]],
