@@ -193,12 +193,20 @@ export default function RunsPage() {
     }
   };
 
-  const hasFilters = filterStatus || filterPack || filterMode || filterRunType;
+  const hasFilters = Boolean(filterStatus || filterPack || filterMode || filterRunType || includeArchived);
+  const activeFilterCount = [
+    Boolean(filterStatus),
+    Boolean(filterPack),
+    Boolean(filterMode),
+    Boolean(filterRunType),
+    includeArchived,
+  ].filter(Boolean).length;
   const clearFilters = () => {
     setFilterStatus("");
     setFilterPack("");
     setFilterMode("");
     setFilterRunType("");
+    setIncludeArchived(false);
   };
 
   return (
@@ -264,6 +272,10 @@ export default function RunsPage() {
           <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>
         )}
       </div>
+      <p className="text-xs text-slate-500">
+        Filters update automatically as you change values.
+        {hasFilters && ` Active filters: ${activeFilterCount}.`}
+      </p>
 
       {(storage || metrics) && (
         <div className="flex flex-wrap gap-4">
@@ -352,7 +364,7 @@ export default function RunsPage() {
       {!loading && !error && (
         <p className="text-sm text-slate-500">
           Showing {runs.length} run{runs.length !== 1 ? "s" : ""}
-          {hasFilters && " (filtered by status, pack, mode, or type)"}
+          {hasFilters && " (filtered by status, pack, mode, type, or archived state)"}
         </p>
       )}
 
@@ -360,7 +372,12 @@ export default function RunsPage() {
         <div className="h-32 animate-pulse bg-slate-100 rounded-xl" />
       ) : error ? (
         <Card>
-          <CardContent className="py-8 text-center text-red-600">{error}</CardContent>
+          <CardContent className="py-8 text-center">
+            <p className="text-red-600">{error}</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={loadRuns}>
+              Retry
+            </Button>
+          </CardContent>
         </Card>
       ) : runs.length === 0 ? (
         <Card className="border-slate-200">

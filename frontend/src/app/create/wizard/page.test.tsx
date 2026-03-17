@@ -118,5 +118,13 @@ describe("Create Wizard page", () => {
     // With no pack and no loaded scenario, Next may be disabled (or enabled depending on defaults)
     expect(nextButton).toBeInTheDocument();
   });
+
+  it("shows step-specific guidance text", async () => {
+    render(<WizardPage />);
+    await screen.findByRole("heading", { name: /Choose Input/i });
+    expect(
+      screen.getByText(/Choose a schema source first, then continue\./i),
+    ).toBeInTheDocument();
+  });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -504,15 +504,22 @@ export default function SchemaStudioPage() {
   const [previewTableFilter, setPreviewTableFilter] = useState<string | "all">("all");
   const [previewRowsPerTable, setPreviewRowsPerTable] = useState(5);
 
-  useEffect(() => {
+  const loadSchemas = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetchCustomSchemas()
       .then(setSchemas)
       .catch((e) => {
         console.error(e);
         setSchemas([]);
+        setError(e instanceof Error ? e.message : "Failed to load custom schemas");
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadSchemas();
+  }, [loadSchemas]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -655,12 +662,24 @@ export default function SchemaStudioPage() {
       </div>
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {error}
+          <div className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={loadSchemas}>
+              Retry
+            </Button>
+          </div>
         </div>
       )}
       {saveSuccess && (
         <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700">
-          Schema saved successfully.
+          <div className="flex items-center justify-between gap-3">
+            <span>Schema saved successfully.</span>
+            {editing?.id && (
+              <Link href="/create/wizard" className="text-[var(--brand-teal)] hover:underline">
+                Use in Create Wizard
+              </Link>
+            )}
+          </div>
         </div>
       )}
       <div className="flex flex-col lg:flex-row gap-4 items-stretch">
