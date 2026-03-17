@@ -125,6 +125,13 @@ export default function RunDetailPage() {
     succeeded: "text-green-600",
     failed: "text-red-600",
   };
+  const statusHintByState: Record<string, string> = {
+    queued: "Run is queued and waiting for execution.",
+    running: "Run is in progress. This page refreshes automatically.",
+    succeeded: "Run completed successfully. Review outputs and risk signals.",
+    failed: "Run failed. Check error details and logs before rerunning.",
+    cancelled: "Run was cancelled before completion.",
+  };
   const qualitySummary = (summary?.quality_summary ?? {}) as Record<string, unknown>;
   const privacySummary = (qualitySummary?.privacy_summary ?? {}) as Record<string, unknown>;
   const privacyAudit = (qualitySummary?.privacy_audit ?? {}) as Record<string, unknown>;
@@ -191,7 +198,7 @@ export default function RunDetailPage() {
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={handleClone}>Clone</Button>
           <Button variant="outline" size="sm" onClick={handleCreateScenario}>Create scenario from run</Button>
-          <Button variant="outline" size="sm" onClick={handleRerun}>Rerun</Button>
+          <Button size="sm" onClick={handleRerun}>Rerun</Button>
           {Boolean(summary?.output_dir || (summary as { artifact_run_id?: string })?.artifact_run_id) && (
             <Link href={`/artifacts?run=${(summary as { artifact_run_id?: string })?.artifact_run_id ?? run.id}`}>
               <Button variant="outline" size="sm">Artifacts</Button>
@@ -206,7 +213,22 @@ export default function RunDetailPage() {
         </div>
       </div>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-red-700 text-sm">{error}</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => load().catch(() => undefined)}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" role="status">
+        <p className="text-xs text-slate-500">Current status</p>
+        <p className={cn("text-sm font-medium mt-0.5 capitalize", statusColors[run.status] ?? "text-slate-700")}>
+          {run.status}
+        </p>
+        <p className="text-sm text-slate-600 mt-1">{statusHintByState[run.status] ?? "Review run details below."}</p>
+      </div>
 
       {run.status === "succeeded" && summary && (() => {
         const rows = typeof summary.total_rows === "number"

@@ -33,6 +33,7 @@ function ArtifactsContent() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (runParam) setRunFilter(runParam);
@@ -48,7 +49,7 @@ function ArtifactsContent() {
       })
       .catch((e) => { setError(e instanceof Error ? e.message : "Failed"); setArtifacts([]); setRuns([]); })
       .finally(() => setLoading(false));
-  }, [runFilter, runParam]);
+  }, [runFilter, runParam, reloadToken]);
 
   const filtered = artifacts.filter((a) => {
     const t = a.type ?? a.category ?? "dataset";
@@ -65,6 +66,7 @@ function ArtifactsContent() {
 
   const rawCategories = Array.from(new Set(artifacts.map((a) => a.type ?? a.category ?? "dataset")));
   const categories = ["all", ...rawCategories];
+  const hasActiveFilters = Boolean((runFilter ?? runParam ?? "") || categoryFilter !== "all" || search.trim());
   const TYPE_LABELS: Record<string, string> = {
     dataset: "Dataset",
     sql: "SQL",
@@ -127,7 +129,7 @@ function ArtifactsContent() {
         <Card className="border-red-200 bg-red-50/50">
           <CardContent className="pt-6">
             <p className="text-red-700">{error}</p>
-            <Button variant="outline" size="sm" className="mt-4" onClick={() => setRunFilter(null)}>Retry</Button>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => setReloadToken((v) => v + 1)}>Retry</Button>
           </CardContent>
         </Card>
       ) : artifacts.length === 0 ? (
@@ -140,6 +142,9 @@ function ArtifactsContent() {
         </Card>
       ) : (
         <>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+            Showing {filtered.length} of {artifacts.length} artifact{artifacts.length === 1 ? "" : "s"}
+          </div>
           <div className="flex gap-4 flex-wrap">
             <select
               value={runFilter ?? runParam ?? ""}
@@ -167,6 +172,19 @@ function ArtifactsContent() {
               onChange={(e) => setSearch(e.target.value)}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-48"
             />
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setRunFilter(null);
+                  setCategoryFilter("all");
+                  setSearch("");
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -175,21 +193,27 @@ function ArtifactsContent() {
                 <CardTitle>Files</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-1 max-h-[400px] overflow-y-auto">
-                  {filtered.map((a) => (
-                    <button
-                      key={a.path + (a.run_id ?? "")}
-                      onClick={() => loadPreview(a)}
-                      className={cn(
-                        "w-full text-left px-3 py-2 rounded-lg text-sm truncate flex justify-between items-center gap-2",
-                        selected?.path === a.path ? "bg-slate-200 font-medium" : "hover:bg-slate-100"
-                      )}
-                    >
-                      <span className="truncate">{a.name}</span>
-                      <span className="shrink-0 text-slate-400 text-xs">{formatSize(a.size ?? 0)}</span>
-                    </button>
-                  ))}
-                </div>
+                {filtered.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No artifacts match the current filters.
+                  </p>
+                ) : (
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {filtered.map((a) => (
+                      <button
+                        key={a.path + (a.run_id ?? "")}
+                        onClick={() => loadPreview(a)}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-lg text-sm truncate flex justify-between items-center gap-2",
+                          selected?.path === a.path ? "bg-slate-200 font-medium" : "hover:bg-slate-100"
+                        )}
+                      >
+                        <span className="truncate">{a.name}</span>
+                        <span className="shrink-0 text-slate-400 text-xs">{formatSize(a.size ?? 0)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card className="lg:col-span-2">

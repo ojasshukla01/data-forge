@@ -20,5 +20,6 @@ describe("Artifacts page", () => {
     render(<ArtifactsPage />);
     await screen.findByText("out.parquet");
     expect(screen.getByText("Preview")).toBeInTheDocument();
+    expect(screen.getByText(/Showing 1 of 1 artifact/i)).toBeInTheDocument();
   });
 });

@@ -74,7 +74,7 @@ describe("Advanced Config page", () => {
     expect(formatSelect.value).toBe("csv");
 
     // Preflight
-    const preflightButton = screen.getByRole("button", { name: /Run Preflight/ });
+    const preflightButton = screen.getByRole("button", { name: /Run preflight/i });
     fireEvent.click(preflightButton);
 
     await waitFor(() =>
@@ -85,7 +85,7 @@ describe("Advanced Config page", () => {
     );
 
     // Run
-    const runButton = screen.getByRole("button", { name: /Run Now/ });
+    const runButton = screen.getByRole("button", { name: /Run now/i });
     fireEvent.click(runButton);
 
     await waitFor(() =>

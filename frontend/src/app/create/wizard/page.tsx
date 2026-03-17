@@ -14,6 +14,13 @@ import type { ScenarioRecord } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const MASKED = "***";
+const STEP_HINTS: Record<string, string> = {
+  input: "Choose a schema source first, then continue.",
+  usecase: "Pick a preset to set practical defaults quickly.",
+  realism: "Tune shape and behavior of generated records.",
+  export: "Select file format and optional integrations.",
+  review: "Check preflight results, then run generation.",
+};
 
 const STEPS = [
   { id: "input", label: "Choose Input" },
@@ -63,8 +70,13 @@ function WizardContent() {
   const [saveScenarioCategory, setSaveScenarioCategory] = useState("custom");
   const [saveScenarioLoading, setSaveScenarioLoading] = useState(false);
   const [saveScenarioSuccess, setSaveScenarioSuccess] = useState(false);
+  const [packsReloadToken, setPacksReloadToken] = useState(0);
+  const [customSchemasReloadToken, setCustomSchemasReloadToken] = useState(0);
 
   const stepId = STEPS[stepIndex].id;
+  const isInputSelectionMissing = entryMode === "scratch" ? !config.pack && !config.customSchemaId : !loadedScenario;
+  const blockerCount = (preflight?.blockers as string[] | undefined)?.length ?? 0;
+  const warningCount = (preflight?.warnings as string[] | undefined)?.length ?? 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +87,7 @@ function WizardContent() {
       .catch((e) => { if (!cancelled) setPacksError(e instanceof Error ? e.message : "Failed to load packs"); setPacks([]); })
       .finally(() => { if (!cancelled) setPacksLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [packsReloadToken]);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +116,7 @@ function WizardContent() {
       .catch((e) => { if (!cancelled) setCustomSchemasError(e instanceof Error ? e.message : "Failed to load custom schemas"); setCustomSchemas([]); })
       .finally(() => { if (!cancelled) setCustomSchemasLoading(false); });
     return () => { cancelled = true; };
-  }, [schemaSource]);
+  }, [schemaSource, customSchemasReloadToken]);
 
   // Load scenario from ?scenario=<id>
   useEffect(() => {
@@ -257,6 +269,7 @@ function WizardContent() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Create Dataset</h1>
         <p className="text-slate-600 mt-1">Guided setup for synthetic data generation</p>
+        <p className="text-xs text-slate-500 mt-1">Step {stepIndex + 1} of {STEPS.length}</p>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -264,6 +277,7 @@ function WizardContent() {
           <button
             key={s.id}
             onClick={() => setStepIndex(i)}
+            aria-current={i === stepIndex ? "step" : undefined}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors",
               i === stepIndex
@@ -308,6 +322,7 @@ function WizardContent() {
       <Card>
         <CardHeader>
           <CardTitle>{STEPS[stepIndex].label}</CardTitle>
+          <p className="text-sm text-slate-500">{STEP_HINTS[stepId]}</p>
         </CardHeader>
         <CardContent className="space-y-6">
           {stepId === "input" && (
@@ -412,7 +427,7 @@ function WizardContent() {
               ) : packsError ? (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
                   <p>Could not load domain packs. Ensure the API is running.</p>
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setPacksReloadToken((v) => v + 1)}>
                     Retry
                   </Button>
                 </div>
@@ -450,7 +465,7 @@ function WizardContent() {
                     ) : customSchemasError ? (
                       <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-amber-800 text-sm">
                         <p>Could not load custom schemas. Ensure the API is running.</p>
-                        <Button variant="outline" size="sm" className="mt-2" onClick={() => setSchemaSource("custom")}>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={() => setCustomSchemasReloadToken((v) => v + 1)}>
                           Retry
                         </Button>
                       </div>
@@ -675,6 +690,9 @@ function WizardContent() {
               )}
               {preflight && !preflightLoading && (
                 <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Preflight summary: {blockerCount} blocker{blockerCount === 1 ? "" : "s"}, {warningCount} warning{warningCount === 1 ? "" : "s"}.
+                  </p>
                   {(preflight.blockers as string[])?.length > 0 && (
                     <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
                       <p className="font-medium text-red-800">Blockers</p>
@@ -780,7 +798,7 @@ function WizardContent() {
         </Button>
         {stepIndex < STEPS.length - 1 ? (
           <Button
-            disabled={stepId === "input" && (entryMode === "scratch" ? !config.pack && !config.customSchemaId : !loadedScenario)}
+            disabled={stepId === "input" && isInputSelectionMissing}
             onClick={() => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))}
           >
             Next
@@ -794,6 +812,12 @@ function WizardContent() {
           </Button>
         )}
       </div>
+      {stepId === "input" && isInputSelectionMissing && (
+        <p className="text-xs text-amber-700 text-right">Choose a schema source first, then continue.</p>
+      )}
+      {stepId === "review" && blockerCount > 0 && (
+        <p className="text-xs text-red-700 text-right">Resolve preflight blockers before running.</p>
+      )}
     </div>
   );
 }

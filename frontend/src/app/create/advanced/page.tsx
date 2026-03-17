@@ -215,7 +215,9 @@ function AdvancedConfigContent() {
   };
 
   const blockers = (preflight?.blockers as string[]) ?? [];
+  const warnings = (preflight?.warnings as string[]) ?? [];
   const valid = preflight && (preflight.valid === true) && blockers.length === 0;
+  const activeSectionLabel = SECTIONS.find((s) => s.id === section)?.label ?? "Schema & Input";
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -261,6 +263,7 @@ function AdvancedConfigContent() {
           </button>
         ))}
       </div>
+      <p className="text-xs text-slate-500">Active section: {activeSectionLabel}</p>
 
       <Card>
         <CardContent className="pt-6 space-y-6">
@@ -839,28 +842,52 @@ function AdvancedConfigContent() {
           <CardTitle>Preflight & Run</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!preflight && !preflightLoading && (
+            <p className="text-sm text-slate-600">Run preflight to catch blockers before starting generation.</p>
+          )}
+          {preflightLoading && (
+            <p className="text-sm text-slate-600">Running preflight checks...</p>
+          )}
+          {preflight && !preflightLoading && (
+            <div
+              className={cn(
+                "p-3 rounded-lg border text-sm",
+                blockers.length > 0
+                  ? "bg-red-50 border-red-200 text-red-800"
+                  : warnings.length > 0
+                    ? "bg-amber-50 border-amber-200 text-amber-800"
+                    : "bg-green-50 border-green-200 text-green-800",
+              )}
+            >
+              {blockers.length > 0
+                ? `Preflight failed: ${blockers.length} blocker${blockers.length === 1 ? "" : "s"} found.`
+                : warnings.length > 0
+                  ? `Preflight passed with ${warnings.length} warning${warnings.length === 1 ? "" : "s"}.`
+                  : "Preflight passed. Configuration is ready to run."}
+            </div>
+          )}
           {blockers.length > 0 && (
             <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
               <p className="font-medium mb-2">Blockers:</p>
               <ul className="list-disc list-inside">{blockers.map((b, i) => <li key={i}>{b}</li>)}</ul>
             </div>
           )}
-          {(preflight?.warnings as string[])?.length > 0 && (
+          {warnings.length > 0 && (
             <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
               <p className="font-medium mb-2">Warnings:</p>
-              <ul className="list-disc list-inside">{(preflight?.warnings as string[]).map((w, i) => <li key={i}>{w}</li>)}</ul>
+              <ul className="list-disc list-inside">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
             </div>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={runPreflightCheck} disabled={preflightLoading}>
-              {preflightLoading ? "Running…" : "Run Preflight"}
+              {preflightLoading ? "Running…" : "Run preflight"}
             </Button>
             <Button
               onClick={handleRun}
               disabled={runLoading || (blockers.length > 0)}
             >
-              {runLoading ? "Running…" : "Run Now"}
+              {runLoading ? "Running…" : "Run now"}
             </Button>
             {loadedScenarioId ? (
               <>
