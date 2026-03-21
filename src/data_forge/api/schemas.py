@@ -147,6 +147,7 @@ class PackInfo(BaseModel):
     supports_event_streams: bool = False
     simulation_event_types: list[str] | None = None
     benchmark_relevance: str | None = None  # low | medium | high
+    source: str | None = None  # builtin | user — for template management
 
 
 class TableSummary(BaseModel):
@@ -215,6 +216,8 @@ class CustomSchemaUpdate(BaseModel):
 
 class CustomSchemaValidateRequest(BaseModel):
     """Request body for POST /api/custom-schemas/validate."""
+
+    model_config = ConfigDict(populate_by_name=True)
 
     schema_body: dict[str, Any] = Field(alias="schema")
 

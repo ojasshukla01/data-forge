@@ -49,14 +49,18 @@ def list_scenarios(
     tag: str | None = None,
     search: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List scenarios with optional filters."""
+    """List scenarios with optional filters. Supports offset/limit and cursor pagination."""
     return get_scenario_store().list_scenarios(
         category=category,
         source_pack=source_pack,
         tag=tag,
         search=search,
         limit=limit,
+        offset=offset,
+        cursor=cursor,
     )
 
 

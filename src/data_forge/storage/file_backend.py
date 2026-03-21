@@ -44,6 +44,8 @@ class FileRunStore(RunStoreInterface):
         layer: str | None = None,
         source_scenario_id: str | None = None,
         limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
         include_archived: bool = True,
     ) -> list[dict[str, Any]]:
         return rs.list_runs(
@@ -54,6 +56,8 @@ class FileRunStore(RunStoreInterface):
             layer=layer,
             source_scenario_id=source_scenario_id,
             limit=limit,
+            offset=offset,
+            cursor=cursor,
             include_archived=include_archived,
         )
 
@@ -111,6 +115,8 @@ class FileScenarioStore(ScenarioStoreInterface):
         tag: str | None = None,
         search: str | None = None,
         limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
     ) -> list[dict[str, Any]]:
         return ss.list_scenarios(
             category=category,
@@ -118,6 +124,8 @@ class FileScenarioStore(ScenarioStoreInterface):
             tag=tag,
             search=search,
             limit=limit,
+            offset=offset,
+            cursor=cursor,
         )
 
     def get_masked_field_names(self, config: dict[str, Any] | None, prefix: str = "") -> list[str]:

@@ -159,7 +159,7 @@ Scenarios are reusable configurations. You can **save** from Advanced Config or 
 {
   "name": "Human-readable name",
   "description": "Short description",
-  "category": "quick_start|testing|pipeline_simulation|warehouse_benchmark|privacy_uat|contracts|custom",
+  "category": "quick_start|testing|pipeline_simulation|migration_rehearsal|warehouse_benchmark|privacy_uat|contracts|custom",
   "tags": ["tag1", "tag2"],
   "config": {
     "pack": "ecommerce",

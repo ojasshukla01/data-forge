@@ -252,6 +252,8 @@ class SQLiteRunStore(RunStoreInterface):
         layer: str | None = None,
         source_scenario_id: str | None = None,
         limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
         include_archived: bool = True,
     ) -> list[dict[str, Any]]:
         conn = self._conn()
@@ -272,8 +274,21 @@ class SQLiteRunStore(RunStoreInterface):
             if source_scenario_id:
                 q += " AND source_scenario_id = ?"
                 params.append(source_scenario_id)
-            q += " ORDER BY created_at DESC LIMIT ?"
-            params.append(limit)
+            if cursor:
+                cur = conn.execute(
+                    "SELECT created_at FROM runs WHERE id = ? AND deleted_at IS NULL",
+                    (cursor,),
+                ).fetchone()
+                if cur:
+                    q += " AND (created_at < ? OR (created_at = ? AND id < ?))"
+                    params.extend([cur["created_at"], cur["created_at"], cursor])
+            q += " ORDER BY created_at DESC"
+            if not cursor:
+                q += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+            else:
+                q += " LIMIT ?"
+                params.append(limit)
             rows = conn.execute(q, params).fetchall()
             out = [_run_row_to_record(r) for r in rows]
             if mode or layer:
@@ -464,6 +479,8 @@ class SQLiteScenarioStore(ScenarioStoreInterface):
         tag: str | None = None,
         search: str | None = None,
         limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
     ) -> list[dict[str, Any]]:
         conn = self._conn()
         try:
@@ -475,8 +492,21 @@ class SQLiteScenarioStore(ScenarioStoreInterface):
             if source_pack:
                 q += " AND source_pack = ?"
                 params.append(source_pack)
-            q += " ORDER BY updated_at DESC LIMIT ?"
-            params.append(limit)
+            if cursor:
+                cur = conn.execute(
+                    "SELECT updated_at FROM scenarios WHERE id = ?",
+                    (cursor,),
+                ).fetchone()
+                if cur:
+                    q += " AND (updated_at < ? OR (updated_at = ? AND id < ?))"
+                    params.extend([cur["updated_at"], cur["updated_at"], cursor])
+            q += " ORDER BY updated_at DESC"
+            if not cursor:
+                q += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
+            else:
+                q += " LIMIT ?"
+                params.append(limit)
             rows = conn.execute(q, params).fetchall()
             out = [_scenario_row_to_record(r) for r in rows]
             if tag:

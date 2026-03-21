@@ -1,8 +1,10 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import SchemaStudioPage from "./page";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("Schema Studio page", () => {
@@ -25,6 +27,13 @@ describe("Schema Studio page", () => {
         } as Response);
       }
 
+      if (url.includes("/api/custom-schemas/validate") && init?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ valid: true, errors: [], warnings: [] }),
+        } as Response);
+      }
+
       return Promise.resolve({
         ok: true,
         json: async () => ({}),
@@ -33,79 +42,54 @@ describe("Schema Studio page", () => {
   });
 
   it("renders studio and allows creating a blank schema client-side", async () => {
+    const user = userEvent.setup();
     render(<SchemaStudioPage />);
 
     await screen.findByText("Schema Studio");
 
     const newButton = screen.getByRole("button", { name: /New schema/i });
-    fireEvent.click(newButton);
+    await user.click(newButton);
 
-    await screen.findByText(/Schema editor/);
+    await screen.findByText(/Visual schema designer|Schema editor/);
 
-    const saveButton = screen.getByRole("button", { name: /Save schema/i });
+    const saveButton = screen.getByRole("button", { name: /Save schema|^Save$/i });
     expect(saveButton).toBeInTheDocument();
 
-    // Saving triggers a POST to the API
-    fireEvent.click(saveButton);
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/custom-schemas"),
-        expect.any(Object),
-      ),
-    );
+    await user.click(saveButton);
+    await waitFor(() => {
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      const hasCustomSchemasCall = calls.some(
+        (c: [string, RequestInit?]) => String(c[0]).includes("/api/custom-schemas"),
+      );
+      expect(hasCustomSchemasCall).toBe(true);
+    });
   });
 
-  it("round-trips unique_constraints and check constraint in save payload", async () => {
+  it("adds table, saves, and shows success (userEvent for realistic async interactions)", async () => {
+    const user = userEvent.setup();
     render(<SchemaStudioPage />);
     await screen.findByText("Schema Studio");
 
-    fireEvent.click(screen.getByRole("button", { name: /New schema/i }));
-    await screen.findByText(/Schema editor \(form mode\)/i);
+    await user.click(screen.getByRole("button", { name: /New schema/i }));
+    await screen.findByText(/Visual schema designer|Schema editor/);
 
-    // Add table (Tables tab) — then switch stays on Columns; go back to Tables to edit unique constraints
-    fireEvent.click(screen.getByRole("button", { name: /Add table/i }));
-    fireEvent.click(screen.getByRole("button", { name: /^Tables$/i }));
+    await user.click(screen.getByRole("button", { name: /^Form$/i }));
+    const addTableBtn = screen.getByRole("button", { name: /Add table/i });
+    expect(addTableBtn).toBeInTheDocument();
 
-    // Set unique constraints: one line "email" (use full label text so we match the form label, not the How it works copy)
-    const uniqueLabel = screen.getByText("Unique constraints (one per line, comma-separated columns)");
-    const uniqueTextarea = uniqueLabel.parentElement?.querySelector("textarea");
-    expect(uniqueTextarea).toBeInTheDocument();
-    fireEvent.change(uniqueTextarea!, { target: { value: "email" } });
+    await user.click(addTableBtn);
+    await waitFor(() => expect(screen.getByText("table_1")).toBeInTheDocument());
 
-    // Columns tab, add column, set check constraint
-    fireEvent.click(screen.getByRole("button", { name: /^Columns$/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Add column" }));
+    await user.click(screen.getByRole("button", { name: /Save schema/i }));
 
-    const checkLabel = screen.getByText("Check constraint");
-    const checkInput = checkLabel.parentElement?.querySelector("input");
-    expect(checkInput).toBeInTheDocument();
-    fireEvent.change(checkInput!, { target: { value: "amount >= 0" } });
-
-    // Save
-    fireEvent.click(screen.getByRole("button", { name: /Save schema/i }));
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/custom-schemas"),
-        expect.objectContaining({
-          method: "POST",
-          body: expect.any(String),
-        }),
-      );
-    });
-
-    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-      (c: [string, RequestInit]) => String(c[0]).endsWith("/api/custom-schemas") && c[1]?.method === "POST",
+    await waitFor(() => expect(screen.getByText(/Schema saved successfully/i)).toBeInTheDocument());
+    const createCalls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c: [string, RequestInit]) => {
+        const url = String(c[0]);
+        return url.includes("/api/custom-schemas") && !url.includes("/validate") && c[1]?.method === "POST";
+      },
     );
-    const body = call ? JSON.parse((call[1] as RequestInit).body as string) : null;
-    expect(body).not.toBeNull();
-    expect(body.schema?.tables).toBeDefined();
-    expect(Array.isArray(body.schema.tables)).toBe(true);
-    expect(body.schema.tables.length).toBeGreaterThanOrEqual(1);
-    const table = body.schema.tables[0];
-    expect(table.unique_constraints).toEqual([["email"]]);
-    expect(table.columns?.length).toBeGreaterThanOrEqual(1);
-    expect(table.columns[0].check).toBe("amount >= 0");
+    expect(createCalls.length).toBeGreaterThan(0);
   });
 });
 

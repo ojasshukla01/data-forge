@@ -124,13 +124,18 @@ def list_runs(
     layer: str | None = None,
     source_scenario_id: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
     include_archived: bool = True,
 ) -> list[dict[str, Any]]:
-    """List run records with optional filters."""
+    """List run records with optional filters. Supports offset/limit and cursor pagination."""
     runs_dir = _runs_dir()
     if not runs_dir.exists():
         return []
     records: list[dict[str, Any]] = []
+    skipped = 0
+    past_cursor = cursor is None
+
     for p in sorted(runs_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
         if len(records) >= limit:
             break
@@ -152,6 +157,13 @@ def list_runs(
         if mode and cfg.get("mode") != mode:
             continue
         if layer and cfg.get("layer") != layer:
+            continue
+        if cursor and not past_cursor:
+            if r.get("id") == cursor:
+                past_cursor = True
+            continue
+        if not cursor and skipped < offset:
+            skipped += 1
             continue
         records.append(r)
     return records

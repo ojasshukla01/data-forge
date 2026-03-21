@@ -12,6 +12,7 @@ from data_forge.api.middleware import (
 )
 from data_forge.api.routers import (
     domain_packs,
+    templates,
     generate,
     preflight,
     validate,
@@ -21,6 +22,7 @@ from data_forge.api.routers import (
     benchmark,
     scenarios,
     custom_schemas,
+    metrics as metrics_router,
 )
 from data_forge.api.schemas import HealthResponse, HealthReadyResponse
 from data_forge import __version__
@@ -30,6 +32,17 @@ app = FastAPI(
     title="Data Forge API",
     description="Schema-aware synthetic data platform API",
     version=__version__,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_tags=[
+        {"name": "health", "description": "Health checks"},
+        {"name": "domain-packs", "description": "Pre-built domain packs"},
+        {"name": "templates", "description": "User-managed templates"},
+        {"name": "runs", "description": "Generation and benchmark runs"},
+        {"name": "scenarios", "description": "Saved scenario configs"},
+        {"name": "custom-schemas", "description": "User-defined schemas"},
+        {"name": "artifacts", "description": "Run artifacts"},
+    ],
 )
 
 settings = Settings()
@@ -54,6 +67,7 @@ app.add_middleware(
 )
 
 app.include_router(domain_packs.router)
+app.include_router(templates.router)
 app.include_router(generate.router)
 app.include_router(preflight.router)
 app.include_router(validate.router)
@@ -63,6 +77,7 @@ app.include_router(runs.router)
 app.include_router(benchmark.router)
 app.include_router(scenarios.router)
 app.include_router(custom_schemas.router)
+app.include_router(metrics_router.router)
 
 
 @app.get("/health", response_model=HealthResponse)

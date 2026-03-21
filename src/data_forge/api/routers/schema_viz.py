@@ -84,37 +84,19 @@ def preview_sample_data(payload: dict[str, Any]) -> dict[str, list[dict[str, Any
     return out
 
 
-@router.get("/visualize")
-def visualize_schema(pack_id: str = Query(..., description="Domain pack ID")) -> dict[str, Any]:
-    """
-    Return schema structure as nodes and edges for graph visualization.
-    Uses domain pack schema; relationships become edges.
-    """
-    pack = get_pack(pack_id)
-    if not pack:
-        raise HTTPException(status_code=404, detail=f"Pack not found: {pack_id}")
-    schema = pack.schema
-    nodes = []
-    edges = []
+def _schema_to_nodes_edges(schema: Any, source_type: str = "pack") -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert SchemaModel to nodes and edges for ReactFlow visualization."""
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
     for i, t in enumerate(schema.tables):
         pk = t.primary_key or [c.name for c in t.columns if getattr(c, "primary_key", False)]
         cols = [
-            {
-                "name": c.name,
-                "type": getattr(c.data_type, "value", str(c.data_type)),
-                "nullable": c.nullable,
-                "pk": c.name in pk,
-            }
+            {"name": c.name, "type": getattr(c.data_type, "value", str(c.data_type)), "nullable": c.nullable, "pk": c.name in pk}
             for c in t.columns
         ]
         nodes.append({
-            "id": t.name,
-            "type": "table",
-            "data": {
-                "label": t.name,
-                "columns": cols,
-                "primaryKey": pk,
-            },
+            "id": t.name, "type": "table",
+            "data": {"label": t.name, "columns": cols, "primaryKey": pk, "sourceType": source_type},
             "position": {"x": (i % 4) * 260, "y": (i // 4) * 200},
         })
     seen: set[RelationshipKey] = set()
@@ -123,10 +105,61 @@ def visualize_schema(pack_id: str = Query(..., description="Domain pack ID")) ->
         if key in seen:
             continue
         seen.add(key)
-        edges.append({
-            "id": f"e-{r.from_table}-{r.to_table}-{r.name}",
-            "source": r.from_table,
-            "target": r.to_table,
-            "label": r.name,
-        })
-    return {"nodes": nodes, "edges": edges, "pack_id": pack_id}
+        edges.append({"id": f"e-{r.from_table}-{r.to_table}-{r.name}", "source": r.from_table, "target": r.to_table, "label": r.name})
+    return nodes, edges
+
+
+@router.get("/visualize")
+def visualize_schema(
+    pack_id: str | None = Query(None, description="Domain pack ID"),
+    custom_schema_id: str | None = Query(None, description="Custom schema ID from Schema Studio"),
+) -> dict[str, Any]:
+    """
+    Return schema structure as nodes and edges for graph visualization.
+    Provide either pack_id (domain pack) or custom_schema_id (custom schema).
+    """
+    from data_forge.api import custom_schema_store
+
+    if custom_schema_id:
+        rec = custom_schema_store.get_custom_schema(custom_schema_id)
+        if not rec:
+            raise HTTPException(status_code=404, detail=f"Custom schema not found: {custom_schema_id}")
+        versions = rec.get("versions") or []
+        if not versions:
+            raise HTTPException(status_code=400, detail="Custom schema has no versions")
+        schema_dict = versions[-1].get("schema")
+        if not schema_dict:
+            raise HTTPException(status_code=400, detail="Custom schema has no schema body")
+        try:
+            schema = SchemaModel.model_validate(schema_dict)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid custom schema: {e}") from e
+        nodes, edges = _schema_to_nodes_edges(schema, source_type="custom")
+        return {"nodes": nodes, "edges": edges, "custom_schema_id": custom_schema_id, "source_type": "custom"}
+    if pack_id:
+        pack = get_pack(pack_id)
+        if not pack:
+            raise HTTPException(status_code=404, detail=f"Pack not found: {pack_id}")
+        schema = pack.schema
+        nodes, edges = _schema_to_nodes_edges(schema, source_type="pack")
+        return {"nodes": nodes, "edges": edges, "pack_id": pack_id, "source_type": "pack"}
+    raise HTTPException(status_code=400, detail="Provide pack_id or custom_schema_id")
+
+
+@router.post("/to-sql")
+def schema_to_sql(payload: dict[str, Any]) -> dict[str, str]:
+    """
+    Convert schema JSON to SQL DDL. Body: { "schema": SchemaModel-like dict, "dialect": "generic"|"postgres" }.
+    Returns: { "sql": "CREATE TABLE ..." }
+    """
+    schema_dict = payload.get("schema")
+    if not isinstance(schema_dict, dict):
+        raise HTTPException(status_code=400, detail="schema is required and must be an object")
+    try:
+        model = SchemaModel.model_validate(schema_dict)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid schema: {e}") from e
+    dialect = str(payload.get("dialect", "generic"))
+    if dialect not in ("generic", "postgres"):
+        dialect = "generic"
+    return {"sql": model.to_sql_ddl(dialect=dialect)}

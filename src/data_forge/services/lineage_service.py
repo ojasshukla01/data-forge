@@ -48,6 +48,11 @@ def get_run_lineage(run_id: str) -> dict[str, Any] | None:
     }
     if custom_schema_id:
         out["schema_missing"] = schema_missing
+        if schema_missing:
+            out["schema_missing_message"] = (
+                "Custom schema no longer available (deleted or missing). "
+                "ID, name, version, and snapshot hash are preserved for provenance."
+            )
         if summary.get("custom_schema_snapshot_hash") is not None:
             out["custom_schema_snapshot_hash"] = summary["custom_schema_snapshot_hash"]
         if summary.get("custom_schema_table_names") is not None:

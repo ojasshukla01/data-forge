@@ -25,7 +25,7 @@ router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
 
 VALID_CATEGORIES = frozenset({
     "quick_start", "testing", "pipeline_simulation",
-    "warehouse_benchmark", "privacy_uat", "contracts", "custom",
+    "migration_rehearsal", "warehouse_benchmark", "privacy_uat", "contracts", "custom",
 })
 
 
@@ -84,16 +84,28 @@ def list_scenarios_api(
     tag: str | None = None,
     search: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """List scenarios with optional filters."""
+    """List scenarios with optional filters. Supports offset/limit and cursor pagination."""
     scenarios = list_scenarios(
         category=category,
         source_pack=source_pack,
         tag=tag,
         search=search,
         limit=limit,
+        offset=offset,
+        cursor=cursor,
     )
-    return {"scenarios": scenarios}
+    next_cursor = scenarios[-1]["id"] if scenarios and len(scenarios) == limit else None
+    return {
+        "scenarios": scenarios,
+        "limit": limit,
+        "offset": offset,
+        "cursor": cursor,
+        "next_cursor": next_cursor,
+        "has_more": len(scenarios) == limit,
+    }
 
 
 @router.get("/{scenario_id}")

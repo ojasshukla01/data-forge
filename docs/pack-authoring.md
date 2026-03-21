@@ -32,7 +32,7 @@ Edit `src/data_forge/domain_packs/__init__.py`:
 
 ## Surface in the frontend
 
-Packs are listed via `GET /api/domain-packs`. The UI uses this list for the Create wizard and templates. No extra frontend registration is needed once the pack is in `list_packs()` and loadable via `get_pack(pack_id)`.
+Packs are listed via `GET /api/domain-packs`. The Templates page uses `GET /api/templates`, which merges built-in packs (excluding hidden) with user templates (custom schemas promoted as templates). Users can add templates from packs or Schema Studio, edit user templates in Schema Studio, and hide built-in packs they don't need. No extra frontend registration is needed once the pack is in `list_packs()` and loadable via `get_pack(pack_id)`.
 
 ## Example
 

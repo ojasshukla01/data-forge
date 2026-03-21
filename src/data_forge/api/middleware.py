@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -12,6 +13,22 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger("data_forge.api")
+
+
+def _structured_log(level: str, msg: str, **kwargs: object) -> None:
+    """Emit structured log as JSON when DATA_FORGE_STRUCTURED_LOGS=1."""
+    if _use_structured_logs():
+        payload = {"message": msg, "level": level, **{k: v for k, v in kwargs.items() if v is not None}}
+        getattr(logger, level)(json.dumps(payload, default=str))
+    else:
+        parts = [f"{k}={v}" for k, v in kwargs.items() if v is not None]
+        getattr(logger, level)("%s %s", msg, " ".join(parts) if parts else "")
+
+
+def _use_structured_logs() -> bool:
+    import os
+
+    return os.getenv("DATA_FORGE_STRUCTURED_LOGS", "").lower() in ("1", "true", "yes")
 
 # Max request body size (bytes) for JSON endpoints
 MAX_REQUEST_SIZE = 2 * 1024 * 1024  # 2MB
@@ -28,19 +45,26 @@ _rate_limit_counts: dict[str, tuple[float, int, int]] = {}  # ip -> (window_star
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log request method, path, and duration."""
+    """Log request method, path, duration. Use structured JSON when DATA_FORGE_STRUCTURED_LOGS=1."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseHandler) -> Response:
         start = time.time()
         response = await call_next(request)
-        duration_ms = (time.time() - start) * 1000
-        logger.info(
-            "%s %s %d %.1fms",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
+        duration_sec = time.time() - start
+        duration_ms = round(duration_sec * 1000, 2)
+        _structured_log(
+            "info",
+            "request_completed",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=duration_ms,
         )
+        try:
+            from data_forge.api.routers.metrics import record_request
+            record_request(request.method, request.url.path, response.status_code, duration_sec)
+        except ImportError:
+            pass
         return response
 
 

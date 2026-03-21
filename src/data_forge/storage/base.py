@@ -42,6 +42,8 @@ class RunStoreInterface(ABC):
         layer: str | None = None,
         source_scenario_id: str | None = None,
         limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
         include_archived: bool = True,
     ) -> list[dict[str, Any]]:
         ...
@@ -98,6 +100,8 @@ class ScenarioStoreInterface(ABC):
         tag: str | None = None,
         search: str | None = None,
         limit: int = 100,
+        offset: int = 0,
+        cursor: str | None = None,
     ) -> list[dict[str, Any]]:
         ...
 

@@ -13,6 +13,7 @@ export interface PackInfo {
   supports_event_streams?: boolean;
   simulation_event_types?: string[];
   benchmark_relevance?: "low" | "medium" | "high";
+  source?: "builtin" | "user";
 }
 
 export interface PackDetail {
@@ -42,6 +43,52 @@ export async function fetchPack(id: string): Promise<PackDetail> {
   const data = await res.json();
   if (data.error) throw new Error(data.error);
   return data;
+}
+
+export async function fetchTemplates(): Promise<PackInfo[]> {
+  const res = await fetch(`${API_BASE}/api/templates`);
+  if (!res.ok) throw new Error("Failed to fetch templates");
+  return res.json();
+}
+
+export async function addTemplateFromPack(packId: string): Promise<PackInfo> {
+  const res = await fetch(`${API_BASE}/api/templates/from-pack/${encodeURIComponent(packId)}`, { method: "POST" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to add template from pack");
+  }
+  return res.json();
+}
+
+export async function addTemplateFromSchema(schemaId: string): Promise<PackInfo> {
+  const res = await fetch(`${API_BASE}/api/templates/from-schema/${encodeURIComponent(schemaId)}`, { method: "POST" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to add template from schema");
+  }
+  return res.json();
+}
+
+export async function removeTemplate(templateId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/templates/${encodeURIComponent(templateId)}`, { method: "DELETE" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to remove template");
+  }
+}
+
+export async function fetchHiddenTemplates(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/templates/hidden`);
+  if (!res.ok) throw new Error("Failed to fetch hidden templates");
+  return res.json();
+}
+
+export async function unhideTemplate(templateId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/templates/${encodeURIComponent(templateId)}/unhide`, { method: "POST" });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to unhide template");
+  }
 }
 
 export async function runGenerate(config: Record<string, unknown>) {
@@ -127,6 +174,22 @@ export async function runReconcile(params: {
 export async function fetchSchemaVisualization(packId: string) {
   const res = await fetch(`${API_BASE}/api/schema/visualize?pack_id=${encodeURIComponent(packId)}`);
   if (!res.ok) throw new Error("Failed to fetch schema");
+  return res.json();
+}
+
+export async function fetchSchemaVisualizationCustomSchema(customSchemaId: string) {
+  const res = await fetch(`${API_BASE}/api/schema/visualize?custom_schema_id=${encodeURIComponent(customSchemaId)}`);
+  if (!res.ok) throw new Error("Failed to fetch schema");
+  return res.json();
+}
+
+export async function fetchSchemaToSql(schema: Record<string, unknown>, dialect: "generic" | "postgres" = "generic"): Promise<{ sql: string }> {
+  const res = await fetch(`${API_BASE}/api/schema/to-sql`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ schema, dialect }),
+  });
+  if (!res.ok) throw new Error("Failed to convert schema to SQL");
   return res.json();
 }
 
@@ -311,6 +374,11 @@ export async function fetchRunStatus(runId: string) {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Failed to fetch status");
   return res.json();
+}
+
+/** SSE stream URL for run status. Use EventSource when run is queued/running. */
+export function runStatusStreamUrl(runId: string): string {
+  return `${API_BASE}/api/runs/${encodeURIComponent(runId)}/stream`;
 }
 
 export async function rerunRun(runId: string) {
@@ -767,6 +835,13 @@ export async function restoreSchemaVersion(schemaId: string, version: number): P
   return data;
 }
 
+export async function deleteCustomSchema(id: string): Promise<{ deleted: string }> {
+  const res = await fetch(`${API_BASE}/api/custom-schemas/${id}`, { method: "DELETE" });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to delete schema");
+  return data;
+}
+
 export interface CustomSchemaValidateResponse {
   valid: boolean;
   errors: string[];
@@ -777,8 +852,23 @@ export async function validateCustomSchema(schema: Record<string, unknown>): Pro
   const res = await fetch(`${API_BASE}/api/custom-schemas/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ schema }),
+    body: JSON.stringify({ schema: schema ?? { name: "schema", tables: [], relationships: [] } }),
   });
-  if (!res.ok) throw new Error("Validation request failed");
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    // FastAPI 422: detail is array of { loc, msg } for request validation
+    const detail = data?.detail;
+    let msg = "Validation request failed";
+    if (Array.isArray(detail) && detail.length > 0) {
+      msg = detail.map((d: { loc?: string[]; msg?: string }) => `${(d.loc || []).join(".")}: ${d.msg || ""}`).join("; ");
+    } else if (typeof detail === "string") {
+      msg = detail;
+    } else if (detail?.schema_errors?.length) {
+      msg = detail.schema_errors.join("; ");
+    }
+    const err = new Error(`${msg} (${res.status})`);
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
+  }
+  return data;
 }

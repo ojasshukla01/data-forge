@@ -58,6 +58,12 @@ Generation runs produce a **privacy summary** and **privacy_audit** in the quali
 - No automatic masking of values in exports; redaction applies to in-report samples only when `privacy_mode` is `warn` or `strict`.
 - Detection is heuristic (column names and hints), not content-based.
 
+**Limitations and caveats:**
+
+- **Heuristic-driven, not formal assurance:** PII detection uses column names, generator hints, and naming patterns. It does not analyze actual cell values or provide k-anonymity, differential privacy, or other formal privacy guarantees.
+- **No anonymization proofs:** There is no mathematical proof that outputs are anonymized or de-identified. For regulated or high-sensitivity use cases, apply additional governance and validation.
+- **Redaction scope:** Redaction applies to in-report samples and previews when enabled; exported datasets are not automatically masked. Use `privacy_mode` to gate generation and review `privacy_audit` before sharing outputs.
+
 See `pii/classifier.py` and `validators/quality.py` for implementation details.
 
 ## Storage

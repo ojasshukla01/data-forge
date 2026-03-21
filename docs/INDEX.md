@@ -21,14 +21,19 @@ These are the **current, authoritative** docs for users and contributors. Keep t
 | [Create and config](create-and-config.md) | Create wizard, advanced config, config schema |
 | [Demo walkthrough](demo-walkthrough.md) | Step-by-step UI walkthrough |
 | [Release checklist](release-checklist.md) | Validation and sanity checks before a release (when present) |
+| [Deployment](deployment.md) | Local Docker Compose, production env vars, cloud deployment guidance |
+| [Adapter maturity](adapter-maturity.md) | Database load adapter audit: SQLite, DuckDB, Postgres, Snowflake, BigQuery |
 
 ### Other canonical docs
 
 - [Generation engine](generation-engine.md) — Generation rules and engine behavior  
+- [Rehearsal](rehearsal.md) — Migration rehearsal: schema evolution, drift, CDC, linked unstructured
 - [Dependency audit](dependency-audit.md) — Dependency and audit notes  
 - [Retention and cleanup](retention-and-cleanup.md)  
 - [Scenario versioning](scenario-versioning.md)  
 - [Pack authoring](pack-authoring.md)
+- [Migration and upgrades](migration-and-upgrades.md) — Version upgrades, config/schema changes
+- [Performance tuning](performance-tuning.md) — Scaling, benchmarks, limits
 - [Repository cleanup summary](repository-cleanup-summary.md) — What was cleaned and left in place
 - [Release process](release-process.md) — Release tagging, CHANGELOG, version bump
 - [Versioning](versioning.md) — Semantic Versioning, tag format, bump rules

@@ -368,7 +368,9 @@ def run_generation(
         res = GenerationResult(request=request, tables=snapshots, quality_report={}, success=True)
         batch_size = getattr(request, "batch_size", 1000)
         warehouse_load = load_to_database(
-            res, schema, load_target, db_uri, batch_size=batch_size, load_params=load_params
+            res, schema, load_target, db_uri,
+            batch_size=batch_size, load_params=load_params,
+            table_store=table_store,
         )
         quality_report["warehouse_load"] = warehouse_load
         if "load_seconds" in warehouse_load:

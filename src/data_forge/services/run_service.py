@@ -40,9 +40,11 @@ def list_runs(
     layer: str | None = None,
     source_scenario_id: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
     include_archived: bool = True,
 ) -> list[dict[str, Any]]:
-    """List runs with optional filters."""
+    """List runs with optional filters. Supports offset/limit and cursor pagination."""
     return get_run_store().list_runs(
         status=status,
         run_type=run_type,
@@ -51,6 +53,8 @@ def list_runs(
         layer=layer,
         source_scenario_id=source_scenario_id,
         limit=limit,
+        offset=offset,
+        cursor=cursor,
         include_archived=include_archived,
     )
 

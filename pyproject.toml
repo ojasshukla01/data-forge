@@ -55,12 +55,14 @@ warehouse = [
 ge = ["great-expectations>=0.18.0"]
 streamlit = ["streamlit>=1.40.0"]
 sdv = ["sdv>=1.11.0"]
+metrics = ["prometheus-client>=0.21.0"]
 all = [
     "snowflake-connector-python>=3.0.0",
     "google-cloud-bigquery>=3.0.0",
     "great-expectations>=0.18.0",
     "streamlit>=1.40.0",
     "sdv>=1.11.0",
+    "prometheus-client>=0.21.0",
 ]
 
 [project.scripts]
@@ -104,6 +106,11 @@ module = [
     "google.cloud.*",
     "streamlit",
 ]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["prometheus_client", "prometheus_client.*"]
 ignore_missing_imports = true
 follow_imports = "skip"
 

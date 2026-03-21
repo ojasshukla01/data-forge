@@ -18,13 +18,14 @@ import "reactflow/dist/style.css";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { fetchPacks, fetchSchemaVisualization } from "@/lib/api";
+import { fetchPacks, fetchCustomSchemas, fetchSchemaVisualization, fetchSchemaVisualizationCustomSchema } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import type { CustomSchemaSummary } from "@/lib/api";
 
 interface ApiNode {
   id: string;
   type: string;
-  data: { label: string; columns?: { name: string; type: string; nullable: boolean; pk: boolean }[]; primaryKey?: string[] };
+  data: { label: string; columns?: { name: string; type: string; nullable: boolean; pk: boolean }[]; primaryKey?: string[]; sourceType?: "pack" | "custom" };
   position: { x: number; y: number };
 }
 
@@ -35,11 +36,15 @@ interface ApiEdge {
   label?: string;
 }
 
-function TableNode({ data }: { data: { label: string; columns?: { name: string; type: string; pk: boolean }[] } }) {
+function TableNode({ data }: { data: { label: string; columns?: { name: string; type: string; pk: boolean }[]; sourceType?: "pack" | "custom" } }) {
   const cols = data.columns ?? [];
+  const isCustom = data.sourceType === "custom";
   return (
-    <div className="rounded-lg border-2 border-slate-200 bg-white shadow-md min-w-[200px] overflow-hidden">
-      <div className="bg-[var(--brand-teal)] text-white px-3 py-2 font-semibold font-mono">{data.label}</div>
+    <div className={cn("rounded-lg border-2 shadow-md min-w-[200px] overflow-hidden", isCustom ? "border-amber-400 bg-amber-50/30" : "border-slate-200 bg-white")}>
+      <div className={cn("text-white px-3 py-2 font-semibold font-mono flex items-center justify-between gap-2", isCustom ? "bg-amber-600" : "bg-[var(--brand-teal)]")}>
+        <span>{data.label}</span>
+        {isCustom && <span className="text-[10px] uppercase tracking-wider opacity-90">Custom</span>}
+      </div>
       <div className="divide-y divide-slate-200 border-t border-slate-200">
         {cols.slice(0, 8).map((c) => (
           <div key={c.name} className="px-3 py-1.5 text-sm flex justify-between gap-4 border-b border-slate-100 last:border-0">
@@ -57,11 +62,17 @@ function TableNode({ data }: { data: { label: string; columns?: { name: string; 
 
 const nodeTypes = { table: TableNode };
 
+type SchemaSource = { type: "pack"; id: string } | { type: "custom"; id: string };
+
 function SchemaContent() {
   const searchParams = useSearchParams();
   const packParam = searchParams.get("pack");
+  const customParam = searchParams.get("custom");
   const [packs, setPacks] = useState<{ id: string; description: string }[]>([]);
-  const [selectedPack, setSelectedPack] = useState<string>(packParam ?? "");
+  const [customSchemas, setCustomSchemas] = useState<CustomSchemaSummary[]>([]);
+  const [selected, setSelected] = useState<SchemaSource>(
+    customParam ? { type: "custom", id: customParam } : packParam ? { type: "pack", id: packParam } : { type: "pack", id: "" }
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -69,27 +80,30 @@ function SchemaContent() {
   const [search, setSearch] = useState("");
   const [sidePanel, setSidePanel] = useState<ApiNode | null>(null);
 
-  const loadSchema = useCallback(async (packId: string) => {
-    if (!packId) return;
+  const loadSchema = useCallback(async (source: SchemaSource) => {
+    if (!source.id) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchSchemaVisualization(packId);
+      const data = source.type === "pack"
+        ? await fetchSchemaVisualization(source.id)
+        : await fetchSchemaVisualizationCustomSchema(source.id);
       const apiNodes = (data.nodes ?? []) as ApiNode[];
       const apiEdges = (data.edges ?? []) as ApiEdge[];
       const flowNodes: Node[] = apiNodes.map((n) => ({
         id: n.id,
         type: "table",
         position: n.position ?? { x: 0, y: 0 },
-        data: n.data,
+        data: { ...n.data, sourceType: data.source_type ?? "pack" },
       }));
+      const edgeColor = data.source_type === "custom" ? "#d97706" : "#06b6d4";
       const flowEdges: Edge[] = apiEdges.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
         label: e.label,
-        style: { stroke: "#06b6d4", strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: "#06b6d4" },
+        style: { stroke: edgeColor, strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: edgeColor },
         type: "smoothstep",
       }));
       setNodes(flowNodes);
@@ -105,14 +119,16 @@ function SchemaContent() {
 
   useEffect(() => {
     fetchPacks().then(setPacks).catch(() => setPacks([]));
+    fetchCustomSchemas().then(setCustomSchemas).catch(() => setCustomSchemas([]));
   }, []);
   useEffect(() => {
-    if (packParam) setSelectedPack(packParam);
-  }, [packParam]);
+    if (customParam) setSelected({ type: "custom", id: customParam });
+    else if (packParam) setSelected({ type: "pack", id: packParam });
+  }, [packParam, customParam]);
 
   useEffect(() => {
-    if (selectedPack) loadSchema(selectedPack);
-  }, [selectedPack, loadSchema]);
+    if (selected.id) loadSchema(selected);
+  }, [selected.type, selected.id, loadSchema]);
 
   const onConnect = useCallback(
     (conn: Connection) => setEdges((eds) => addEdge(conn, eds)),
@@ -137,17 +153,44 @@ function SchemaContent() {
           <h1 className="text-2xl font-bold text-slate-900">Schema Visualizer</h1>
           <p className="text-slate-600 text-sm">Explore table structure and relationships</p>
         </div>
-        <div className="flex gap-3 items-center">
-          <select
-            value={selectedPack}
-            onChange={(e) => setSelectedPack(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="">Select pack</option>
-            {packs.map((p) => (
-              <option key={p.id} value={p.id}>{p.id}</option>
-            ))}
-          </select>
+        <div className="flex gap-4 items-end flex-wrap">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="pack-select" className="text-xs font-medium text-slate-600">Domain pack</label>
+            <select
+              id="pack-select"
+              value={selected.type === "pack" ? selected.id : ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSelected({ type: "pack", id: id || "" });
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[180px]"
+            >
+              <option value="">Select pack…</option>
+              {packs.map((p) => (
+                <option key={p.id} value={p.id}>{p.id}</option>
+              ))}
+              {packs.length === 0 && <option disabled>No packs</option>}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="custom-select" className="text-xs font-medium text-slate-600">Custom schema</label>
+            <select
+              id="custom-select"
+              value={selected.type === "custom" ? selected.id : ""}
+              onChange={(e) => {
+                const id = e.target.value;
+                setSelected({ type: "custom", id: id || "" });
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[180px]"
+            >
+              <option value="">Select custom…</option>
+              {customSchemas.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              {customSchemas.length === 0 && <option disabled>None — create in Schema Studio</option>}
+            </select>
+          </div>
+          <Link href="/schema/studio"><Button variant="ghost" size="sm">Schema Studio</Button></Link>
           <input
             type="text"
             placeholder="Search table"
@@ -167,8 +210,8 @@ function SchemaContent() {
         <div className="flex-1 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
           {loading ? (
             <div className="h-full flex items-center justify-center text-slate-500">Loading…</div>
-          ) : !selectedPack ? (
-            <div className="h-full flex items-center justify-center text-slate-500">Select a domain pack to visualize</div>
+          ) : !selected.id ? (
+            <div className="h-full flex items-center justify-center text-slate-500">Select a domain pack or custom schema above</div>
           ) : nodes.length === 0 ? (
             <div className="h-full flex items-center justify-center text-slate-500">No schema data</div>
           ) : (

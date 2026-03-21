@@ -208,12 +208,16 @@ def list_scenarios(
     tag: str | None = None,
     search: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List scenarios with optional filters."""
+    """List scenarios with optional filters. Supports offset/limit and cursor pagination."""
     scenarios_dir = _scenarios_dir()
     if not scenarios_dir.exists():
         return []
     records: list[dict[str, Any]] = []
+    skipped = 0
+    past_cursor = cursor is None
     for p in sorted(scenarios_dir.glob("*.json"), key=lambda x: x.stat().st_mtime, reverse=True):
         if len(records) >= limit:
             break
@@ -231,5 +235,12 @@ def list_scenarios(
             q = search.lower()
             if q not in (r.get("name") or "").lower() and q not in (r.get("description") or "").lower():
                 continue
+        if cursor and not past_cursor:
+            if r.get("id") == cursor:
+                past_cursor = True
+            continue
+        if not cursor and skipped < offset:
+            skipped += 1
+            continue
         records.append(r)
     return records

@@ -118,6 +118,8 @@ jobs:
           done
           curl -sf http://127.0.0.1:8000/health
           curl -sf -o /dev/null http://127.0.0.1:3000
+          # Ensure custom-schemas API is ready (lazy init)
+          curl -sf http://127.0.0.1:8000/api/custom-schemas
 
       - name: Run Playwright E2E
         run: cd frontend && npm run e2e

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { fetchPack, type PackDetail } from "@/lib/api";
+import { fetchPack, fetchCustomSchema, type PackDetail } from "@/lib/api";
 
 const CAPABILITY_LABELS: Record<string, string> = {
   contracts: "OpenAPI/JSON Schema contracts",
@@ -17,18 +17,44 @@ const CAPABILITY_LABELS: Record<string, string> = {
   validation: "Validation",
 };
 
+function customToPackDetail(d: { id: string; name: string; description?: string; schema?: Record<string, unknown> }): PackDetail {
+  const schema = (d.schema ?? {}) as { tables?: { name: string; columns?: { name: string }[]; primary_key?: string[] }[]; relationships?: unknown[] };
+  const tables = (schema.tables ?? []).map((t) => ({
+    name: t.name,
+    columns: (t.columns ?? []).map((c) => (typeof c === "object" && c && "name" in c ? (c as { name: string }).name : String(c))),
+    primary_key: t.primary_key ?? [],
+  }));
+  return {
+    id: d.id,
+    name: d.name,
+    description: d.description ?? "Custom schema",
+    category: "Custom",
+    tables,
+    relationships_count: (schema.relationships ?? []).length,
+    key_entities: tables.slice(0, 5).map((t) => t.name),
+  };
+}
+
 export default function PackDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const isUserTemplate = id.startsWith("schema_");
   const [pack, setPack] = useState<PackDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPack(id)
-      .then(setPack)
-      .catch(() => setPack(null))
-      .finally(() => setLoading(false));
-  }, [id]);
+    if (isUserTemplate) {
+      fetchCustomSchema(id)
+        .then((d) => (d ? setPack(customToPackDetail(d)) : setPack(null)))
+        .catch(() => setPack(null))
+        .finally(() => setLoading(false));
+    } else {
+      fetchPack(id)
+        .then(setPack)
+        .catch(() => setPack(null))
+        .finally(() => setLoading(false));
+    }
+  }, [id, isUserTemplate]);
 
   if (loading) {
     return <div className="h-32 animate-pulse bg-slate-100 rounded-xl" />;
@@ -57,8 +83,9 @@ export default function PackDetailPage() {
           <p className="mt-1 text-slate-600">{pack.description as string}</p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <Link href={`/create/wizard?pack=${id}`}><Button>Use This Template</Button></Link>
-          <Link href={`/schema?pack=${id}`}><Button variant="outline" size="sm">Schema Diagram</Button></Link>
+          <Link href={isUserTemplate ? `/create/wizard?custom_schema=${id}` : `/create/wizard?pack=${id}`}><Button>Use This Template</Button></Link>
+          <Link href={isUserTemplate ? `/schema?custom=${id}` : `/schema?pack=${id}`}><Button variant="outline" size="sm">Schema Diagram</Button></Link>
+          {isUserTemplate && <Link href={`/schema/studio?schema=${id}`}><Button variant="outline" size="sm">Edit in Schema Studio</Button></Link>}
         </div>
       </div>
 
@@ -189,8 +216,8 @@ export default function PackDetailPage() {
       ) : null}
 
       <div className="flex gap-3 pt-2">
-        <Link href={`/create/wizard?pack=${id}`}><Button>Create dataset</Button></Link>
-        <Link href={`/schema?pack=${id}`}><Button variant="outline">Schema diagram</Button></Link>
+        <Link href={isUserTemplate ? `/create/wizard?custom_schema=${id}` : `/create/wizard?pack=${id}`}><Button>Create dataset</Button></Link>
+        <Link href={isUserTemplate ? `/schema?custom=${id}` : `/schema?pack=${id}`}><Button variant="outline">Schema diagram</Button></Link>
       </div>
     </div>
   );

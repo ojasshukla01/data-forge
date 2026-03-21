@@ -228,6 +228,7 @@ export function SchemaFormEditor({
   onChange,
   onSave,
   saving,
+  saveDisabled,
   validationErrors = [],
   onValidate,
   validateLoading = false,
@@ -236,6 +237,7 @@ export function SchemaFormEditor({
   onChange: (next: CustomSchemaDetail) => void;
   onSave: () => void;
   saving: boolean;
+  saveDisabled?: boolean;
   validationErrors?: string[];
   onValidate?: () => void;
   validateLoading?: boolean;
@@ -535,7 +537,7 @@ export function SchemaFormEditor({
                     <div className="grid grid-cols-12 gap-2 items-center">
                       <input
                         type="text"
-                        value={col.name}
+                        value={col.name ?? ""}
                         onChange={(e) => updateColumn(selectedTableIndex, j, { name: e.target.value })}
                         className="col-span-3 rounded border border-slate-300 px-2 py-1 text-sm"
                         placeholder="Column name"
@@ -699,7 +701,7 @@ export function SchemaFormEditor({
               {validateLoading ? "Validating…" : "Validate"}
             </Button>
           )}
-          <Button size="sm" onClick={onSave} disabled={saving}>
+          <Button size="sm" onClick={onSave} disabled={saving || saveDisabled}>
             {saving ? "Saving…" : "Save schema"}
           </Button>
         </div>

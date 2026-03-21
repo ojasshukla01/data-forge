@@ -138,6 +138,12 @@ def generate_support_ticket_notes(
         "Support note: follow-up required for {event_type} on {entity_id}.",
         "Escalation candidate tied to {event_type}; observed anomaly around entity {entity_id}.",
         "Operations comment: verify downstream impact from {event_type} for {entity_id}.",
+        "Ticket opened: {event_type} triggered SLA review for {entity_id}.",
+        "Internal note: {event_type} on {entity_id} may require escalation.",
+        "Customer inquiry regarding {event_type} for {entity_id}. Awaiting response.",
+        "QA flag: validate {event_type} handling for entity {entity_id}.",
+        "Refund requested after {event_type}. Entity {entity_id} under review.",
+        "Compliance check: {event_type} on {entity_id} passed audit.",
     ]
     sample_size = min(max_notes, max(1, len(events) // 5))
     selected = events if len(events) <= sample_size else rng.sample(events, sample_size)

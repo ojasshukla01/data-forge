@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Home, PlusCircle, FolderKanban, Play, FileOutput, BookOpen, Info, Settings, LayoutTemplate, Layers, FileCheck, Plug } from "lucide-react";
+import { Home, PlusCircle, FolderKanban, Play, FileOutput, BookOpen, Info, Settings, LayoutTemplate, Layers, FileCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const mainNavItems: { href: string; label: string; icon: LucideIcon }[] = [
@@ -24,7 +24,6 @@ const moreNavItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/schema/studio", label: "Schema Studio", icon: Layers },
   { href: "/schema", label: "Schema", icon: FileCheck },
   { href: "/validate", label: "Validate", icon: FileCheck },
-  { href: "/integrations", label: "Integrations", icon: Plug },
 ];
 
 function isActive(href: string, pathname: string): boolean {

@@ -21,15 +21,33 @@ from data_forge.api.schemas import (
 router = APIRouter(prefix="/api/custom-schemas", tags=["custom-schemas"])
 
 
+def _format_validation_error(exc: Exception) -> list[str]:
+    """Format Pydantic or other validation errors with actionable recommendations."""
+    from pydantic import ValidationError
+
+    if isinstance(exc, ValidationError):
+        out: list[str] = []
+        for err in exc.errors():
+            loc = " → ".join(str(x) for x in err.get("loc", ()) if str(x) != "schema_body")
+            msg = err.get("msg", "Invalid value")
+            ctx = err.get("ctx", {})
+            if "type" in ctx:
+                msg = f"{msg} (expected type: {ctx['type']})"
+            rec = f"Fix the value at {loc}" if loc else "Check the schema structure"
+            out.append(f"{loc}: {msg} → {rec}")
+        return out if out else [f"{exc} → Ensure schema has 'tables' (array) and 'relationships' (array). Each table needs 'name' and 'columns'."]
+    return [f"{exc} → Ensure valid JSON with 'tables' and 'relationships' arrays. See docs for schema format."]
+
+
 @router.post("/validate", response_model=CustomSchemaValidateResponse)
 def validate_schema(payload: CustomSchemaValidateRequest) -> CustomSchemaValidateResponse:
-    """Validate schema structure without saving. Returns validation errors and warnings."""
+    """Validate schema structure without saving. Returns validation errors (with recommendations) and warnings."""
     from data_forge.models.schema import SchemaModel
 
     try:
         model = SchemaModel.model_validate(payload.schema_body)
     except Exception as e:
-        return CustomSchemaValidateResponse(valid=False, errors=[str(e)], warnings=[])
+        return CustomSchemaValidateResponse(valid=False, errors=_format_validation_error(e), warnings=[])
     errors = model.validate_schema()
     warnings = model.collect_warnings()
     return CustomSchemaValidateResponse(valid=len(errors) == 0, errors=errors, warnings=warnings)
