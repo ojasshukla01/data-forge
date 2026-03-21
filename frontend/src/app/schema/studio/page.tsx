@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -618,6 +618,10 @@ function SchemaStudioContent() {
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<CustomSchemaDetail | null>(null);
+  const editingRef = useRef<CustomSchemaDetail | null>(null);
+  useEffect(() => {
+    editingRef.current = editing;
+  }, [editing]);
   const [saving, setSaving] = useState(false);
   const [previewData, setPreviewData] = useState<Record<string, Record<string, unknown>[]> | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -737,13 +741,18 @@ function SchemaStudioContent() {
   };
 
   const handleSave = async (schemaOverride?: CustomSchemaDetail) => {
-    const toSave = schemaOverride ?? editing;
+    const toSave = schemaOverride ?? editingRef.current ?? editing;
     if (!toSave) return;
+    const schemaBody = toSave.schema as Record<string, unknown> | undefined;
+    if (!schemaBody || typeof schemaBody !== "object") {
+      setError("Schema is empty");
+      return;
+    }
     setError(null);
     setValidationResult(null);
     setValidateLoading(true);
     try {
-      const result = await validateCustomSchema(toSave.schema as Record<string, unknown>);
+      const result = await validateCustomSchema(schemaBody);
       setValidationResult(result);
       if (!result.valid) {
         return;

@@ -217,6 +217,8 @@ class CustomSchemaUpdate(BaseModel):
 class CustomSchemaValidateRequest(BaseModel):
     """Request body for POST /api/custom-schemas/validate."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     schema_body: dict[str, Any] = Field(alias="schema")
 
 

@@ -852,8 +852,23 @@ export async function validateCustomSchema(schema: Record<string, unknown>): Pro
   const res = await fetch(`${API_BASE}/api/custom-schemas/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ schema }),
+    body: JSON.stringify({ schema: schema ?? { name: "schema", tables: [], relationships: [] } }),
   });
-  if (!res.ok) throw new Error("Validation request failed");
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    // FastAPI 422: detail is array of { loc, msg } for request validation
+    const detail = data?.detail;
+    let msg = "Validation request failed";
+    if (Array.isArray(detail) && detail.length > 0) {
+      msg = detail.map((d: { loc?: string[]; msg?: string }) => `${(d.loc || []).join(".")}: ${d.msg || ""}`).join("; ");
+    } else if (typeof detail === "string") {
+      msg = detail;
+    } else if (detail?.schema_errors?.length) {
+      msg = detail.schema_errors.join("; ");
+    }
+    const err = new Error(`${msg} (${res.status})`);
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
+  }
+  return data;
 }
