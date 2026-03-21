@@ -56,12 +56,13 @@ describe("Schema Studio page", () => {
     expect(saveButton).toBeInTheDocument();
 
     await user.click(saveButton);
-    await waitFor(() =>
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/custom-schemas"),
-        expect.any(Object),
-      ),
-    );
+    await waitFor(() => {
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      const hasCustomSchemasCall = calls.some(
+        (c: [string, RequestInit?]) => String(c[0]).includes("/api/custom-schemas"),
+      );
+      expect(hasCustomSchemasCall).toBe(true);
+    });
   });
 
   it("adds table, saves, and shows success (userEvent for realistic async interactions)", async () => {

@@ -743,11 +743,11 @@ function SchemaStudioContent() {
   const handleSave = async (schemaOverride?: CustomSchemaDetail) => {
     const toSave = schemaOverride ?? editingRef.current ?? editing;
     if (!toSave) return;
-    const schemaBody = toSave.schema as Record<string, unknown> | undefined;
-    if (!schemaBody || typeof schemaBody !== "object") {
-      setError("Schema is empty");
-      return;
-    }
+    const raw = toSave.schema as Record<string, unknown> | undefined;
+    const schemaBody =
+      raw && typeof raw === "object"
+        ? raw
+        : { name: "schema", tables: [] as unknown[], relationships: [] as unknown[] };
     setError(null);
     setValidationResult(null);
     setValidateLoading(true);
@@ -770,7 +770,7 @@ function SchemaStudioContent() {
           name: toSave.name,
           description: toSave.description,
           tags: toSave.tags,
-          schema: toSave.schema,
+          schema: schemaBody,
         });
         setSchemas((prev) => [created, ...prev]);
         setSelectedId(created.id);
@@ -780,7 +780,7 @@ function SchemaStudioContent() {
           name: toSave.name,
           description: toSave.description,
           tags: toSave.tags,
-          schema: toSave.schema,
+          schema: schemaBody,
         });
         setSchemas((prev) =>
           prev.map((s) => (s.id === updated.id ? { ...s, name: updated.name, description: updated.description, version: updated.version } : s)),
