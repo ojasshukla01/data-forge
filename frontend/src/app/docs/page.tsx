@@ -93,7 +93,7 @@ export default function DocsPage() {
           Domain packs are pre-built schemas and business rules. Each pack defines tables, foreign keys, and realistic generators for a specific domain.
         </p>
         <p className="text-slate-600 text-sm sm:text-base leading-relaxed mb-4">
-          <strong>How to use:</strong> Go to Templates, browse by category (SaaS, E-commerce, Fintech, Healthcare, etc.), click a pack to see its schema and entities, then use &quot;Use This Template&quot; or go to Create. Packs marked &quot;Event streams&quot; or &quot;Benchmark high&quot; are best for simulation and benchmarking.
+          <strong>How to use:</strong> Go to Templates, browse by category (SaaS, E-commerce, Fintech, Healthcare, etc.), click a pack to see its schema and entities, then use &quot;Use This Template&quot; or go to Create. You can add templates from domain packs or Schema Studio, edit user templates in Schema Studio, and hide built-in packs you don&apos;t need. Packs marked &quot;Event streams&quot; or &quot;Benchmark high&quot; are best for simulation and benchmarking.
         </p>
         <Link href="/templates">
           <Button variant="outline" size="md">Browse templates</Button>
@@ -113,9 +113,11 @@ export default function DocsPage() {
           <strong>Important:</strong> You must choose or create a schema first before adding tables. Select an existing schema from the sidebar or click &quot;New schema&quot;.
         </p>
         <ul className="list-disc list-inside text-slate-600 text-sm sm:text-base space-y-1 mb-4">
+          <li><strong>Visual mode</strong> — Drag-and-drop canvas to design tables and relationships</li>
           <li><strong>Form mode</strong> — Tables, Columns, and Relationships tabs; add tables, columns, PK, FK, generation rules</li>
-          <li><strong>JSON mode</strong> — Edit raw schema JSON for advanced control</li>
-          <li><strong>Validate</strong> — Check structure and rules before save</li>
+          <li><strong>JSON mode</strong> — Edit raw schema JSON; paste or edit; switching to JSON shows current schema</li>
+          <li><strong>SQL mode</strong> — View generated CREATE TABLE DDL; copy to use in your database</li>
+          <li><strong>Validate</strong> — Required before save; shows exact errors and recommendations</li>
           <li><strong>Version history</strong> — Compare versions, diff tables and columns</li>
           <li><strong>Sample preview</strong> — Generate sample rows without a full run</li>
         </ul>

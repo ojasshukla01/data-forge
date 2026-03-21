@@ -139,6 +139,32 @@ export default function HomePage() {
             );
           })}
         </div>
+      </section>
+
+      <section className="max-w-3xl mx-auto pt-8 border-t border-slate-100">
+        <h2 className="text-lg font-semibold text-slate-900 mb-3 text-center">Integrations</h2>
+        <p className="text-center text-sm text-slate-600 mb-5 max-w-xl mx-auto">
+          Data Forge fits into your data stack: databases, dbt, Great Expectations, Airflow, and contract testing.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { name: "Database adapters", desc: "SQLite, DuckDB, PostgreSQL, Snowflake, BigQuery" },
+            { name: "dbt export", desc: "Seeds, sources, schema tests" },
+            { name: "Great Expectations", desc: "Expectation suites and checkpoints" },
+            { name: "Airflow", desc: "DAG templates for common workflows" },
+            { name: "Contracts", desc: "OpenAPI fixture generation" },
+            { name: "Warehouse validation", desc: "Row count and load verification" },
+            { name: "Pipeline simulation", desc: "Event streams, snapshots, workload replay" },
+            { name: "Warehouse benchmark", desc: "Scale presets, workload profiles, throughput" },
+          ].map((i) => (
+            <Card key={i.name} className="hover:border-slate-300 transition-colors">
+              <CardContent className="py-3 px-4">
+                <p className="font-medium text-slate-900 text-sm">{i.name}</p>
+                <p className="text-xs text-slate-600 mt-0.5">{i.desc}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
         <p className="text-center mt-8 text-sm text-slate-500">
           <Link href="/docs" className="text-[var(--brand-teal)] hover:underline">Docs</Link>
           {" · "}

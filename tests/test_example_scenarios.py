@@ -26,5 +26,5 @@ def test_example_scenario_valid_structure(path: Path) -> None:
     assert "pack" in config and config["pack"], "config.pack is required"
     # Categories are optional but if present should be valid
     if "category" in data:
-        valid = {"quick_start", "testing", "pipeline_simulation", "warehouse_benchmark", "privacy_uat", "contracts", "custom"}
+        valid = {"quick_start", "testing", "pipeline_simulation", "migration_rehearsal", "warehouse_benchmark", "privacy_uat", "contracts", "custom"}
         assert data["category"] in valid, f"category must be one of {valid}"

@@ -2,11 +2,37 @@
 
 Key API endpoints for the Data Forge platform. Base URL is the API origin (e.g. `http://localhost:8000`).
 
-## Health
+**Interactive docs:** `GET /docs` (Swagger UI) and `GET /redoc` (ReDoc).
+
+## Example: curl
+
+```bash
+# Health check
+curl -s http://localhost:8000/health
+
+# List domain packs
+curl -s http://localhost:8000/api/domain-packs
+
+# List runs (with filters and pagination)
+curl -s "http://localhost:8000/api/runs?limit=10&offset=0&run_type=generate"
+
+# Create custom schema
+curl -X POST http://localhost:8000/api/custom-schemas \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My Schema","schema":{"tables":[{"name":"users","columns":[{"name":"id","data_type":"integer"}],"primary_key":["id"]}],"relationships":[]}}'
+
+# Start generation
+curl -X POST http://localhost:8000/api/runs/generate \
+  -H "Content-Type: application/json" \
+  -d '{"pack":"saas_billing","scale":1000}'
+```
+
+## Health & Metrics
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check |
+| GET | `/metrics` | Prometheus metrics (when `prometheus-client` is installed via `pip install -e '.[metrics]'`) |
 
 ## Custom Schemas (`/api/custom-schemas`)
 
@@ -44,7 +70,8 @@ Key API endpoints for the Data Forge platform. Base URL is the API origin (e.g. 
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/runs` | List runs (query: status, pack, mode, run_type, include_archived) |
+| GET | `/api/runs` | List runs (query: status, pack, mode, run_type, include_archived, limit, offset, cursor). Response includes `runs`, `limit`, `offset`, `cursor`, `next_cursor`, `has_more`. |
+| GET | `/api/runs/{id}/stream` | SSE stream for run status (replaces polling when run is queued/running). |
 | GET | `/api/runs/metrics` | Aggregate run metrics |
 | GET | `/api/runs/storage/summary` | Storage usage summary |
 | GET | `/api/runs/cleanup/preview` | Preview retention cleanup |
@@ -68,7 +95,7 @@ Key API endpoints for the Data Forge platform. Base URL is the API origin (e.g. 
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/scenarios` | List scenarios (query: category, source_pack, search) |
+| GET | `/api/scenarios` | List scenarios (query: category, source_pack, search, limit, offset, cursor). Response includes `scenarios`, `limit`, `offset`, `cursor`, `next_cursor`, `has_more`. |
 | POST | `/api/scenarios` | Create scenario |
 | GET | `/api/scenarios/{id}` | Scenario detail |
 | PUT | `/api/scenarios/{id}` | Update scenario |
@@ -88,6 +115,17 @@ Key API endpoints for the Data Forge platform. Base URL is the API origin (e.g. 
 | GET | `/api/domain-packs` | List domain packs |
 | GET | `/api/domain-packs/{id}` | Pack detail (tables, relationships) |
 
+## Templates (user-managed)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/templates` | List templates (built-in not hidden + user templates) |
+| POST | `/api/templates/from-pack/{pack_id}` | Clone pack to custom schema and add as user template |
+| POST | `/api/templates/from-schema/{schema_id}` | Add custom schema as user template |
+| DELETE | `/api/templates/{id}` | Hide built-in or remove user template |
+| POST | `/api/templates/{id}/unhide` | Unhide a previously hidden built-in pack |
+| GET | `/api/templates/hidden` | List hidden built-in pack IDs |
+
 ## Artifacts
 
 | Method | Endpoint | Description |
@@ -99,7 +137,7 @@ Key API endpoints for the Data Forge platform. Base URL is the API origin (e.g. 
 
 | Endpoint | Description |
 |----------|-------------|
-| GET `/api/runs/{id}/lineage` | run_id, run_type, scenario_id, pack, custom_schema_id, custom_schema_version, custom_schema_name?, schema_source_type (pack \| custom_schema), artifact_run_id, output_dir. When run used a custom schema: **schema_missing** (true if schema was deleted), **custom_schema_snapshot_hash**, **custom_schema_table_names** (preserved for provenance). |
+| GET `/api/runs/{id}/lineage` | run_id, run_type, scenario_id, pack, custom_schema_id, custom_schema_version, custom_schema_name?, schema_source_type (pack \| custom_schema), artifact_run_id, output_dir. When run used a custom schema: **schema_missing** (true if schema was deleted), **schema_missing_message** (human-readable note), **custom_schema_snapshot_hash**, **custom_schema_table_names** (preserved for provenance). |
 | GET `/api/runs/{id}/manifest` | From output manifest or built from run record: run_id, seed, pack, custom_schema_id, custom_schema_version, custom_schema_name?, schema_source_type, scale, total_rows_generated, duration_seconds, created_at, manifest_version. When schema was deleted: **schema_missing**, **custom_schema_snapshot_hash**, **custom_schema_table_names** may be present. |
 
 ## Validation and Errors

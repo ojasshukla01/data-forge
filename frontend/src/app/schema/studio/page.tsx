@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Tabs } from "@/components/ui/Tabs";
@@ -11,7 +11,9 @@ import {
   fetchCustomSchema,
   createCustomSchema,
   updateCustomSchema,
+  deleteCustomSchema,
   fetchSchemaPreview,
+  fetchSchemaToSql,
   validateCustomSchema,
   fetchCustomSchemaVersions,
   fetchCustomSchemaDiff,
@@ -23,6 +25,8 @@ import {
   type CustomSchemaDiffResponse,
 } from "@/lib/api";
 import { SchemaFormEditor } from "./components/SchemaFormEditor";
+import { SchemaCanvasEditor } from "./components/SchemaCanvasEditor";
+import { cn } from "@/lib/utils";
 
 function VersionHistoryCard({
   schemaId,
@@ -193,27 +197,18 @@ function VersionHistoryCard({
   );
 }
 
-const HOW_IT_WORKS = (
-  <>
-    <p className="font-medium text-slate-800">Step 1: Choose or create a schema</p>
-    <p className="text-slate-600 mt-0.5">Select an existing schema from the list above, or click &quot;New schema&quot; in the top bar. You must have a schema open before adding tables.</p>
-    <p className="font-medium text-slate-800 mt-3">Step 2: Add tables and columns</p>
-    <p className="text-slate-600 mt-0.5">Use the Tables tab to add tables (and optional unique constraints). Use the Columns tab to add columns—data type, nullable, primary key, check constraint, and optional generation rules (faker, sequence, uuid).</p>
-    <p className="font-medium text-slate-800 mt-3">Step 3: Define relationships</p>
-    <p className="text-slate-600 mt-0.5">Use the Relationships tab to add foreign keys (from_table/from_columns → to_table/to_columns).</p>
-    <p className="font-medium text-slate-800 mt-3">Step 4: Validate and save</p>
-    <p className="text-slate-600 mt-0.5">Click Validate to check structure and rules. Fix any errors, then Save. Versions are tracked—use Version history to compare changes.</p>
-    <p className="font-medium text-slate-800 mt-3">Step 5: Use in runs</p>
-    <p className="text-slate-600 mt-0.5">Use with Create wizard (custom schema) or Advanced config. Your saved schema appears in the dropdown.</p>
-  </>
-);
+const HOW_IT_WORKS_LINK = { href: "/docs#schema-studio", label: "How it works (detailed guide)" };
 
 function SchemaList({
   schemas,
+  selectedId,
   onSelect,
+  onDelete,
 }: {
   schemas: CustomSchemaSummary[];
+  selectedId: string | null;
   onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -227,20 +222,36 @@ function SchemaList({
               <p className="text-sm text-slate-600 py-6">No custom schemas yet. Click &quot;New schema&quot; above to create one.</p>
             ) : (
               schemas.map((s) => (
-                <button
+                <div
                   key={s.id}
-                  type="button"
-                  onClick={() => onSelect(s.id)}
-                  className="w-full text-left px-3 py-2 rounded-lg border border-slate-200 hover:border-[var(--brand-teal)]/50 hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-slate-900 truncate">{s.name}</span>
-                    <span className="text-xs text-slate-500 font-mono shrink-0">v{s.version}</span>
-                  </div>
-                  {s.description && (
-                    <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{s.description}</p>
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border transition-colors",
+                    selectedId === s.id ? "border-[var(--brand-teal)] bg-teal-50/50" : "border-slate-200 hover:border-[var(--brand-teal)]/50 hover:bg-slate-50"
                   )}
-                </button>
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelect(s.id)}
+                    className="flex-1 min-w-0 text-left px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-slate-900 truncate">{s.name}</span>
+                      <span className="text-xs text-slate-500 font-mono shrink-0">v{s.version}</span>
+                    </div>
+                    {s.description && (
+                      <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{s.description}</p>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onDelete(s.id); }}
+                    title="Delete schema"
+                    className="shrink-0 p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-r-lg transition-colors"
+                    aria-label={`Delete ${s.name}`}
+                  >
+                    <span aria-hidden>🗑</span>
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -250,12 +261,89 @@ function SchemaList({
         <CardHeader>
           <CardTitle className="text-sm">How it works</CardTitle>
         </CardHeader>
-        <CardContent className="text-xs text-slate-600 space-y-2">
-          {HOW_IT_WORKS}
-          <Link href="/create/wizard" className="block mt-3 text-[var(--brand-teal)] hover:underline">→ Start a run with this schema</Link>
+        <CardContent>
+          <Link href={HOW_IT_WORKS_LINK.href} className="text-sm text-[var(--brand-teal)] hover:underline">
+            → {HOW_IT_WORKS_LINK.label}
+          </Link>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SchemaSqlView({
+  schema,
+  onValidate,
+  validateLoading,
+  active,
+}: {
+  schema: CustomSchemaDetail | null;
+  onValidate?: () => void;
+  validateLoading?: boolean;
+  active?: boolean;
+}) {
+  const [sql, setSql] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!active || !schema?.schema) {
+      if (!active) return;
+      setSql("");
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    fetchSchemaToSql(schema.schema as Record<string, unknown>)
+      .then((r) => setSql(r.sql))
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to generate SQL"))
+      .finally(() => setLoading(false));
+  }, [active, schema?.id, schema?.schema]);
+
+  if (!schema) {
+    return (
+      <Card className="flex-1">
+        <CardContent className="py-12 text-center text-slate-500">Choose or create a schema first.</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="flex-1">
+      <CardHeader className="flex flex-row justify-between items-center">
+        <CardTitle className="text-base">SQL DDL</CardTitle>
+        {onValidate && (
+          <Button size="sm" variant="outline" onClick={onValidate} disabled={validateLoading}>
+            {validateLoading ? "Validating…" : "Validate schema"}
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-slate-600 mb-2">Generated from your schema. Copy to use in your database.</p>
+        {loading && <p className="text-sm text-slate-500">Generating SQL…</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        {!loading && !error && (
+          <div className="space-y-2">
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigator.clipboard.writeText(sql)}
+              >
+                Copy SQL
+              </Button>
+            </div>
+            <textarea
+              readOnly
+              value={sql}
+              rows={20}
+              className="w-full rounded border border-slate-300 px-3 py-2 text-xs font-mono bg-slate-50 resize-y"
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -264,25 +352,32 @@ function SchemaEditorWithMode({
   setEditing,
   onSave,
   saving,
+  saveDisabled,
   onValidate,
   validateLoading,
   validationResult,
 }: {
   editing: CustomSchemaDetail | null;
   setEditing: (next: CustomSchemaDetail) => void;
-  onSave: () => void;
+  onSave: (schemaOverride?: CustomSchemaDetail) => void;
   saving: boolean;
+  saveDisabled?: boolean;
   onValidate: () => void;
   validateLoading: boolean;
   validationResult: CustomSchemaValidateResponse | null;
 }) {
-  const [editorMode, setEditorMode] = useState<"form" | "json">("form");
+  const [editorMode, setEditorMode] = useState<"form" | "json" | "visual" | "sql">("visual");
   return (
     <div className="flex-1 space-y-2">
       <Tabs
-        tabs={[{ id: "form", label: "Form" }, { id: "json", label: "JSON" }]}
+        tabs={[
+          { id: "visual", label: "Visual" },
+          { id: "form", label: "Form" },
+          { id: "json", label: "JSON" },
+          { id: "sql", label: "SQL" },
+        ]}
         activeId={editorMode}
-        onSelect={(id) => setEditorMode(id as "form" | "json")}
+        onSelect={(id) => setEditorMode(id as "form" | "json" | "visual" | "sql")}
       />
       {validationResult && (
         <div
@@ -291,25 +386,33 @@ function SchemaEditorWithMode({
           className={
             validationResult.valid
               ? "rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
-              : "rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+              : "rounded-lg border-2 border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
           }
         >
-          <p className="font-medium">Validation summary</p>
+          <p className="font-semibold">{validationResult.valid ? "✓ Schema valid" : "✗ Validation failed"}</p>
           {validationResult.valid ? (
-            <p className="mt-0.5">Schema is valid. You can save and use it for generation.</p>
+            <p className="mt-0.5">You can save and use this schema for generation.</p>
           ) : (
-            <div className="mt-1">
-              <p>{validationResult.errors.length} error{validationResult.errors.length !== 1 ? "s" : ""} found. Fix before saving.</p>
-              <ul className="list-disc list-inside mt-2 space-y-0.5">
-                {validationResult.errors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
+            <div className="mt-2 space-y-2">
+              <p className="font-medium">Fix these {(validationResult.errors?.length ?? 0)} error{(validationResult.errors?.length ?? 0) !== 1 ? "s" : ""} before saving:</p>
+              <ul className="space-y-1.5 list-none pl-0">
+                {(validationResult.errors ?? []).map((e, i) => {
+                  const parts = e.split(" → ");
+                  const msg = parts[0];
+                  const rec = parts[1];
+                  return (
+                    <li key={i} className="flex flex-col gap-0.5 py-1.5 px-2 rounded bg-red-100/50 border-l-2 border-red-400">
+                      <span>{msg}</span>
+                      {rec && <span className="text-red-700 font-medium text-xs">→ {rec}</span>}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
           {(validationResult.warnings?.length ?? 0) > 0 && (
-            <div className="mt-2 pt-2 border-t border-amber-200">
-              <p className="font-medium text-amber-800">{validationResult.warnings!.length} warning{validationResult.warnings!.length !== 1 ? "s" : ""}</p>
+            <div className="mt-3 pt-3 border-t border-amber-200">
+              <p className="font-medium text-amber-800">{validationResult.warnings!.length} warning{validationResult.warnings!.length !== 1 ? "s" : ""} (optional to fix)</p>
               <ul className="list-disc list-inside mt-1 space-y-0.5 text-amber-700">
                 {validationResult.warnings!.map((w, i) => (
                   <li key={i}>{w}</li>
@@ -319,24 +422,39 @@ function SchemaEditorWithMode({
           )}
         </div>
       )}
-      {editorMode === "form" ? (
+      {editorMode === "visual" ? (
+        <SchemaCanvasEditor
+          schema={editing}
+          onChange={setEditing}
+          onSave={onSave}
+          saving={saving}
+          saveDisabled={saveDisabled}
+          onValidate={onValidate}
+          validateLoading={validateLoading}
+        />
+      ) : editorMode === "form" ? (
         <SchemaFormEditor
           schema={editing}
           onChange={setEditing}
           onSave={onSave}
           saving={saving}
+          saveDisabled={saveDisabled}
           validationErrors={validationResult && !validationResult.valid ? validationResult.errors : []}
           onValidate={onValidate}
           validateLoading={validateLoading}
         />
+      ) : editorMode === "sql" ? (
+        <SchemaSqlView schema={editing} onValidate={onValidate} validateLoading={validateLoading} active={editorMode === "sql"} />
       ) : (
         <SchemaEditor
           schema={editing}
           onChange={setEditing}
           onSave={onSave}
           saving={saving}
+          saveDisabled={saveDisabled}
           onValidate={onValidate}
           validateLoading={validateLoading}
+          editorMode={editorMode}
         />
       )}
     </div>
@@ -348,15 +466,19 @@ function SchemaEditor({
   onChange,
   onSave,
   saving,
+  saveDisabled,
   onValidate,
   validateLoading,
+  editorMode,
 }: {
   schema: CustomSchemaDetail | null;
   onChange: (next: CustomSchemaDetail) => void;
-  onSave: () => void;
+  onSave: (schemaOverride?: CustomSchemaDetail) => void;
   saving: boolean;
+  saveDisabled?: boolean;
   onValidate?: () => void;
   validateLoading?: boolean;
+  editorMode?: "form" | "json" | "visual" | "sql";
 }) {
   const [jsonText, setJsonText] = useState<string>(() =>
     schema ? JSON.stringify(schema.schema, null, 2) : "{\n  \"name\": \"example\",\n  \"tables\": [],\n  \"relationships\": []\n}",
@@ -364,22 +486,23 @@ function SchemaEditor({
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (schema) {
+    if (schema && editorMode === "json") {
       setJsonText(JSON.stringify(schema.schema, null, 2));
       setJsonError(null);
     }
-  }, [schema?.id]);
+  }, [schema?.id, editorMode, schema?.schema]);
 
-  const safeParse = () => {
+  const safeParse = (): CustomSchemaDetail | null => {
     try {
       const parsed = JSON.parse(jsonText) as Record<string, unknown>;
-      if (!schema) return;
-      onChange({ ...schema, schema: parsed });
+      if (!schema) return null;
+      const merged = { ...schema, schema: parsed };
+      onChange(merged);
       setJsonError(null);
-      return true;
+      return merged;
     } catch (e) {
       setJsonError(e instanceof Error ? e.message : "Invalid JSON");
-      return false;
+      return null;
     }
   };
 
@@ -474,10 +597,10 @@ function SchemaEditor({
           <Button
             size="sm"
             onClick={() => {
-              const ok = safeParse();
-              if (ok) onSave();
+              const merged = safeParse();
+              if (merged) onSave(merged);
             }}
-            disabled={saving}
+            disabled={saving || saveDisabled}
           >
             {saving ? "Saving…" : "Save schema"}
           </Button>
@@ -487,8 +610,9 @@ function SchemaEditor({
   );
 }
 
-export default function SchemaStudioPage() {
+function SchemaStudioContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [schemas, setSchemas] = useState<CustomSchemaSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -521,6 +645,13 @@ export default function SchemaStudioPage() {
     loadSchemas();
   }, [loadSchemas]);
 
+  const schemaParam = searchParams.get("schema");
+  useEffect(() => {
+    if (schemaParam && schemas.some((s) => s.id === schemaParam)) {
+      setSelectedId(schemaParam);
+    }
+  }, [schemaParam, schemas]);
+
   useEffect(() => {
     if (!selectedId) {
       setEditingLoading(false);
@@ -528,6 +659,7 @@ export default function SchemaStudioPage() {
     }
     setError(null);
     setEditingLoading(true);
+    setValidationResult(null);
     fetchCustomSchema(selectedId)
       .then((detail) => {
         if (!detail) return;
@@ -552,6 +684,7 @@ export default function SchemaStudioPage() {
     };
     setSelectedId(null);
     setEditing(blank);
+    setValidationResult(null);
   };
 
   const handleDuplicate = () => {
@@ -566,7 +699,13 @@ export default function SchemaStudioPage() {
     };
     setSelectedId(null);
     setEditing(dup);
+    setValidationResult(null);
   };
+
+  const handleSetEditing = useCallback((next: CustomSchemaDetail) => {
+    setEditing(next);
+    setValidationResult(null);
+  }, []);
 
   const handleValidate = async () => {
     if (!editing?.schema) return;
@@ -597,27 +736,42 @@ export default function SchemaStudioPage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!editing) return;
-    setSaving(true);
+  const handleSave = async (schemaOverride?: CustomSchemaDetail) => {
+    const toSave = schemaOverride ?? editing;
+    if (!toSave) return;
     setError(null);
+    setValidationResult(null);
+    setValidateLoading(true);
     try {
-      if (!editing.id) {
+      const result = await validateCustomSchema(toSave.schema as Record<string, unknown>);
+      setValidationResult(result);
+      if (!result.valid) {
+        return;
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Validation failed");
+      return;
+    } finally {
+      setValidateLoading(false);
+    }
+    setSaving(true);
+    try {
+      if (!toSave.id) {
         const created = await createCustomSchema({
-          name: editing.name,
-          description: editing.description,
-          tags: editing.tags,
-          schema: editing.schema,
+          name: toSave.name,
+          description: toSave.description,
+          tags: toSave.tags,
+          schema: toSave.schema,
         });
         setSchemas((prev) => [created, ...prev]);
         setSelectedId(created.id);
         setEditing(created);
       } else {
-        const updated = await updateCustomSchema(editing.id, {
-          name: editing.name,
-          description: editing.description,
-          tags: editing.tags,
-          schema: editing.schema,
+        const updated = await updateCustomSchema(toSave.id, {
+          name: toSave.name,
+          description: toSave.description,
+          tags: toSave.tags,
+          schema: toSave.schema,
         });
         setSchemas((prev) =>
           prev.map((s) => (s.id === updated.id ? { ...s, name: updated.name, description: updated.description, version: updated.version } : s)),
@@ -637,6 +791,20 @@ export default function SchemaStudioPage() {
     }
   };
 
+  const handleDelete = async (schemaId: string) => {
+    if (!window.confirm(`Delete schema "${schemas.find((s) => s.id === schemaId)?.name ?? schemaId}"? This cannot be undone.`)) return;
+    try {
+      await deleteCustomSchema(schemaId);
+      setSchemas((prev) => prev.filter((s) => s.id !== schemaId));
+      if (selectedId === schemaId) {
+        setSelectedId(null);
+        setEditing(null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete schema");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -651,9 +819,19 @@ export default function SchemaStudioPage() {
             Browse domain packs
           </Button>
           {editing?.id && (
-            <Button variant="outline" size="sm" onClick={handleDuplicate}>
-              Duplicate schema
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={handleDuplicate}>
+                Duplicate
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDelete(editing.id)}
+                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+              >
+                Delete
+              </Button>
+            </>
           )}
           <Button size="sm" onClick={handleCreateNew}>
             New schema
@@ -696,7 +874,7 @@ export default function SchemaStudioPage() {
               </CardContent>
             </Card>
           ) : (
-            <SchemaList schemas={schemas} onSelect={setSelectedId} />
+            <SchemaList schemas={schemas} selectedId={selectedId} onSelect={setSelectedId} onDelete={handleDelete} />
           )}
         </div>
         <div className="flex-1 space-y-4">
@@ -712,9 +890,10 @@ export default function SchemaStudioPage() {
             <>
               <SchemaEditorWithMode
                 editing={editing}
-                setEditing={setEditing}
+                setEditing={handleSetEditing}
                 onSave={handleSave}
                 saving={saving}
+                saveDisabled={validationResult != null && !validationResult.valid}
                 onValidate={handleValidate}
                 validateLoading={validateLoading}
                 validationResult={validationResult}
@@ -821,3 +1000,10 @@ export default function SchemaStudioPage() {
   );
 }
 
+export default function SchemaStudioPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500">Loading…</div>}>
+      <SchemaStudioContent />
+    </Suspense>
+  );
+}

@@ -24,6 +24,7 @@ interface Artifact {
 function ArtifactsContent() {
   const searchParams = useSearchParams();
   const runParam = searchParams.get("run");
+  const typeParam = searchParams.get("type");
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [runs, setRuns] = useState<{ id: string; artifact_count?: number; exists?: boolean }[]>([]);
   const [runFilter, setRunFilter] = useState<string | null>(null);
@@ -38,6 +39,10 @@ function ArtifactsContent() {
   useEffect(() => {
     if (runParam) setRunFilter(runParam);
   }, [runParam]);
+
+  useEffect(() => {
+    if (typeParam && typeParam !== "all") setCategoryFilter(typeParam);
+  }, [typeParam]);
 
   useEffect(() => {
     setLoading(true);
@@ -73,6 +78,7 @@ function ArtifactsContent() {
     parquet: "Parquet",
     csv: "CSV",
     event_stream: "Event stream",
+    unstructured: "Linked notes",
     pipeline_snapshot: "Pipeline snapshot",
     benchmark_profile: "Benchmark profile",
     contract: "Contract",

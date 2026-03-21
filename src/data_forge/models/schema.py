@@ -138,18 +138,20 @@ class SchemaModel(BaseModel):
 
     def validate_schema(self) -> list[str]:
         """
-        Validate schema structure. Returns list of error messages; empty means valid.
-        Checks: size limits, unique table names, unique column names per table,
-        primary_key refs, unique_constraints refs, relationship table/column refs.
+        Validate schema structure. Returns list of error messages with recommendations; empty means valid.
+        Each error includes a " → " followed by an exact fix recommendation.
         """
+        def _rec(msg: str, fix: str) -> str:
+            return f"{msg} → {fix}"
+
         errors: list[str] = []
         if len(self.tables) > self.MAX_TABLES:
-            errors.append(f"Schema exceeds maximum tables ({self.MAX_TABLES})")
+            errors.append(_rec(f"Schema exceeds maximum tables ({self.MAX_TABLES})", f"Remove tables until you have ≤{self.MAX_TABLES}"))
         for t in self.tables:
             if len(t.columns) > self.MAX_COLUMNS_PER_TABLE:
-                errors.append(f"Table '{t.name}' exceeds maximum columns ({self.MAX_COLUMNS_PER_TABLE})")
+                errors.append(_rec(f"Table '{t.name}' exceeds maximum columns ({self.MAX_COLUMNS_PER_TABLE})", f"Remove columns from '{t.name}' until ≤{self.MAX_COLUMNS_PER_TABLE}"))
         if len(self.relationships) > self.MAX_RELATIONSHIPS:
-            errors.append(f"Schema exceeds maximum relationships ({self.MAX_RELATIONSHIPS})")
+            errors.append(_rec(f"Schema exceeds maximum relationships ({self.MAX_RELATIONSHIPS})", f"Remove relationships until ≤{self.MAX_RELATIONSHIPS}"))
         table_names = [t.name for t in self.tables]
         if len(table_names) != len(set(table_names)):
             seen: dict[str, int] = {}
@@ -157,7 +159,7 @@ class SchemaModel(BaseModel):
                 seen[n] = seen.get(n, 0) + 1
             for n, cnt in seen.items():
                 if cnt > 1:
-                    errors.append(f"Duplicate table name: {n}")
+                    errors.append(_rec(f"Duplicate table name: '{n}'", "Rename one of the duplicate tables so each table has a unique name"))
 
         name_to_table = {t.name: t for t in self.tables}
         for t in self.tables:
@@ -168,32 +170,32 @@ class SchemaModel(BaseModel):
                     seen_c[n] = seen_c.get(n, 0) + 1
                 for n, cnt in seen_c.items():
                     if cnt > 1:
-                        errors.append(f"Table '{t.name}': duplicate column name: {n}")
+                        errors.append(_rec(f"Table '{t.name}': duplicate column name '{n}'", f"Rename or remove the duplicate column '{n}' in table '{t.name}'"))
 
             for pk in t.primary_key:
                 if pk not in col_names:
-                    errors.append(f"Table '{t.name}': primary_key '{pk}' not in columns")
+                    errors.append(_rec(f"Table '{t.name}': primary_key '{pk}' not in columns", f"Add a column named '{pk}' to table '{t.name}' or remove '{pk}' from primary_key"))
 
             for uc in t.unique_constraints or []:
                 for col in uc:
                     if col not in col_names:
-                        errors.append(f"Table '{t.name}': unique_constraint column '{col}' not in columns")
+                        errors.append(_rec(f"Table '{t.name}': unique_constraint column '{col}' not in columns", f"Add column '{col}' to table '{t.name}' or remove it from unique_constraints"))
 
         for r in self.relationships:
             if r.from_table not in name_to_table:
-                errors.append(f"Relationship '{r.name}': from_table '{r.from_table}' not found")
+                errors.append(_rec(f"Relationship '{r.name}': from_table '{r.from_table}' not found", f"Create table '{r.from_table}' or change from_table to an existing table"))
             if r.to_table not in name_to_table:
-                errors.append(f"Relationship '{r.name}': to_table '{r.to_table}' not found")
+                errors.append(_rec(f"Relationship '{r.name}': to_table '{r.to_table}' not found", f"Create table '{r.to_table}' or change to_table to an existing table"))
             if r.from_table in name_to_table:
                 from_cols = [col.name for col in name_to_table[r.from_table].columns]
                 for col_name in r.from_columns:
                     if col_name not in from_cols:
-                        errors.append(f"Relationship '{r.name}': from_column '{col_name}' not in table '{r.from_table}'")
+                        errors.append(_rec(f"Relationship '{r.name}': from_column '{col_name}' not in table '{r.from_table}'", f"Add column '{col_name}' to table '{r.from_table}' or fix from_columns"))
             if r.to_table in name_to_table:
                 to_cols = [col.name for col in name_to_table[r.to_table].columns]
                 for col_name in r.to_columns:
                     if col_name not in to_cols:
-                        errors.append(f"Relationship '{r.name}': to_column '{col_name}' not in table '{r.to_table}'")
+                        errors.append(_rec(f"Relationship '{r.name}': to_column '{col_name}' not in table '{r.to_table}'", f"Add column '{col_name}' to table '{r.to_table}' or fix to_columns"))
 
         for t in self.tables:
             for c in t.columns:
@@ -206,13 +208,43 @@ class SchemaModel(BaseModel):
                 rule_dict = {"rule_type": c.generation_rule.rule_type, "params": c.generation_rule.params}
                 gr = column_rule_to_generation_rule(t.name, c.name, rule_dict)
                 if gr is None:
-                    errors.append(f"Table '{t.name}' column '{c.name}': invalid rule_type '{c.generation_rule.rule_type}'. Use: faker, uuid, sequence, range, static, weighted_choice")
+                    errors.append(_rec(
+                        f"Table '{t.name}' column '{c.name}': invalid rule_type '{c.generation_rule.rule_type}'",
+                        "Use one of: faker, uuid, sequence, range, static, weighted_choice"
+                    ))
                 else:
                     val_errs = validate_generation_rule(gr)
                     for e in val_errs:
-                        errors.append(f"Table '{t.name}' column '{c.name}': {e}")
+                        errors.append(_rec(f"Table '{t.name}' column '{c.name}': {e}", f"Fix the generation_rule params for column '{c.name}' in table '{t.name}'"))
 
         return errors
+
+    def to_sql_ddl(self, dialect: str = "generic") -> str:
+        """
+        Generate SQL DDL (CREATE TABLE, ALTER TABLE for FKs) for the schema.
+        dialect: 'generic' (SQLite-style) or 'postgres'
+        """
+        lines: list[str] = []
+        for t in self.tables:
+            cols: list[str] = []
+            for c in t.columns:
+                dt = getattr(c.data_type, "value", str(c.data_type)) if hasattr(c.data_type, "value") else str(c.data_type)
+                sql_type = {"integer": "INTEGER", "bigint": "BIGINT", "float": "REAL", "boolean": "BOOLEAN",
+                            "date": "DATE", "datetime": "TIMESTAMP", "timestamp": "TIMESTAMP", "uuid": "UUID",
+                            "text": "TEXT", "json": "JSONB" if dialect == "postgres" else "TEXT"}.get(dt.lower(), "TEXT")
+                nn = " NOT NULL" if not c.nullable else ""
+                pk = " PRIMARY KEY" if (t.primary_key and c.name in t.primary_key and len(t.primary_key) == 1) else ""
+                cols.append(f'  "{c.name}" {sql_type}{nn}{pk}')
+            if t.primary_key and len(t.primary_key) > 1:
+                pk_cols = ", ".join(f'"{x}"' for x in t.primary_key)
+                cols.append(f"  PRIMARY KEY ({pk_cols})")
+            lines.append(f'CREATE TABLE "{t.name}" (\n' + ",\n".join(cols) + "\n);")
+        for r in self.relationships:
+            fk_name = f"fk_{r.from_table}_{r.to_table}_{r.name}"[:63]
+            fc = ", ".join(f'"{x}"' for x in r.from_columns)
+            tc = ", ".join(f'"{x}"' for x in r.to_columns)
+            lines.append(f'ALTER TABLE "{r.from_table}" ADD CONSTRAINT "{fk_name}" FOREIGN KEY ({fc}) REFERENCES "{r.to_table}" ({tc});')
+        return "\n\n".join(lines)
 
     def collect_warnings(self) -> list[str]:
         """

@@ -9,4 +9,6 @@ const publicApiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const internalApiBase = process.env.DATA_FORGE_API_INTERNAL_URL;
 
 export const API_BASE =
-  typeof window === "undefined" ? internalApiBase || publicApiBase : "";
+  typeof window === "undefined"
+    ? (internalApiBase || publicApiBase)
+    : (publicApiBase || "");

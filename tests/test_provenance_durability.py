@@ -30,6 +30,8 @@ def test_lineage_schema_missing_when_custom_schema_deleted() -> None:
                 lineage = get_run_lineage("run_test1")
     assert lineage is not None
     assert lineage.get("schema_missing") is True
+    assert "schema_missing_message" in lineage
+    assert "no longer available" in lineage["schema_missing_message"]
     assert lineage.get("custom_schema_id") == "schema_deleted123"
     assert lineage.get("custom_schema_name") == "My Deleted Schema"
     assert lineage.get("custom_schema_version") == 2

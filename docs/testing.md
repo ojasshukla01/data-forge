@@ -68,7 +68,7 @@ cd frontend && npx tsc --noEmit
 cd frontend && npm test
 ```
 
-**Layout:** Test files sit next to components or pages (e.g. `src/app/page.test.tsx`, `src/app/schema/studio/page.test.tsx`, `src/components/PipelineFlowGraph.test.tsx`, `src/lib/utils.test.ts`). Vitest + React Testing Library; mock `fetch` and `next/navigation` where needed. See [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-frontend-test) for adding tests.
+**Layout:** Test files sit next to components or pages (e.g. `src/app/page.test.tsx`, `src/app/schema/studio/page.test.tsx`, `src/components/PipelineFlowGraph.test.tsx`, `src/lib/utils.test.ts`). Vitest + React Testing Library; mock `fetch` and `next/navigation` where needed. The setup file (`vitest.setup.ts`) includes `vitest-location-mock` and mocks `HTMLAnchorElement.prototype.click` to suppress jsdom "Not implemented: navigation" warnings when tests trigger anchor clicks (e.g. export/download). See [CONTRIBUTING.md](../CONTRIBUTING.md#adding-a-frontend-test) for adding tests.
 
 ### Build
 

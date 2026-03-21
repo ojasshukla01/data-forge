@@ -1,6 +1,8 @@
 """Base interface for database adapters."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from itertools import islice
 from typing import Any
 
 from data_forge.models.schema import SchemaModel
@@ -46,6 +48,23 @@ class BaseDatabaseAdapter(ABC):
             counts[snap.table_name] = n
             self._load_counts[snap.table_name] = n
         return counts
+
+    def load_table_from_iter(
+        self,
+        table_name: str,
+        rows_iter: Iterator[dict[str, Any]],
+        batch_size: int | None = None,
+    ) -> int:
+        """Load table from row iterator in batches. Reduces memory when source is spill-backed."""
+        size = batch_size or self.batch_size
+        total = 0
+        while True:
+            batch = list(islice(rows_iter, size))
+            if not batch:
+                break
+            total += self.load_table(table_name, batch)
+        self._load_counts[table_name] = total
+        return total
 
     @abstractmethod
     def validate_load(self) -> dict[str, Any]:

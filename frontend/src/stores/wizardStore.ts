@@ -19,6 +19,9 @@ export interface WizardConfig {
   exportDbt: boolean;
   contracts: boolean;
   seed: number;
+  /** Migration rehearsal: drift + CDC + pipeline simulation */
+  drift_profile: string;
+  pipeline_simulation_enabled: boolean;
 }
 
 const defaultConfig: WizardConfig = {
@@ -40,6 +43,8 @@ const defaultConfig: WizardConfig = {
   exportDbt: false,
   contracts: false,
   seed: 42,
+  drift_profile: "none",
+  pipeline_simulation_enabled: false,
 };
 
 export function scenarioConfigToWizardConfig(scenarioConfig: Record<string, unknown>): Partial<WizardConfig> {
@@ -62,6 +67,9 @@ export function scenarioConfigToWizardConfig(scenarioConfig: Record<string, unkn
   if (c.seed != null) out.seed = Number(c.seed) || 42;
   if (c.include_anomalies != null) out.include_anomalies = Boolean(c.include_anomalies);
   if (c.anomaly_ratio != null) out.anomaly_ratio = Number(c.anomaly_ratio) ?? 0.02;
+  if (c.drift_profile != null) out.drift_profile = String(c.drift_profile);
+  const ps = (c.pipeline_simulation as Record<string, unknown>) ?? {};
+  if (ps.enabled === true) out.pipeline_simulation_enabled = true;
   // Infer useCase from scale/messiness
   const scale = Number(out.scale ?? c.scale ?? 1000) || 1000;
   const messiness = String(out.messiness ?? c.messiness ?? "clean");

@@ -21,6 +21,7 @@ import {
   fetchRunLineage,
   fetchRunManifest,
   fetchRunTimeline,
+  runStatusStreamUrl,
   type RunRecord,
   type RunLineage,
   type RunManifest,
@@ -29,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 2000;
+const USE_SSE = typeof EventSource !== "undefined";
 
 export default function RunDetailPage() {
   const params = useParams();
@@ -56,6 +58,34 @@ export default function RunDetailPage() {
 
   useEffect(() => {
     if (!run || !["queued", "running"].includes(run.status)) return;
+
+    if (USE_SSE) {
+      const url = runStatusStreamUrl(id);
+      const es = new EventSource(url);
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data) as { status?: string; stage_progress?: RunRecord["stage_progress"] };
+          if (data.status && ["succeeded", "failed", "cancelled"].includes(data.status)) {
+            es.close();
+            void load();
+            return;
+          }
+          setRun((prev) => prev ? { ...prev, ...data } : prev);
+        } catch {
+          void load();
+        }
+      };
+      es.addEventListener("done", () => {
+        es.close();
+        void load();
+      });
+      es.onerror = () => {
+        es.close();
+        void load();
+      };
+      return () => es.close();
+    }
+
     const t = setInterval(async () => {
       const r = await load();
       if (r && ["succeeded", "failed", "cancelled"].includes(r.status)) return;
@@ -369,8 +399,7 @@ export default function RunDetailPage() {
             )}
           </CardHeader>
           <CardContent>
-            <div className="relative pl-6 space-y-0">
-              <div className="absolute left-1.5 top-2 bottom-2 w-px bg-slate-200" />
+            <div className="space-y-0">
               {run.stage_progress.map((s, idx) => {
                 const isLast = idx === run.stage_progress!.length - 1;
                 const dotClass = s.status === "completed"
@@ -381,11 +410,13 @@ export default function RunDetailPage() {
                   ? "bg-red-500"
                   : "border border-slate-300 bg-slate-100";
                 return (
-                  <div key={s.name} className={cn("relative flex items-start gap-4 pb-4", isLast && "pb-0")}>
-                    <span className={cn("absolute -left-4.5 mt-0.5 inline-flex w-4 h-4 shrink-0 rounded-full", dotClass)} aria-hidden />
-                    <div className="flex-1 min-w-0 overflow-hidden">
+                  <div key={s.name} className={cn("grid grid-cols-[28px_1fr] gap-x-3 pb-4", isLast && "pb-0")}>
+                    <div className="flex items-start justify-center pt-0.5">
+                      <span className={cn("w-4 h-4 rounded-full block shrink-0", dotClass)} aria-hidden />
+                    </div>
+                    <div className="min-w-0 overflow-hidden">
                       <div className="flex flex-wrap items-center gap-2 min-w-0">
-                        <span className="font-medium text-slate-900 capitalize truncate">{s.name.replace(/_/g, " ")}</span>
+                        <span className="font-medium text-slate-900 capitalize">{s.name.replace(/_/g, " ")}</span>
                         <span className={cn(
                           "text-xs capitalize shrink-0",
                           s.status === "completed" && "text-green-600",

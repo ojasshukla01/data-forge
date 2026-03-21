@@ -40,12 +40,22 @@ const USE_CASES = [
   { id: "integration", label: "Integration Test", scale: 1000, messiness: "realistic" },
   { id: "etl", label: "ETL Simulation", scale: 2000, messiness: "realistic" },
   { id: "load", label: "Warehouse Load Test", scale: 5000, messiness: "clean" },
+  {
+    id: "rehearsal",
+    label: "Migration Rehearsal",
+    scale: 2000,
+    messiness: "realistic",
+    mode: "cdc",
+    drift_profile: "mild",
+    pipeline_simulation: true,
+  },
 ];
 
 function WizardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const packFromUrl = searchParams.get("pack");
+  const customSchemaFromUrl = searchParams.get("custom_schema");
   const scenarioIdFromUrl = searchParams.get("scenario");
   const { config, setConfig, reset } = useWizardStore();
   const [stepIndex, setStepIndex] = useState(0);
@@ -107,7 +117,14 @@ function WizardContent() {
   }, [packFromUrl, packs, setConfig]);
 
   useEffect(() => {
-    if (schemaSource !== "custom") return;
+    if (customSchemaFromUrl) {
+      setConfig({ pack: null, customSchemaId: customSchemaFromUrl });
+      setSchemaSource("custom");
+    }
+  }, [customSchemaFromUrl, setConfig]);
+
+  useEffect(() => {
+    if (schemaSource !== "custom" && !customSchemaFromUrl) return;
     let cancelled = false;
     setCustomSchemasLoading(true);
     setCustomSchemasError(null);
@@ -116,7 +133,7 @@ function WizardContent() {
       .catch((e) => { if (!cancelled) setCustomSchemasError(e instanceof Error ? e.message : "Failed to load custom schemas"); setCustomSchemas([]); })
       .finally(() => { if (!cancelled) setCustomSchemasLoading(false); });
     return () => { cancelled = true; };
-  }, [schemaSource, customSchemasReloadToken]);
+  }, [schemaSource, customSchemaFromUrl, customSchemasReloadToken]);
 
   // Load scenario from ?scenario=<id>
   useEffect(() => {
@@ -170,6 +187,10 @@ function WizardContent() {
         export_airflow: config.exportAirflow,
         export_dbt: config.exportDbt,
         contracts: config.contracts,
+        drift_profile: config.drift_profile,
+        pipeline_simulation: config.pipeline_simulation_enabled
+          ? { enabled: true, event_density: "medium", event_pattern: "steady", replay_mode: "ordered", late_arrival_ratio: 0 }
+          : undefined,
       };
       const data = await runPreflight(payload as Record<string, unknown>);
       setPreflight(data);
@@ -207,6 +228,10 @@ function WizardContent() {
     export_airflow: config.exportAirflow,
     export_dbt: config.exportDbt,
     contracts: config.contracts,
+    drift_profile: config.drift_profile,
+    pipeline_simulation: config.pipeline_simulation_enabled
+      ? { enabled: true, event_density: "medium", event_pattern: "steady", replay_mode: "ordered", late_arrival_ratio: 0 }
+      : undefined,
   });
 
   const handleSaveScenario = async () => {
@@ -254,6 +279,10 @@ function WizardContent() {
         export_airflow: config.exportAirflow,
         export_dbt: config.exportDbt,
         contracts: config.contracts,
+        drift_profile: config.drift_profile,
+        pipeline_simulation: config.pipeline_simulation_enabled
+          ? { enabled: true, event_density: "medium", event_pattern: "steady", replay_mode: "ordered", late_arrival_ratio: 0 }
+          : undefined,
       };
       const res = await startRunGenerate(payload);
       router.push(`/runs/${res.run_id}`);
@@ -516,6 +545,10 @@ function WizardContent() {
                         useCase: u.id,
                         scale: u.scale,
                         messiness: u.messiness,
+                        ...("mode" in u && { mode: u.mode }),
+                        ...("drift_profile" in u && { drift_profile: u.drift_profile }),
+                        ...("pipeline_simulation" in u && u.pipeline_simulation && { pipeline_simulation_enabled: true }),
+                        ...("pipeline_simulation" in u && !u.pipeline_simulation && { pipeline_simulation_enabled: false }),
                       })
                     }
                     className={cn(
@@ -528,6 +561,8 @@ function WizardContent() {
                     <p className="font-medium text-slate-900">{u.label}</p>
                     <p className="text-sm text-slate-600">
                       Scale: {u.scale} · {u.messiness}
+                      {"mode" in u && u.mode ? ` · ${String(u.mode).toUpperCase()}` : ""}
+                      {"pipeline_simulation" in u && u.pipeline_simulation ? " · Simulation" : ""}
                     </p>
                   </button>
                 ))}
@@ -684,6 +719,18 @@ function WizardContent() {
                 <span>{config.layer}</span>
                 <span className="text-slate-500">Format</span>
                 <span>{config.exportFormat}</span>
+                {config.drift_profile && config.drift_profile !== "none" && (
+                  <>
+                    <span className="text-slate-500">Schema drift</span>
+                    <span>{config.drift_profile}</span>
+                  </>
+                )}
+                {config.pipeline_simulation_enabled && (
+                  <>
+                    <span className="text-slate-500">Pipeline simulation</span>
+                    <span>Enabled</span>
+                  </>
+                )}
               </div>
               {preflightLoading && (
                 <p className="text-slate-500">Running preflight checks…</p>
@@ -775,6 +822,7 @@ function WizardContent() {
                       <option value="quick_start">Quick start</option>
                       <option value="testing">Testing</option>
                       <option value="pipeline_simulation">Pipeline simulation</option>
+                      <option value="migration_rehearsal">Migration rehearsal</option>
                       <option value="warehouse_benchmark">Warehouse benchmark</option>
                     </select>
                     <Button size="sm" onClick={handleSaveScenario} disabled={saveScenarioLoading}>

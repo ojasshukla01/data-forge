@@ -1,6 +1,28 @@
 # Observability and metrics
 
-Lightweight, local-friendly observability: run timeline, stage durations, and aggregate metrics. No distributed tracing or external APM.
+Lightweight, local-friendly observability: run timeline, stage durations, aggregate metrics, Prometheus metrics, and structured logging. No distributed tracing or external APM.
+
+## Prometheus metrics
+
+When the optional `prometheus-client` dependency is installed (`pip install -e '.[metrics]'`), the API exposes a Prometheus scrape endpoint:
+
+- **GET /metrics** — Returns Prometheus text format with request counters and latency histograms.
+
+Metrics include:
+- `http_requests_total` — Counter by method, path, status
+- `http_request_duration_seconds` — Histogram of request latency
+
+The middleware records each request automatically. If `prometheus-client` is not installed, `/metrics` returns a short message instead of metrics.
+
+## Structured logging
+
+Set `DATA_FORGE_STRUCTURED_LOGS=1` (or `true`/`yes`) to emit JSON logs for each request:
+
+```json
+{"message": "request_completed", "level": "info", "method": "GET", "path": "/api/runs", "status_code": 200, "duration_ms": 12.5}
+```
+
+Useful for log aggregation (e.g. Datadog, ELK) and production debugging.
 
 ## Run timeline
 

@@ -120,6 +120,7 @@ flowchart LR
 |--------|--------|---------------|
 | `/health` | main | `GET /health` |
 | `/api/domain-packs` | domain_packs | `GET ""`, `GET /{pack_id}` |
+| `/api/templates` | templates | `GET ""`, `POST /from-pack/{id}`, `POST /from-schema/{id}`, `DELETE /{id}`, `POST /{id}/unhide`, `GET /hidden` |
 | `/api` | generate | `POST /generate` (sync) |
 | `/api` | preflight | `POST /preflight` |
 | `/api` | validate | `POST /validate`, `POST /validate/ge`, `POST /reconcile` |
@@ -400,3 +401,4 @@ When a run uses a custom schema, the following are stored at run completion so l
 
 - **Backend**: `DATA_FORGE_*` env vars; `.env` optional
 - **Frontend**: `NEXT_PUBLIC_API_URL` or `API_BASE` (default `http://localhost:8000`)
+- **Structured logs**: `DATA_FORGE_STRUCTURED_LOGS=1` emits JSON request logs (method, path, status_code, duration_ms)

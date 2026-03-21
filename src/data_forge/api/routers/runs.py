@@ -1,10 +1,13 @@
 """Runs API router."""
 
+import asyncio
 import json
 import uuid
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Body, HTTPException
+from fastapi.responses import StreamingResponse
 
 from data_forge.services import create_run, get_run, list_runs, get_masked_field_names
 from data_forge.api.task_runner import execute_generation_async
@@ -65,9 +68,11 @@ def list_runs_api(
     layer: str | None = None,
     source_scenario_id: str | None = None,
     limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
     include_archived: bool = False,
 ) -> dict[str, Any]:
-    """List runs with optional filters. Default excludes archived runs."""
+    """List runs with optional filters. Supports offset/limit and cursor pagination."""
     runs = list_runs(
         status=status,
         run_type=run_type,
@@ -76,9 +81,19 @@ def list_runs_api(
         layer=layer,
         source_scenario_id=source_scenario_id,
         limit=limit,
+        offset=offset,
+        cursor=cursor,
         include_archived=include_archived,
     )
-    return {"runs": runs}
+    next_cursor = runs[-1]["id"] if runs and len(runs) == limit else None
+    return {
+        "runs": runs,
+        "limit": limit,
+        "offset": offset,
+        "cursor": cursor,
+        "next_cursor": next_cursor,
+        "has_more": len(runs) == limit,
+    }
 
 
 @router.get("/metrics")
@@ -253,6 +268,60 @@ def get_run_status(run_id: str) -> dict[str, Any]:
         "started_at": record.get("started_at"),
         "finished_at": record.get("finished_at"),
     }
+
+
+async def _run_status_stream(run_id: str) -> AsyncGenerator[str, None]:
+    """Generator for SSE: poll run status and yield events on change."""
+    terminal = {"succeeded", "failed", "cancelled"}
+    poll_interval = 1.0
+    last_snapshot: str | None = None
+
+    while True:
+        record = get_run(run_id)
+        if not record:
+            yield f"event: error\ndata: {json.dumps({'error': 'Run not found'})}\n\n"
+            return
+
+        status = record.get("status", "")
+        snapshot = json.dumps({
+            "id": record.get("id"),
+            "status": status,
+            "stage_progress": record.get("stage_progress"),
+            "started_at": record.get("started_at"),
+            "finished_at": record.get("finished_at"),
+            "error_message": record.get("error_message"),
+        }, default=str)
+
+        if snapshot != last_snapshot:
+            last_snapshot = snapshot
+            yield f"data: {snapshot}\n\n"
+
+        if status in terminal:
+            yield f"event: done\ndata: {snapshot}\n\n"
+            return
+
+        await asyncio.sleep(poll_interval)
+
+
+@router.get("/{run_id}/stream")
+def run_status_stream(run_id: str) -> StreamingResponse:
+    """
+    Server-Sent Events stream for run status. Replaces polling when run is queued/running.
+    Streams status updates until run reaches succeeded, failed, or cancelled.
+    """
+    record = get_run(run_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    return StreamingResponse(
+        _run_status_stream(run_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{run_id}/timeline")
