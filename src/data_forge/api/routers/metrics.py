@@ -53,7 +53,7 @@ def _get_metrics_content() -> str | None:
     """Return Prometheus metrics text if prometheus_client is available."""
     try:
         from prometheus_client import generate_latest
-        return generate_latest().decode("utf-8")
+        return str(generate_latest().decode("utf-8"))
     except ImportError:
         return None
 

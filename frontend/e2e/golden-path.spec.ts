@@ -18,21 +18,24 @@ test.describe.serial("golden paths & runs", () => {
 
     await page.getByRole("button", { name: "New schema", exact: true }).click();
 
-    // 2. Add a table (Form mode, Tables tab)
-    await expect(page.getByText(/Schema editor \(form mode\)/i)).toBeVisible({ timeout: 5000 });
+    // 2. Switch to Form mode (default is Visual), add a table and a primary key column
+    await page.getByRole("button", { name: /^Form$/i }).click();
+    await expect(page.getByRole("button", { name: /Add table/i })).toBeVisible({ timeout: 5000 });
     await page.getByRole("button", { name: /Add table/i }).click();
+    // addTable switches to Columns tab; add column and set as PK for valid schema
+    await expect(page.getByRole("button", { name: /Add column/i })).toBeVisible({ timeout: 3000 });
+    await page.getByRole("button", { name: /Add column/i }).click();
+    await page.getByRole("checkbox", { name: /^PK$/i }).first().check();
 
-    // 3. Validate
+    // 3. Validate — wait for valid result so Save is enabled
     await page.getByRole("button", { name: /Validate/i }).first().click();
-    await page
-      .getByText(/Schema editor|valid|errors?/i)
-      .first()
-      .waitFor({ state: "visible", timeout: 3000 })
-      .catch(() => {});
+    await expect(page.getByText(/Schema valid|✓ Schema valid/i)).toBeVisible({ timeout: 8000 });
 
-    // 4. Save schema
-    await page.getByRole("button", { name: /Save schema/i }).first().click();
-    await expect(page.getByText(/Schema saved successfully/i)).toBeVisible({ timeout: 10000 });
+    // 4. Save schema — wait for Save to be enabled, then click
+    const saveBtn = page.getByRole("button", { name: /Save schema/i }).first();
+    await expect(saveBtn).toBeEnabled({ timeout: 5000 });
+    await saveBtn.click();
+    await expect(page.getByText(/Schema saved successfully/i)).toBeVisible({ timeout: 15000 });
 
     // 5. Create Wizard: select custom schema
     await page.goto("/create/wizard");

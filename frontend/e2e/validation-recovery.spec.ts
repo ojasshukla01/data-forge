@@ -12,7 +12,10 @@ test.describe.serial("validation recovery", () => {
     await expect(page.getByRole("heading", { name: /Schema Studio/i })).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: "New schema", exact: true }).click();
-    await expect(page.getByText(/Schema editor \(form mode\)/i)).toBeVisible({ timeout: 5000 });
+
+    // Switch to Form mode (default is Visual) — validation recovery uses Form tabs
+    await page.getByRole("button", { name: /^Form$/i }).click();
+    await expect(page.getByRole("button", { name: /Add table/i })).toBeVisible({ timeout: 5000 });
 
     // Add a table (no columns yet — may trigger validation error or warning)
     await page.getByRole("button", { name: /Add table/i }).click();
@@ -40,16 +43,14 @@ test.describe.serial("validation recovery", () => {
       await typeSelect.selectOption("integer").catch(() => {});
     }
 
-    // Validate again — should be valid or have fewer errors
+    // Validate again — wait for valid so Save is enabled
     await page.getByRole("button", { name: /Validate/i }).first().click();
-    await expect(
-      page.getByText(/Validation summary|valid|Schema is valid|error/i).first(),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/Schema valid|✓ Schema valid/i)).toBeVisible({ timeout: 8000 });
 
-    // Save
-    await page.getByRole("button", { name: /Save schema/i }).first().click();
-    await expect(
-      page.getByText(/^Schema saved successfully/i).first(),
-    ).toBeVisible({ timeout: 10000 });
+    // Save — wait for Save enabled, then click
+    const saveBtn = page.getByRole("button", { name: /Save schema/i }).first();
+    await expect(saveBtn).toBeEnabled({ timeout: 5000 });
+    await saveBtn.click();
+    await expect(page.getByText(/Schema saved successfully/i).first()).toBeVisible({ timeout: 15000 });
   });
 });
