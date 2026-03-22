@@ -4,6 +4,8 @@ Key API endpoints for the Data Forge platform. Base URL is the API origin (e.g. 
 
 **Interactive docs:** `GET /docs` (Swagger UI) and `GET /redoc` (ReDoc).
 
+**Offline OpenAPI spec:** [openapi.json](openapi.json) — export via `python scripts/export_openapi.py`.
+
 ## Example: curl
 
 ```bash

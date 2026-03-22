@@ -8,13 +8,16 @@ Use this checklist before tagging a release or publishing release notes. Complet
 
 - [ ] **Backend:** `uv run ruff check src tests` — no violations  
 - [ ] **Backend:** `uv run mypy src` — no type errors  
-- [ ] **Backend:** `uv run pytest tests -v --tb=short` — all pass (run with `-m "not slow"` for faster run if needed)  
+- [ ] **Backend:** `uv run pytest tests -v --tb=short` — all pass  
 - [ ] **Frontend:** `cd frontend && npx tsc --noEmit` — no type errors  
+- [ ] **Frontend:** `cd frontend && npm run lint` — no lint errors  
 - [ ] **Frontend:** `cd frontend && npm test -- --run` — all pass  
 - [ ] **Frontend:** `cd frontend && npm run build` — build succeeds  
 - [ ] **E2E:** Start API and frontend, then `cd frontend && npm run e2e` — all specs pass  
 
-**Shortcut:** `make validate-all` (steps 1–6), then `make e2e` (step 7). See [testing.md](testing.md).
+**Shortcut:** `make validate-all` (steps 1–7), then `make e2e` (step 8). See [testing.md](testing.md).
+
+**Optional:** Run `uv lock` if `pyproject.toml` dependencies changed; commit `uv.lock` for reproducible installs. Run `python scripts/export_openapi.py` to refresh `docs/openapi.json`.
 
 ---
 

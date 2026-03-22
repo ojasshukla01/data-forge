@@ -24,6 +24,8 @@ docker compose --profile db up --build
 
 ### Environment Variables
 
+For a full list of backend and frontend env vars, see [env.md](env.md).
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATA_FORGE_PROJECT_ROOT` | Project root for paths | `.` |

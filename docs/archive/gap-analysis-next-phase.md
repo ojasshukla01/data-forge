@@ -1,5 +1,9 @@
 # Data Forge — Gap Analysis and Next Phase (Release-Prep)
 
+> **Historical document.** Archived for reference. See [release-process.md](../release-process.md) and [release-checklist.md](../release-checklist.md) for current release workflow.
+
+---
+
 This document lists the current platform state, remaining gaps relevant to release-prep, and what will **not** be done in this pass.
 
 ---

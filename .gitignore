@@ -54,6 +54,7 @@ demo_output/
 *.json
 !**/fixtures/**/*.json
 !**/schemas/**/*.json
+!docs/openapi.json
 !**/package.json
 !**/package-lock.json
 !**/tsconfig.json

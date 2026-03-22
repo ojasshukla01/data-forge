@@ -1,5 +1,9 @@
 # Data Forge — Release-Prep Plan
 
+> **Historical document.** Archived for reference. See [release-process.md](../release-process.md) and [release-checklist.md](../release-checklist.md) for current release workflow.
+
+---
+
 This document defines the goals, gaps, docs strategy, and release-readiness checklist for the open-source launch and first tagged release.
 
 ---

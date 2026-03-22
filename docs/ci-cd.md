@@ -11,11 +11,11 @@ CI runs on every push and pull request to `main` and `master` via [GitHub Action
 ```mermaid
 flowchart TB
   subgraph Backend["Backend job"]
-    B1[checkout] --> B2[ruff] --> B3[mypy] --> B4[pytest]
+    B1[checkout] --> B2[uv sync] --> B3[ruff] --> B4[mypy] --> B5[pytest + coverage]
   end
 
   subgraph Frontend["Frontend job"]
-    F1[checkout] --> F2[tsc] --> F3[npm test] --> F4[npm run build]
+    F1[checkout] --> F2[tsc] --> F3[npm run lint] --> F4[npm test] --> F5[npm run build]
   end
 
   subgraph E2E["E2E job"]
@@ -32,13 +32,14 @@ All three jobs run in parallel. The E2E job installs and builds the frontend its
 
 ## Backend job
 
-Runs on Ubuntu with Python 3.12.
+Runs on Ubuntu with Python 3.12. Uses [uv](https://docs.astral.sh/uv/) for dependency management (aligned with README quick start).
 
 | Step | Command | Gate |
 |------|---------|------|
-| Ruff | `ruff check src tests` | **Strict** — must pass |
-| **Mypy** | `mypy src` | **Strict** — must pass. Backend type-check; no continue-on-error. |
-| Pytest | `pytest tests -v --tb=short` | **Strict** — must pass |
+| Install | `uv sync --extra dev` | **Strict** — must pass |
+| Ruff | `uv run ruff check src tests` | **Strict** — must pass |
+| **Mypy** | `uv run mypy src` | **Strict** — must pass. Backend type-check; no continue-on-error. |
+| Pytest | `uv run pytest tests -v --tb=short --cov=src/data_forge` | **Strict** — must pass; coverage reported |
 | Pip audit | `pip-audit --desc` | Optional — `continue-on-error: true` |
 
 Mypy is configured in `pyproject.toml` with `strict = true` and runs over the `src` package only. Fix any type errors before pushing; CI will fail otherwise.
@@ -50,6 +51,7 @@ Runs only when `frontend/package.json` exists. Node 20.
 | Step | Command | Gate |
 |------|---------|------|
 | TypeScript | `npx tsc --noEmit` | **Strict** |
+| Lint | `npm run lint` | **Strict** |
 | Unit tests | `npm test` | **Strict** |
 | Build | `npm run build` | **Strict** |
 | NPM audit | `npm audit --audit-level=moderate` | Optional — `continue-on-error: true` |
@@ -74,7 +76,7 @@ make validate-all
 # or: scripts/validate_all.ps1  (Windows)  /  scripts/validate_all.sh  (Linux/macOS)
 ```
 
-This runs, in order: **ruff**, **mypy**, **pytest**, then (if `frontend/package.json` exists) frontend **tsc**, **npm test**, and **npm run build**. E2E is separate: `make e2e` or `cd frontend && npm run e2e`.
+This runs, in order: **ruff**, **mypy**, **pytest** (with coverage), then (if `frontend/package.json` exists) frontend **tsc**, **npm run lint**, **npm test**, and **npm run build**. E2E is separate: `make e2e` or `cd frontend && npm run e2e`.
 
 ## Merge expectations
 

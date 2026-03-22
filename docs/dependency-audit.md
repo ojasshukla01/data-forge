@@ -2,6 +2,11 @@
 
 Run periodically to check for vulnerable or outdated packages.
 
+## Reproducible installs
+
+- **Backend:** Commit `uv.lock` (from `uv lock` or `python -m uv lock`) for reproducible Python installs. CI uses `uv sync --extra dev`.
+- **Frontend:** Commit `package-lock.json` for reproducible npm installs. Run `npm install` to update.
+
 ## Backend (Python)
 
 ```bash
@@ -13,9 +18,8 @@ pip install pip-audit
 pip-audit
 
 # With uv
-uv pip list --outdated
-uv pip compile pyproject.toml -o requirements.txt
-uv pip-audit
+python -m uv pip list --outdated
+python -m uv pip-audit
 ```
 
 ## Frontend (Node)

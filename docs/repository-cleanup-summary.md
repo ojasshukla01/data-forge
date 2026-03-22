@@ -13,7 +13,7 @@ This document records what was removed, what was left in place, and why, during 
 
 - All source code, tests, frontend, scripts, and canonical docs.
 - `scripts/extract_changelog.sh` — used by release workflow to extract CHANGELOG section for GitHub release notes.
-- `docs/versioning.md`, `docs/release-prep-plan.md`, `docs/gap-analysis-next-phase.md` — release-prep planning.
+- `docs/versioning.md` — versioning and release guidance. Historical planning docs moved to `docs/archive/`.
 - `.github/ISSUE_TEMPLATE/documentation_issue.md` — for reporting doc issues.
 - `LICENSE` (MIT) — required for open-source.
 

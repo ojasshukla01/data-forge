@@ -13,22 +13,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: "3.12"
+          enable-cache: true
+          prune-cache: false
+
+      - name: Set up Python
+        run: uv python install 3.12
 
       - name: Install backend
-        run: pip install -e ".[dev]" && pip install uvicorn
+        run: uv sync --extra dev
 
       - name: Run ruff
-        run: ruff check src tests
+        run: uv run ruff check src tests
 
       - name: Run mypy
-        run: mypy src
+        run: uv run mypy src
 
       - name: Run pytest
-        run: pytest tests -v --tb=short
+        run: uv run pytest tests -v --tb=short
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -43,6 +47,9 @@ jobs:
       - name: Frontend type-check
         run: cd frontend && npx tsc --noEmit
 
+      - name: Frontend lint
+        run: cd frontend && npm run lint
+
       - name: Frontend tests
         run: cd frontend && npm test
 
@@ -52,7 +59,7 @@ jobs:
           NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
 
       - name: Start API
-        run: uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000 &
+        run: uv run uvicorn data_forge.api.main:app --host 127.0.0.1 --port 8000 &
         env:
           DATA_FORGE_STORAGE_BACKEND: file
 
