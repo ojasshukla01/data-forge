@@ -17,6 +17,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
+          prune-cache: false
 
       - name: Set up Python
         run: uv python install 3.12
@@ -86,6 +87,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
+          prune-cache: false
 
       - name: Set up Python
         run: uv python install 3.12
@@ -131,3 +133,9 @@ jobs:
 
       - name: Run Playwright E2E
         run: cd frontend && npm run e2e
+
+      - name: Stop servers
+        if: always()
+        run: |
+          pkill -f "uvicorn data_forge.api.main" || true
+          pkill -f "next-server" || true
