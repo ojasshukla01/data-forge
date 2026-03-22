@@ -216,7 +216,6 @@ function AdvancedConfigContent() {
 
   const blockers = (preflight?.blockers as string[]) ?? [];
   const warnings = (preflight?.warnings as string[]) ?? [];
-  const valid = preflight && (preflight.valid === true) && blockers.length === 0;
   const activeSectionLabel = SECTIONS.find((s) => s.id === section)?.label ?? "Schema & Input";
 
   return (

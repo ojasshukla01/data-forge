@@ -127,7 +127,7 @@ export default function RunDetailPage() {
 
   const handleCreateScenario = async () => {
     try {
-      const s = await createScenarioFromRun(id, {
+      await createScenarioFromRun(id, {
         name: `From run ${id.slice(0, 12)}`,
         description: `Scenario created from run ${id}`,
       });
