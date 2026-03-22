@@ -50,7 +50,7 @@ uv run pytest tests -v --tb=short
 # or: uv run pytest -q
 ```
 
-**Layout:** All backend tests live under `tests/`. Examples: `test_api.py`, `test_engine.py`, `test_custom_schemas.py`, `test_run_manifest_lineage.py`, `test_provenance_durability.py`, `test_security.py`, plus milestone and integration tests. Use FastAPI `TestClient` against `data_forge.api.main:app` for API tests. CI runs the same command.
+**Layout:** All backend tests live under `tests/`. Examples: `test_api.py`, `test_engine.py`, `test_custom_schemas.py`, `test_run_manifest_lineage.py`, `test_provenance_durability.py`, `test_security.py`, plus milestone and integration tests. Use FastAPI `TestClient` against `data_forge.api.main:app` for API tests. CI runs the same command with coverage reporting.
 
 **Slow tests:** Some tests are marked `@pytest.mark.slow` (e.g. rate-limit 429 test that sends many requests). To skip them: `pytest tests -m "not slow" -v`. CI runs the full suite.
 
@@ -111,8 +111,8 @@ make validate-all
 
 This runs, in order:
 
-1. **Backend:** ruff, **mypy**, pytest  
-2. **Frontend** (if present): tsc, npm test, npm run build  
+1. **Backend:** ruff, **mypy**, pytest (with coverage)  
+2. **Frontend** (if present): tsc, npm run lint, npm test, npm run build  
 
 E2E is not included in `validate-all`; run `make e2e` (or `cd frontend && npm run e2e`) separately.
 
@@ -124,13 +124,14 @@ Run from repo root before release or after large changes. Same order as CI.
 |------|---------|
 | 1. Ruff | `uv run ruff check src tests` |
 | 2. Mypy | `uv run mypy src` |
-| 3. Pytest | `uv run pytest tests -v --tb=short` |
+| 3. Pytest | `uv run pytest tests -v --tb=short --cov=src/data_forge --cov-report=term-missing` |
 | 4. Frontend types | `cd frontend && npx tsc --noEmit` |
-| 5. Frontend tests | `cd frontend && npm test -- --run` |
-| 6. Frontend build | `cd frontend && npm run build` |
-| 7. E2E | `cd frontend && npm run e2e` |
+| 5. Frontend lint | `cd frontend && npm run lint` |
+| 6. Frontend tests | `cd frontend && npm test -- --run` |
+| 7. Frontend build | `cd frontend && npm run build` |
+| 8. E2E | `cd frontend && npm run e2e` |
 
-Or use `make validate-all` (steps 1–6) and `make e2e` (step 7) when Make is available.
+Or use `make validate-all` (steps 1–7) and `make e2e` (step 8) when Make is available.
 
 See [ci-cd.md](ci-cd.md) for CI job details and strict gates.
 

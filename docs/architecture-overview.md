@@ -1,5 +1,7 @@
 # Architecture overview
 
+> **Note:** This document provides a high-level conceptual overview. For the canonical, up-to-date architecture (repository structure, API surface, frontend routes, CI, etc.), see [Architecture (current state)](architecture-current-state.md).
+
 Data Forge is a **local-first** platform: a Python backend (CLI + FastAPI), a Next.js frontend, and local JSON persistence for runs, scenarios, and artifacts. No database required for core operation.
 
 ## High-level components

@@ -115,4 +115,4 @@ You can open or download generated files (Parquet, CSV, JSONL, etc.) produced by
 | Output files | Artifacts (filter by run or type) |
 | Benchmark | Advanced config → Benchmark section → Start benchmark run |
 
-For architecture and diagrams, see [architecture-overview.md](architecture-overview.md). For contributing and validation, see [CONTRIBUTING.md](../CONTRIBUTING.md) in the repo root.
+For architecture and diagrams, see [architecture-current-state.md](architecture-current-state.md). For contributing and validation, see [CONTRIBUTING.md](../CONTRIBUTING.md) in the repo root.

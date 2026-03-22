@@ -13,7 +13,7 @@ Thank you for your interest in contributing to Data Forge. This document covers 
 
 ## Prerequisites
 
-- **Python 3.10+** (uv recommended)
+- **Python 3.10+** ([uv](https://docs.astral.sh/uv/) recommended; CI uses uv)
 - **Node.js 18+** (for frontend)
 - **npm** or **pnpm**
 
@@ -28,6 +28,8 @@ uv sync
 # Run the API server
 uv run uvicorn data_forge.api.main:app --reload --port 8000
 ```
+
+**Dependency changes:** If you modify `pyproject.toml`, run `uv lock` and commit `uv.lock` for reproducible installs.
 
 If `uv` is unavailable, use pip + virtualenv:
 
@@ -91,12 +93,14 @@ cd frontend
 npm run build
 ```
 
-### Frontend lint (optional)
+### Frontend lint
 
 ```bash
 cd frontend
 npm run lint
 ```
+
+Lint is part of CI; fix any reported issues before submitting.
 
 **Build reliability (EPERM / file lock):** On some environments (e.g. OneDrive-synced folders or when another process holds files), the production build may fail with `EPERM` or "operation not permitted" when writing under `.next/`. That is usually an environment or file-lock issue, not a code bug. Run `npx tsc --noEmit` and `npm test` to verify code; if those pass, the codebase is valid. Retry build from a non-synced directory or after closing other tools that might lock the project folder.
 
@@ -127,10 +131,11 @@ make validate-all
 **Manual sequence:**
 
 1. Backend: `uv run ruff check src tests` then `uv run mypy src` then `uv run pytest -q` (or `.venv\Scripts\python -m ruff check src tests`, `.venv\Scripts\python -m mypy src`, `.venv\Scripts\python -m pytest -q`)
-2. Frontend: `cd frontend && npm test`
-3. Frontend types: `cd frontend && npx tsc --noEmit`
-4. Frontend build: `cd frontend && npm run build` (see note above if it fails with EPERM)
-5. Optional E2E: `cd frontend && npm run e2e` (requires Playwright browsers installed)
+2. Frontend types: `cd frontend && npx tsc --noEmit`
+3. Frontend lint: `cd frontend && npm run lint`
+4. Frontend: `cd frontend && npm test`
+5. Frontend build: `cd frontend && npm run build` (see note above if it fails with EPERM)
+6. Optional E2E: `cd frontend && npm run e2e` (requires Playwright browsers installed)
 
 CI runs the same steps on every push and pull request. Do not submit with failing tests or type-check.
 

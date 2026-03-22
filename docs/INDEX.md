@@ -37,14 +37,21 @@ These are the **current, authoritative** docs for users and contributors. Keep t
 - [Repository cleanup summary](repository-cleanup-summary.md) — What was cleaned and left in place
 - [Release process](release-process.md) — Release tagging, CHANGELOG, version bump
 - [Versioning](versioning.md) — Semantic Versioning, tag format, bump rules
-- [Release-prep plan](release-prep-plan.md) — Goals and checklist for open-source launch
+- [Environment variables](env.md) — Backend and frontend env vars
+- [Observability and metrics](observability-and-metrics.md) — Prometheus, structured logging, run timeline
+- [Use cases](use-cases.md) — Why Data Forge exists; pipeline testing, benchmarking, demos
+- [Service layer](service-layer.md) — RunService, ScenarioService, storage abstraction
 
 ---
 
 ## Diagrams and assets
 
 - [diagrams/](diagrams/) — frontend-backend-api, run-scenario-artifact, pipeline-simulation, benchmark-workflow, lineage-and-manifest, generation-pipeline  
-- [screenshots/](screenshots/) — Screenshots and demo assets; [SCREENSHOT-CHECKLIST.md](screenshots/SCREENSHOT-CHECKLIST.md)  
+- [screenshots/](screenshots/) — Screenshots and demo assets; [SCREENSHOT-CHECKLIST.md](screenshots/SCREENSHOT-CHECKLIST.md)
+
+## Archived (historical)
+
+- [archive/](archive/) — Historical planning docs (gap-analysis-next-phase, release-prep-plan)  
 
 ---
 
